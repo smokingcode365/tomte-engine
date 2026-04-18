@@ -22,5 +22,11 @@ dependencies = [
     "pydantic-ai>=1.84.0",
 ]
 
+[project.optional-dependencies]
+security = [
+    "presidio-analyzer",
+    "presidio-anonymizer"
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/tomte"]

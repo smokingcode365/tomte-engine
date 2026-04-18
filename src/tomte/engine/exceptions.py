@@ -17,3 +17,11 @@ class TomteLockError(TomteError):
 class SchemaValidationError(TomteError):
     """Raised when the LLM returns data that violates the Bounded Hybrid architecture."""
     pass
+
+class SecurityViolationError(Exception):
+    """Raised when an active prompt injection or malicious input is detected."""
+    pass
+
+class NamespaceError(Exception):
+    """Raised when tenant_id or user_id are missing or malformed."""
+    pass

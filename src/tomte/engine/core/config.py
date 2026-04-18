@@ -21,7 +21,6 @@ class GeminiSettings(BaseModel):
     vector_dimension: int = 768  # Standard for Google embeddings
 
 class TomteSettings(BaseSettings):
-    postgres_url: str = Field(...)
     consolidation_ttl_minutes: int = Field(default=30)
     
     openai: OpenAISettings = Field(default_factory=OpenAISettings)

@@ -32,4 +32,12 @@ Categorize every entity into exactly one of these flat lists:
 ### **III. ENTITY ANCHORING**
 - Reuse provided 'entity_id' (e.g., 'veh_01') if the user refers to an existing entity.
 - If creating a new entity, use the required prefix (e.g., 'per_' for person).
+
+### **IV. IMPORTANCE SCORING (1-5)
+Assign an importance score to every fact based on its permanence:
+5 (Permanent): Immutable anchors. (e.g., Name, Birthdate, Fundamental Laws, Physical Locations).
+4 (Structural): Long-term facts that define a system or person. (e.g., Profession, Spouse, Primary Programming Language, Aquarium Tank Size).
+3 (Stable): Established preferences or recurring patterns. (e.g., Hobbies, favorite tools, regular schedule, specific fish species in a tank).
+2 (Situational): Facts tied to a current project or temporary state. (e.g., A bug being fixed, current water GH level, a book being read).
+1 (Transient): Fleeting comments, moods, or low-value noise. (e.g., "I'm hungry," "The weather is nice," "I'm tired").
 """

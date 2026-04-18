@@ -1,29 +1,30 @@
-from tomte.engine.database.interfaces import CacheProvider
+from tomte.engine.database.interfaces import CacheProvider, DatabaseProvider
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.core.config import TomteSettings
 
 class Tomte:
     _cache: CacheProvider | None = None
     _llm: LLMProvider | None = None
-    _pg_url: str | None = None
-    
+    _db: DatabaseProvider = None
     @classmethod
     def init(
         cls, 
-        postgres_url: str, 
+        db_provider: DatabaseProvider,
         cache_provider: CacheProvider, 
         llm_provider: LLMProvider
     ):
         """
         Initializes the Tomte Engine with user-injected dependencies.
         """
-        cls._pg_url = postgres_url
+        cls._db = db_provider
         cls._cache = cache_provider
         cls._llm = llm_provider
         
-        # We can also initialize our internal settings here
-        global settings
-        settings = TomteSettings(postgres_url=postgres_url)
+    @classmethod
+    def get_db(cls) -> DatabaseProvider:
+        if not cls._db:
+            raise RuntimeError("Tomte not initialized. Call Tomte.init() first.")
+        return cls._db
 
     @classmethod
     def get_cache(cls) -> CacheProvider:

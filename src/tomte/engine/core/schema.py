@@ -8,9 +8,10 @@ categorize all human knowledge into 8 mutually exclusive domains, using
 highly explicit Field descriptions to eliminate categorization ambiguity.
 """
 
-from enum import Enum
 from typing import List
 from pydantic import BaseModel, Field
+
+from tomte.engine.core.enums import FactStatus, MemoryDomain, Sentiment, Volatility
 
 # ==========================================
 # 0. JIT PROMPT CONSTANTS (The "Anti-Drift" Rules)
@@ -23,37 +24,9 @@ LEXICON_RULE = "MUST preserve the exact capitalization, spelling, and formatting
 ENTITY_ID_RULE = "MUST generate a unique 3-letter prefix indicating the type, followed by an underscore and a number (e.g., 'veh_01' for a vehicle, 'per_01' for a person, 'loc_01' for a location)."
 ISO_8601_REGEX = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
 
-# ==========================================
-# 1. ENUMS (Strict Database Constraints)
-# ==========================================
-
-
-class FactStatus(str, Enum):
-    """The temporal, objective state of a fact in reality."""
-
-    ACTIVE = "active"  # Currently true right now.
-    PAST = "past"  # Historically true, but objectively over.
-    ASPIRATIONAL = "aspirational"  # Future goals, desires, or unverified plans.
-    ARCHIVED = "archived"  # Soft-deleted due to an AI hallucination or user correction.
-
-
-class Sentiment(str, Enum):
-    """The user's subjective emotional stance toward this specific fact."""
-
-    POSITIVE = "positive"
-    NEUTRAL = "neutral"
-    NEGATIVE = "negative"
-
-
-class Volatility(str, Enum):
-    """Signals to the database's garbage collection system how long to keep this."""
-
-    CORE = "core"  # Permanent, identity-defining data (e.g., birthdate, severe allergies, legal names).
-    EPHEMERAL = "ephemeral"  # Highly temporary states (e.g., current mood, running a quick errand, hungry).
-
 
 # ==========================================
-# 2. CORE WRAPPERS (The Knowledge Graph Edges)
+#  CORE WRAPPERS (The Knowledge Graph Edges)
 # ==========================================
 
 
@@ -81,6 +54,11 @@ class Fact(BaseModel):
     value: str = Field(
         description=f"The actual data point. MUST be a flat string. DO NOT use nested JSON objects here. {LEXICON_RULE}"
     )
+    importance: int = Field(
+        default=3, 
+        ge=1, le=5, 
+        description="5:(Eternal). 4:(Long-Term).  3:(Stable). 2:(Contextual) 1:(Transient)"
+        )
     status: FactStatus = Field(
         default=FactStatus.ACTIVE,
         description="Is this fact currently true, a past memory, or a future goal?",
@@ -132,8 +110,8 @@ class Entity(BaseModel):
     entity_id: str = Field(
         description=f"The primary key for this entity. {ENTITY_ID_RULE}"
     )
-    entity_type: str = Field(
-        description=f"The broad, overarching classification of this entity (e.g., 'vehicle', 'person', 'corporation', 'pet'). {TAXONOMY_RULE}"
+    entity_type: MemoryDomain = Field(
+        description=f"The master category this entity belongs to. Choose the best fit from the 8 domains"
     )
     aliases: List[str] = Field(
         default_factory=list,
