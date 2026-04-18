@@ -4263,13 +4263,21 @@ dependencies = [
     { name = "voyageai" },
 ]
 
+[package.optional-dependencies]
+security = [
+    { name = "presidio-analyzer" },
+    { name = "presidio-anonymizer" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.96.0" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "pgvector", specifier = ">=0.3.0" },
     { name = "presidio-analyzer", specifier = ">=2.2.362" },
+    { name = "presidio-analyzer", marker = "extra == 'security'" },
     { name = "presidio-anonymizer", specifier = ">=2.2.362" },
+    { name = "presidio-anonymizer", marker = "extra == 'security'" },
     { name = "psycopg", extras = ["pool"], specifier = ">=3.2.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-ai", specifier = ">=1.84.0" },
@@ -4277,6 +4285,7 @@ requires-dist = [
     { name = "spacy", specifier = ">=3.8.14" },
     { name = "voyageai", specifier = ">=0.3.7" },
 ]
+provides-extras = ["security"]
 
 [[package]]
 name = "tqdm"

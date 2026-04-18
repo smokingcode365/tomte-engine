@@ -8,7 +8,8 @@ categorize all human knowledge into 8 mutually exclusive domains, using
 highly explicit Field descriptions to eliminate categorization ambiguity.
 """
 
-from typing import List
+from ast import Dict
+from typing import Any, List, Optional, TypedDict
 from pydantic import BaseModel, Field
 
 from tomte.engine.core.enums import FactStatus, MemoryDomain, Sentiment, Volatility
@@ -174,3 +175,16 @@ class TomteMemorySchema(BaseModel):
         default_factory=list,
         description="THE ESCAPE HATCH. Use this domain strictly for highly specific, bizarre, or niche data that violently conflicts with or does not perfectly fit the definitions of the other 7 categories. Using this prevents the corruption of standard tables.",
     )
+
+
+
+class ChatHookPayload(TypedDict, total=False):
+    """
+    Standardized return payload for the Chat Hook.
+    total=False allows us to return just an 'error' key if needed.
+    """
+    context_text: str
+    chat_history: List[Dict[str, Any]]
+    user_id: Optional[str]
+    clean_message: str
+    error: str

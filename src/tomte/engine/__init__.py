@@ -1,6 +1,9 @@
-from tomte.engine.database.interfaces import CacheProvider, DatabaseProvider
+from tomte.engine.database.cache_interfaces import CacheProvider
+from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.core.config import TomteSettings
+from tomte.engine.log.interfaces import LogProvider
+from tomte.engine.log.log import configure_log_provider
 
 class Tomte:
     _cache: CacheProvider | None = None
@@ -11,7 +14,9 @@ class Tomte:
         cls, 
         db_provider: DatabaseProvider,
         cache_provider: CacheProvider, 
-        llm_provider: LLMProvider
+        llm_provider: LLMProvider,
+        log_provider: LogProvider|None = None,
+        isolate_chat_sessions: bool = False
     ):
         """
         Initializes the Tomte Engine with user-injected dependencies.
@@ -19,7 +24,9 @@ class Tomte:
         cls._db = db_provider
         cls._cache = cache_provider
         cls._llm = llm_provider
-        
+        if log_provider:
+            configure_log_provider(log_provider)
+        TomteSettings.isolate_chat_sessions = isolate_chat_sessions
     @classmethod
     def get_db(cls) -> DatabaseProvider:
         if not cls._db:

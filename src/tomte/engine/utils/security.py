@@ -2,8 +2,8 @@ import re
 import logging
 from typing import Optional
 from tomte.engine.exceptions import SecurityViolationError, NamespaceError
+from tomte.engine.log import log
 
-logger = logging.getLogger("tomte.security")
 
 class SecurityGuard:
     """
@@ -47,7 +47,7 @@ class SecurityGuard:
             
             self.analyzer = AnalyzerEngine()
             self.anonymizer = AnonymizerEngine()
-            logger.info("PII Scrubber initialized successfully.")
+            log.info("PII Scrubber initialized successfully.")
             
         except ImportError:
             raise ImportError(
@@ -55,7 +55,7 @@ class SecurityGuard:
                 "Please install them using: pip install presidio-analyzer presidio-anonymizer"
             )
         except Exception as e:
-            logger.warning(f"Failed to load Presidio NLP models. Error: {e}")
+            log.warning(f"Failed to load Presidio NLP models. Error: {e}")
             self.analyzer = None # Fallback to prevent crashing
 
     def validate_namespace(self, tenant_id: str, user_id: str) -> None:
@@ -97,7 +97,7 @@ class SecurityGuard:
             anonymized_result = self.anonymizer.anonymize(text=text, analyzer_results=results)
             return anonymized_result.text
         except Exception as e:
-            logger.error(f"PII Scrubbing failed. Error: {e}")
+            log.error(f"PII Scrubbing failed. Error: {e}")
             # If the scrubber crashes, drop the text entirely for absolute safety
             return "[TEXT WITHHELD DUE TO SCRUBBER FAILURE]"
 

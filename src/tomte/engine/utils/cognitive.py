@@ -1,6 +1,5 @@
 from typing import List, Dict, Any
 
-from tomte.engine.core.schema import Entity
 
 class CognitiveProcessor:
     """
@@ -110,47 +109,55 @@ class CognitiveProcessor:
         return self.assemble_jit_context(combined_payloads, title="RELEVANT CONTEXT")
 
 
-    def merge_entities(self, *lists: List[Entity]) -> List[Entity]:
+    def merge_entities(self, *lists: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Merges multiple lists of Entities.
-        If an entity_id appears in more than one list, the entity from the later
-        list (higher priority) replaces the one from earlier lists.
+        High-performance merge using raw dictionaries.
+        Later lists overwrite earlier ones (Priority: Right > Left).
         """
-        if not lists:
-            return []
-
-        master_map: Dict[str, Entity] = {e.entity_id: e for e in lists[0]}
-
-        for lst in lists[1:]:
-            for entity in lst:
-                master_map[entity.entity_id] = entity
-
+        master_map = {}
+        
+        for entity_list in lists:
+            if not entity_list:
+                continue
+            for entity in entity_list:
+                # O(1) dictionary lookup/overwrite
+                eid = entity.get("entity_id")
+                if eid:
+                    master_map[eid] = entity
+                    
         return list(master_map.values())
 
-    def format_entities(self, entities: List[Entity]) -> str:
+    def format_entities(self, entities: List[Dict[str, Any]]) -> str:
         """
-        Converts a list of Entities into the structured string 
-        representation for the LLM context.
+        Formats raw dictionaries into LLM context.
+        Handles the logic-heavy sorting and string building here.
         """
         if not entities:
             return ""
 
         formatted_blocks = []
         for entity in entities:
-            # Sort facts by importance (5 -> 1) before formatting
+            facts = entity.get("facts", [])
+            
+            # Internal sort: Importance 5 down to 1
+            # We do this here so it's only done once right before the LLM call
             sorted_facts = sorted(
-                entity.facts, 
-                key=lambda x: x.importance, 
+                facts, 
+                key=lambda x: x.get("importance", 3), 
                 reverse=True
             )
 
             fact_lines = [
-                f"- {f.attribute_name}: {f.value} (imp: {f.importance})"
+                f"- {f['attribute_name']}: {f['value']} (imp: {f['importance']})"
                 for f in sorted_facts
             ]
 
+            # Support both Enum and raw string for entity_type
+            e_type = entity.get("entity_type", "unknown")
+            type_label = e_type.value if hasattr(e_type, 'value') else e_type
+
             block = (
-                f"[[ENTITY: {entity.entity_id} | TYPE: {entity.entity_type.value}]]\n"
+                f"[[ENTITY: {entity.get('entity_id')} | TYPE: {type_label}]]\n"
                 f"{chr(10).join(fact_lines)}"
             )
             formatted_blocks.append(block)

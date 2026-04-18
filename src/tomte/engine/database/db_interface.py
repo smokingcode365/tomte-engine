@@ -1,41 +1,7 @@
-from typing import Protocol, List, Optional
-
 from typing import Protocol, List, Dict, Any, Optional
 from uuid import UUID
 
-class CacheProvider(Protocol):
-    """The contract for short-term memory, fast-path routing, and worker locks."""
-
-    # --- Mutex Locks (For Consolidation Worker) ---
-    def acquire_lock(self, lock_key: str, ttl_seconds: int) -> bool:
-        ...
-        
-    def release_lock(self, lock_key: str) -> None:
-        ...
-    
-    # --- Basic Key-Value (For Session Cores) ---
-    def set_value(self, key: str, value: str, ttl_seconds: Optional[int] = None) -> None:
-        ...
-
-    def get_value(self, key: str) -> Optional[str]:
-        ...
-
-    # --- Lists (For Guest Chat Transcripts) ---
-    def push_to_list(self, list_key: str, message: str) -> None:
-        ...
-
-    def get_list(self, list_key: str, limit: int) -> List[str]:
-        ...
-        
-    # --- Sets (For Taxonomy/Lexicon Deduplication) ---
-    def add_to_set(self, set_key: str, values: List[str]) -> None:
-        ...
-        
-    def pop_set(self, set_key: str) -> List[str]:
-        ...
-
-
-
+from tomte.engine.core.config import settings
 
 class DatabaseProvider(Protocol):
     """
@@ -57,9 +23,9 @@ class DatabaseProvider(Protocol):
         """Heartbeat: Registers user/tenant combo and updates timestamp."""
         ...
 
-    def get_baseline_facts(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
-        """Pulls 'Identity' domain entities for core profile context."""
-        ...
+    # def get_baseline_facts(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
+    #     """Pulls 'Identity' domain entities for core profile context."""
+    #     ...
 
     def semantic_retrieval(
         self, tenant_id: str, user_id: str, query_vector: List[float], limit: int
@@ -70,8 +36,10 @@ class DatabaseProvider(Protocol):
     def get_recent_entities(self, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
         """Temporal Context: Fetches the last N updated entities."""
         ...
-
-    def get_important_entities(self, tenant_id: str, user_id: str, limit: int = 5) -> List[Dict]:
+    def get_frequent_entities(self, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
+        """Long-term Context: Fetches entities with the highest mention_count (excluding identity)."""
+        ...
+    def get_important_entities(self, tenant_id: str, user_id: str, limit: int) -> List[Dict]:
         """Fetches the most important entities for the user."""
         ...
         

@@ -39,3 +39,12 @@ class MemoryDomain(str, Enum):
     LOGISTICS = "events_and_logistics"
     SYSTEM = "system_instructions"
     UNSTRUCTURED = "unstructured_observations"
+
+class ChatSenderRole(str, Enum):
+    ASSISTANT = "assistant"
+    USER = "user"
+
+class ProvierDictionaryKes(str, Enum):
+    DB = "DB"
+    CACHE = "CACHE"
+    LLM = "LLM"
