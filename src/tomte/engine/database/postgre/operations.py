@@ -19,32 +19,23 @@ def upsert_user_activity(conn: psycopg.Connection, tenant_id: str, user_id: str)
         conn.rollback()
         raise
 
-# --- Workflow 1: Read Ops ---
-# def get_baseline_facts(conn: psycopg.Connection, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
-#     """Targets 'identity' entities to anchor the profile."""
-#     sql = """
-#         SELECT payload FROM memory_engine 
-#         WHERE tenant_id = %s AND user_id = %s AND entity_type = 'identity'
-#         ORDER BY importance DESC LIMIT 10;
-#     """
-#     with conn.cursor() as cur:
-#         cur.execute(sql, (tenant_id, user_id))
-#         return cur.fetchall()
+# --- Workflow 1: Read Ops (The Live Pulse) ---
 
 def get_entities_by_priority(conn: psycopg.Connection, tenant_id: str, user_id: str, domain: Optional[MemoryDomain], limit: int) -> List[Dict[str, Any]]:
-    filter_type = domain.value if domain else None
+    """Generic priority fetch, filtered by broad Domain enum value if provided."""
+    filter_val = domain.value if domain else None
     sql = """
         SELECT payload FROM memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
-        AND (%s::text IS NULL OR entity_type = %s)
+        AND (%s::text IS NULL OR entity_domain = %s)
         ORDER BY importance DESC, mention_count DESC LIMIT %s;
     """
     with conn.cursor() as cur:
-        cur.execute(sql, (tenant_id, user_id, filter_type, filter_type, limit))
+        cur.execute(sql, (tenant_id, user_id, filter_val, filter_val, limit))
         return cur.fetchall()
 
 def get_frequent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
-    """Target: Long-term Obsessions (excluding identity to avoid duplicates)."""
+    """Pure fetch of most mentioned entities. No domain filtering."""
     sql = """
         SELECT payload FROM memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
@@ -65,8 +56,6 @@ def get_recent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, 
         return cur.fetchall()
 
 def get_semantic_context(conn: psycopg.Connection, tenant_id: str, user_id: str, vector: List[float], limit: int) -> List[Dict[str, Any]]:
-    # Synaptic Decay Formula for Relevance Score:
-    # $$R = (1 - (embedding \iff vector)) \times (mention\_count \times e^{-0.0001 \times \Delta t})$$
     sql = """
         SELECT payload, 
         (1 - (embedding <=> %s)) * (mention_count * exp(-0.0001 * extract(epoch from (now() - last_mentioned_at)))) as relevance_score 
@@ -78,20 +67,46 @@ def get_semantic_context(conn: psycopg.Connection, tenant_id: str, user_id: str,
         cur.execute(sql, (vector, tenant_id, user_id, limit))
         return cur.fetchall()
 
-# --- Workflow 2: Dictionary Builder ---
-def get_ontology_dictionaries(conn: psycopg.Connection, tenant_id: str, query_vector: List[float]) -> Dict[str, List[str]]:
+# --- Workflow 2: Dictionary Builder (Semantic Relative) ---
+
+def get_ontology_dictionaries(conn: psycopg.Connection, tenant_id: str, chat_vector: List[float]) -> Dict[str, Dict[str, List[str]]]:
+    """Builds a relative dictionary from the semantic neighborhood."""
     sql = """
-        SELECT DISTINCT entity_type FROM memory_engine WHERE tenant_id = %s;
+        WITH neighborhood AS (
+            SELECT entity_domain, entity_type, payload 
+            FROM memory_engine 
+            WHERE tenant_id = %s
+            ORDER BY embedding <=> %s 
+            LIMIT 20
+        )
+        SELECT 
+            entity_domain, 
+            entity_type,
+            jsonb_path_query_array(payload, '$.facts[*].attribute_name') as attributes
+        FROM neighborhood;
     """
     with conn.cursor() as cur:
-        cur.execute(sql, (tenant_id,))
-        types = [row['entity_type'] for row in cur.fetchall()]
-        return {"entity_types": types}
+        cur.execute(sql, (tenant_id, chat_vector))
+        rows = cur.fetchall()
+
+    onto = {}
+    for row in rows:
+        dom, typ = row['entity_domain'], row['entity_type']
+        attrs = list(row['attributes']) if row['attributes'] else []
+        
+        if dom not in onto: onto[dom] = {}
+        if typ not in onto[dom]: onto[dom][typ] = set()
+        onto[dom][typ].update(attrs)
+
+    return {d: {t: list(a) for t, a in types.items()} for d, types in onto.items()}
 
 # --- Workflow 3: Consolidation Write Ops ---
+
 def get_user_graph_skeleton(conn: psycopg.Connection, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
+    """Retrieves anchors including human-friendly name for extraction mapping."""
     sql = """
-        SELECT id, entity_id, entity_type FROM memory_engine 
+        SELECT id, entity_id, entity_name, entity_domain, entity_type 
+        FROM memory_engine 
         WHERE tenant_id = %s AND user_id = %s;
     """
     with conn.cursor() as cur:
@@ -99,7 +114,6 @@ def get_user_graph_skeleton(conn: psycopg.Connection, tenant_id: str, user_id: s
         return cur.fetchall()
 
 def find_exact_fact(conn: psycopg.Connection, tenant_id: str, user_id: str, entity_id: str, attribute_name: str) -> Optional[UUID]:
-    # Uses Postgres JSONB containment operator @> to scan the internal facts array natively
     sql = """
         SELECT id FROM memory_engine 
         WHERE tenant_id = %s AND user_id = %s AND entity_id = %s
@@ -118,22 +132,38 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                 mode = op.get('mode')
                 if mode == 'INSERT':
                     cur.execute("""
-                        INSERT INTO memory_engine (tenant_id, user_id, entity_id, entity_type, payload, embedding, importance)
-                        VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s);
-                    """, (op['tenant_id'], op['user_id'], op['entity_id'], op['entity_type'], 
-                          json.dumps(op['payload']), op['embedding'], op.get('importance', 3)))
+                        INSERT INTO memory_engine (
+                            tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload, embedding, importance
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s);
+                    """, (
+                        op['tenant_id'], op['user_id'], op['entity_id'], op['entity_name'],
+                        op['entity_domain'], op['entity_type'], 
+                        json.dumps(op['payload']), op['embedding'], op.get('importance', 3)
+                    ))
                 
                 elif mode == 'MUTATE':
                     cur.execute("""
-                        UPDATE memory_engine SET payload = %s::jsonb, embedding = %s, importance = %s, 
-                        last_mentioned_at = NOW(), mention_count = mention_count + 1
+                        UPDATE memory_engine SET 
+                            payload = %s::jsonb, 
+                            embedding = %s, 
+                            importance = %s, 
+                            entity_name = %s,
+                            entity_domain = %s,
+                            entity_type = %s,
+                            last_mentioned_at = NOW(), 
+                            mention_count = mention_count + 1
                         WHERE id = %s AND tenant_id = %s AND user_id = %s;
-                    """, (json.dumps(op['payload']), op['embedding'], op.get('importance', 3), 
-                          op['db_id'], op['tenant_id'], op['user_id']))
+                    """, (
+                        json.dumps(op['payload']), op['embedding'], op.get('importance', 3), 
+                        op['entity_name'], op['entity_domain'], op['entity_type'],
+                        op['db_id'], op['tenant_id'], op['user_id']
+                    ))
 
                 elif mode == 'REINFORCE':
                     cur.execute("""
-                        UPDATE memory_engine SET mention_count = mention_count + 1, last_mentioned_at = NOW()
+                        UPDATE memory_engine 
+                        SET mention_count = mention_count + 1, last_mentioned_at = NOW()
                         WHERE id = %s AND tenant_id = %s AND user_id = %s;
                     """, (op['db_id'], op['tenant_id'], op['user_id']))
             conn.commit()

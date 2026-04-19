@@ -111,9 +111,13 @@ class Entity(BaseModel):
     entity_id: str = Field(
         description=f"The primary key for this entity. {ENTITY_ID_RULE}"
     )
-    entity_type: MemoryDomain = Field(
+    entity_domain: MemoryDomain = Field(
         description=f"The master category this entity belongs to. Choose the best fit from the 8 domains"
     )
+    entity_type: str = Field(
+        description="The granular classification of the entity (e.g., 'aquarium', 'software_project', 'electric_vehicle'). "
+                "This is the specific 'what' of the entity, sitting underneath the broader entity_domain. "
+                "Do NOT use the domain name as the type.")
     aliases: List[str] = Field(
         default_factory=list,
         description="A list of verbatim nouns, nicknames, or pronouns the user actually uses in dialogue to refer to this entity (e.g., ['my car', 'the Tesla', 'the beast']). DO NOT invent aliases.",
