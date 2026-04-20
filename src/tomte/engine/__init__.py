@@ -15,8 +15,7 @@ class Tomte:
         db_provider: DatabaseProvider,
         cache_provider: CacheProvider, 
         llm_provider: LLMProvider,
-        log_provider: LogProvider|None = None,
-        isolate_chat_sessions: bool = False
+        log_provider: LogProvider|None = None
     ):
         """
         Initializes the Tomte Engine with user-injected dependencies.
@@ -26,7 +25,6 @@ class Tomte:
         cls._llm = llm_provider
         if log_provider:
             configure_log_provider(log_provider)
-        TomteSettings.isolate_chat_sessions = isolate_chat_sessions
     @classmethod
     def get_db(cls) -> DatabaseProvider:
         if not cls._db:

@@ -23,9 +23,12 @@ class GeminiSettings(BaseModel):
 class TomteSettings(BaseSettings):
     consolidation_ttl_minutes: int = Field(default=30)
     history_chat_number: int = Field(default=20)
-    isolate_chat_sessions: bool = Field(default=False)
+    isolate_chat_sessions: bool = Field(default=True)
     query_entities_limit: int = Field(default=3) # Limit for the number of entities to query from the database
     semantic_retrieval_limit: int = Field(default=5) # Limit for the number of entities to retrieve from the semantic retrieval
+    llm_threshold_high: float = Field(default=0.85)
+    llm_threshold_mid: float = Field(default=0.80)
+    llm_threshold_low: float = Field(default=0.75)
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
     anthropic: AnthropicSettings = Field(default_factory=AnthropicSettings)
     gemini: GeminiSettings = Field(default_factory=GeminiSettings) # Added
@@ -34,4 +37,4 @@ class TomteSettings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore", env_nested_delimiter="__"
     )
 
-settings: TomteSettings | None = None
+settings: TomteSettings=TomteSettings()

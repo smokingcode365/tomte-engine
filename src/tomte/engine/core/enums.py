@@ -44,7 +44,11 @@ class ChatSenderRole(str, Enum):
     ASSISTANT = "assistant"
     USER = "user"
 
-class ProvierDictionaryKes(str, Enum):
+class ProviderDictionaryKeys(str, Enum):
     DB = "DB"
     CACHE = "CACHE"
     LLM = "LLM"
+
+class DictionaryKeywordType(str, Enum):
+    ENTITY = "ENTITY"
+    ATTRIBUTE = "ATTRIBUTE"

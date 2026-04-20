@@ -69,7 +69,6 @@ class CacheProvider(ABC):
         Appends a message to the live chat context.
         Implementations MUST:
         1. Maintain session isolation based on provider config.
-        2. Dual-write to the consolidation queue for registered users.
         """
         pass
 
@@ -87,6 +86,21 @@ class CacheProvider(ABC):
         """
         pass
 
+    @abstractmethod
+    def enqueue_for_consolidation(
+        self, 
+        tenant_id: str, 
+        user_id: str, 
+        session_id: str, 
+        message: str, 
+        role: str, 
+        vector: Optional[List[float]] = None
+    ) -> None:
+        """
+        Appends high-fidelity message data (including vectors) to a background 
+        consolidation queue. This is isolated from the live chat context window.
+        """
+        pass
     # ==========================================
     # PERSONA CACHING METHODS
     # ==========================================

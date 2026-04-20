@@ -2,11 +2,12 @@ import psycopg
 from psycopg.rows import dict_row
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+from pgvector.psycopg import register_vector
 
 from tomte.engine.core.config import settings
 from tomte.engine.database.db_interface import DatabaseProvider
-from tomte.engine.exceptions import DatabaseConnectionError
 from tomte.engine.core.enums import MemoryDomain
+from tomte.engine.exceptions import DatabaseConnectionError
 from tomte.engine.log import log
 
 # Import separated logic
@@ -18,6 +19,7 @@ class PostgresProvider(DatabaseProvider):
         try:
             self.conn = psycopg.connect(connection_string, row_factory=dict_row)
             self.conn.autocommit = False 
+            register_vector(self.conn)
             log.info("PostgreSQL Provider initialized.")
         except Exception as e:
             log.error("Database connection failed", exc=e)
@@ -40,21 +42,21 @@ class PostgresProvider(DatabaseProvider):
     # def get_baseline_facts(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
     #     return operations.get_baseline_facts(self.conn, tenant_id, user_id)
 
-    def get_important_entities(self, tenant_id: str, user_id: str, limit: int  = settings.query_entities_limit) -> List[Dict[str, Any]]:
+    def get_important_entities(self, tenant_id: str, user_id: str, domain: Optional[MemoryDomain]=None, limit: int|None = None) -> List[Dict[str, Any]]:
         # Passed None to domain to fetch across all types globally, matching your limit parameter
-        return operations.get_entities_by_priority(self.conn, tenant_id, user_id, None, limit)
+        return operations.get_entities_by_priority(self.conn, tenant_id, user_id, domain, limit)
 
-    def get_frequent_entities(self, tenant_id: str, user_id: str, limit: int = settings.query_entities_limit) -> List[Dict[str, Any]]:
+    def get_frequent_entities(self, tenant_id: str, user_id: str, limit: int|None = None) -> List[Dict[str, Any]]:
         return operations.get_frequent_entities(self.conn, tenant_id, user_id, limit)
 
-    def semantic_retrieval(self, tenant_id: str, user_id: str, query_vector: List[float], limit: int = settings.semantic_retrieval_limit) -> List[Dict[str, Any]]:
+    def semantic_retrieval(self, tenant_id: str, user_id: str, query_vector: List[float], limit: int|None = None) -> List[Dict[str, Any]]:
         return operations.get_semantic_context(self.conn, tenant_id, user_id, query_vector, limit)
 
-    def get_recent_entities(self, tenant_id: str, user_id: str, limit: int = settings.query_entities_limit) -> List[Dict[str, Any]]:
+    def get_recent_entities(self, tenant_id: str, user_id: str, limit: int|None = None) -> List[Dict[str, Any]]:
         return operations.get_recent_entities(self.conn, tenant_id, user_id, limit)
 
     # --- Workflow 2: Dictionary Builder ---
-    def get_ontology_dictionaries(self, tenant_id: str, query_vector: List[float]) -> Dict[str, List[str]]:
+    def get_ontology_dictionaries(self, tenant_id: str, query_vector: List[float]) -> Dict[str, Dict[str, List[str]]]:
         return operations.get_ontology_dictionaries(self.conn, tenant_id, query_vector)
 
     # --- Workflow 3: Consolidation (Write Ops) ---

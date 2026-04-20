@@ -2,6 +2,7 @@ from typing import Protocol, List, Dict, Any, Optional
 from uuid import UUID
 
 from tomte.engine.core.config import settings
+from tomte.engine.core.enums import MemoryDomain
 
 class DatabaseProvider(Protocol):
     """
@@ -39,12 +40,12 @@ class DatabaseProvider(Protocol):
     def get_frequent_entities(self, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
         """Long-term Context: Fetches entities with the highest mention_count (excluding identity)."""
         ...
-    def get_important_entities(self, tenant_id: str, user_id: str, limit: int) -> List[Dict]:
+    def get_important_entities(self, tenant_id: str, user_id: str, domain: Optional[MemoryDomain], limit: int|None ) -> List[Dict]:
         """Fetches the most important entities for the user."""
         ...
         
     # --- Workflow 2: Dictionary Builder ---
-    def get_ontology_dictionaries(self, tenant_id: str, query_vector: List[float]) -> Dict[str, List[str]]:
+    def get_ontology_dictionaries(self, tenant_id: str, query_vector: List[float]) -> Dict[str, Dict[str, List[str]]]:
         """Extracts existing Taxonomy and Lexicon for the tenant."""
         ...
 

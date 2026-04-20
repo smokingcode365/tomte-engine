@@ -25,3 +25,6 @@ class SecurityViolationError(Exception):
 class NamespaceError(Exception):
     """Raised when tenant_id or user_id are missing or malformed."""
     pass
+
+class DatabaseConnectionError(Exception):
+    pass

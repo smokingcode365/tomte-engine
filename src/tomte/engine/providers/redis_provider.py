@@ -10,14 +10,12 @@ from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine import log  # Importing the global logger we created earlier
 
 class RedisCacheProvider(CacheProvider):
-    def __init__(self, url: str = "redis://localhost:6379/0", isolate_chat_sessions: bool = True, **kwargs):
+    def __init__(self, url: str = "redis://localhost:6379/0", **kwargs):
         """
         Initializes the Redis connection pool. 
         kwargs can be used to pass passwords, SSL certs, etc.
         """
         self.client = redis.Redis.from_url(url, decode_responses=True, **kwargs)
-        self.isolate_sessions = isolate_chat_sessions
-        log.info(f"RedisCacheProvider initialized (isolate_sessions={self.isolate_sessions})")
 
     # ==========================================
     # YOUR ORIGINAL UTILITY METHODS (UNTOUCHED)
@@ -92,7 +90,7 @@ class RedisCacheProvider(CacheProvider):
                 raise ValueError("Guests must have a session_id to maintain chat history.")
             return f"chat:guest:{tenant_id}:{session_id}"
             
-        if self.isolate_sessions:
+        if settings.isolate_chat_sessions:
             return f"chat:user:{tenant_id}:{user_id}:{session_id}"
         else:
             return f"chat:user:{tenant_id}:{user_id}"
@@ -112,27 +110,53 @@ class RedisCacheProvider(CacheProvider):
         pipeline.ltrim(history_key, -settings.history_chat_number, -1)
         pipeline.expire(history_key, 86400) 
         pipeline.execute()
-        # 2. Dual-Write to Consolidation Queue
-        if user_id:
-            self._enqueue_for_consolidation(tenant_id, user_id, session_id, json_payload)
 
-    def get_chat_history(self, tenant_id: str, session_id: str, user_id: Optional[str] = None, limit: int = settings.history_chat_number) -> List[Dict[str, Any]]:
+
+    def get_chat_history(self, tenant_id: str, session_id: str, limit: int, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Retrieves history using your existing get_list method."""
         history_key = self._generate_history_key(tenant_id, session_id, user_id)
         
         # Using YOUR base method here!
         raw_items = self.get_list(history_key, limit)
         return [json.loads(item) for item in raw_items]
+    # src/tomte/engine/providers/redis_provider.py
 
-    def _enqueue_for_consolidation(self, tenant_id: str, user_id: str, session_id: str, json_payload: str) -> None:
-        """Dual-writes to the queue and updates the active session tracker ZSET."""
-        queue_key = f"consolidation:queue:{tenant_id}:{user_id}:{session_id}"
-        current_time = time.time()
+    def enqueue_for_consolidation(
+        self, 
+        tenant_id: str, 
+        user_id: str, 
+        session_id: str, 
+        message: str, 
+        role: str, 
+        vector: Optional[List[float]] = None
+    ) -> None:
+        """
+        Saves message data to a session-specific queue and updates the global 
+        activity tracker for background workers.
+        """
+        # 1. Define the unique session identifier for the worker
+        session_ref = f"{tenant_id}:{user_id}:{session_id}"
+        queue_key = f"consolidation:queue:{session_ref}"
         
+        # 2. Build the heavy payload (includes vector and metadata)
+        # This data is purely for consolidation, not for UI display.
+        payload = {
+            "tenant_id": tenant_id, # Included as requested for worker context
+            "user_id": user_id,
+            "role": role,
+            "content": message,
+            "vector": vector,
+            "timestamp": time.time()
+        }
+        json_payload = json.dumps(payload)
+
+        # 3. Execute atomic update
         pipeline = self.client.pipeline()
+        # Add to the chronological list
         pipeline.rpush(queue_key, json_payload)
-        # ZADD adds the queue_key with the current time as its score
-        pipeline.zadd("consolidation:active_sessions", {queue_key: current_time})
+        # Update the ZSET score (current time) to track the 'last modified' state
+        # The worker uses this to find sessions idle for > 5 minutes.
+        pipeline.zadd("consolidation:active_sessions", {session_ref: payload["timestamp"]})
         pipeline.execute()
 
     # --- Persona Operations ---

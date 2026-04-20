@@ -2,6 +2,7 @@ import json
 import psycopg
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+from tomte.engine.core.config import settings
 from tomte.engine.core.enums import MemoryDomain
 
 # --- Heartbeat ---
@@ -24,6 +25,7 @@ def upsert_user_activity(conn: psycopg.Connection, tenant_id: str, user_id: str)
 def get_entities_by_priority(conn: psycopg.Connection, tenant_id: str, user_id: str, domain: Optional[MemoryDomain], limit: int) -> List[Dict[str, Any]]:
     """Generic priority fetch, filtered by broad Domain enum value if provided."""
     filter_val = domain.value if domain else None
+    limit=limit if limit else settings.query_entities_limit
     sql = """
         SELECT payload FROM memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
@@ -36,6 +38,7 @@ def get_entities_by_priority(conn: psycopg.Connection, tenant_id: str, user_id: 
 
 def get_frequent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
     """Pure fetch of most mentioned entities. No domain filtering."""
+    limit=limit if limit else settings.query_entities_limit
     sql = """
         SELECT payload FROM memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
@@ -46,6 +49,7 @@ def get_frequent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str
         return cur.fetchall()
 
 def get_recent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
+    limit=limit if limit else settings.query_entities_limit
     sql = """
         SELECT payload FROM memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
@@ -56,9 +60,10 @@ def get_recent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, 
         return cur.fetchall()
 
 def get_semantic_context(conn: psycopg.Connection, tenant_id: str, user_id: str, vector: List[float], limit: int) -> List[Dict[str, Any]]:
+    limit=limit if limit else settings.semantic_retrieval_limit
     sql = """
         SELECT payload, 
-        (1 - (embedding <=> %s)) * (mention_count * exp(-0.0001 * extract(epoch from (now() - last_mentioned_at)))) as relevance_score 
+        (1 - (embedding <=> %s::vector)) * (mention_count * exp(-0.0001 * extract(epoch from (now() - last_mentioned_at)))) as relevance_score 
         FROM memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
         ORDER BY relevance_score DESC LIMIT %s;
@@ -76,7 +81,7 @@ def get_ontology_dictionaries(conn: psycopg.Connection, tenant_id: str, chat_vec
             SELECT entity_domain, entity_type, payload 
             FROM memory_engine 
             WHERE tenant_id = %s
-            ORDER BY embedding <=> %s 
+            ORDER BY embedding <=> %s::vector 
             LIMIT 20
         )
         SELECT 
@@ -135,7 +140,7 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                         INSERT INTO memory_engine (
                             tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload, embedding, importance
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s);
+                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::vector, %s);
                     """, (
                         op['tenant_id'], op['user_id'], op['entity_id'], op['entity_name'],
                         op['entity_domain'], op['entity_type'], 
@@ -146,7 +151,7 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                     cur.execute("""
                         UPDATE memory_engine SET 
                             payload = %s::jsonb, 
-                            embedding = %s, 
+                            embedding = %s::vector, 
                             importance = %s, 
                             entity_name = %s,
                             entity_domain = %s,
@@ -155,7 +160,7 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                             mention_count = mention_count + 1
                         WHERE id = %s AND tenant_id = %s AND user_id = %s;
                     """, (
-                        json.dumps(op['payload']), op['embedding'], op.get('importance', 3), 
+                        json.dumps(op['payload']), op['embedding'] , op.get('importance', 3), 
                         op['entity_name'], op['entity_domain'], op['entity_type'],
                         op['db_id'], op['tenant_id'], op['user_id']
                     ))

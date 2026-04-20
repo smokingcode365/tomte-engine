@@ -8,8 +8,7 @@ categorize all human knowledge into 8 mutually exclusive domains, using
 highly explicit Field descriptions to eliminate categorization ambiguity.
 """
 
-from ast import Dict
-from typing import Any, List, Optional, TypedDict
+from typing import Any, List, Optional, TypedDict, Dict
 from pydantic import BaseModel, Field
 
 from tomte.engine.core.enums import FactStatus, MemoryDomain, Sentiment, Volatility
@@ -110,6 +109,9 @@ class Entity(BaseModel):
 
     entity_id: str = Field(
         description=f"The primary key for this entity. {ENTITY_ID_RULE}"
+    )
+    entity_name: str = Field(
+        description="The human-friendly name of the entity (e.g., 'aquarium', 'software project', 'electric vehicle')."
     )
     entity_domain: MemoryDomain = Field(
         description=f"The master category this entity belongs to. Choose the best fit from the 8 domains"

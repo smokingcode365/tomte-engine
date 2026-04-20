@@ -1,7 +1,8 @@
 from typing import List, Type, TypeVar, Optional
 from pydantic import BaseModel
-from pydantic_ai import Embedder
+from pydantic_ai import Agent, Embedder
 from pydantic_ai.models.anthropic import AnthropicChatModel
+from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.llm.structured import tomte_extractor_agent, junk_filter_agent, TomteDeps
 from tomte.engine.core.config import settings
@@ -71,17 +72,27 @@ class AnthropicLLMProvider(LLMProvider):
         lexicon: List[str] = []
     ) -> T:
         """
-        Deterministic extraction into the 8-domain Knowledge Graph [cite: 398-411].
-        Injects the Tenant Dictionary for ontology alignment [cite: 106-109, 297].
+        Dynamically routes the extraction based on the requested schema.
         """
-        # Package JIT dictionaries for the Agent's dynamic system prompt
-        deps = TomteDeps(taxonomy=taxonomy, lexicon=lexicon)
-        
-        result = tomte_extractor_agent.run_sync(
-            user_text,
-            model=self.strong_model,
-            deps=deps,
-            # Note: system_prompt override can be passed if specific overrides are needed,
-            # but our agent uses the template in structured.py + EXTRACTOR_SYSTEM_PROMPT.
-        )
-        return result.data
+        # Route A: Phase 2 Generative Extraction (Requires Dictionary Deps)
+        if schema is TomteMemorySchema:
+            deps = TomteDeps(taxonomy=taxonomy, lexicon=lexicon)
+            result = tomte_extractor_agent.run_sync(
+                user_text,
+                model=self.strong_model,
+                deps=deps
+            )
+            return result.data
+            
+        # Route B: Phase 3 Reconciliation or Generic Tasks (Dynamic Schema)
+        else:
+            # Spin up a temporary, stateless agent for this specific schema
+            dynamic_agent = Agent(
+                result_type=schema,
+                system_prompt=system_prompt or "You are a helpful data extraction assistant."
+            )
+            result = dynamic_agent.run_sync(
+                user_text,
+                model=self.strong_model
+            )
+            return result.data
