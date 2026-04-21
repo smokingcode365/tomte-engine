@@ -30,8 +30,8 @@ class LLMProvider(Protocol):
         system_prompt: str, 
         user_text: str, 
         schema: Type[T],
-        taxonomy: List[str] = [], # Added
-        lexicon: List[str] = []   # Added
+        taxonomy: Optional[List[str]] = None,
+        lexicon: Optional[List[str]] = None 
     ) -> T:
         """
         Uses a high-intelligence model to perform deterministic extraction.

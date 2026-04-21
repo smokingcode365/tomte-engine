@@ -1,6 +1,6 @@
 # tomte/engine/database/postgre/schema.py
 import psycopg
-from tomte.engine.log import log
+from tomte.engine import tomtelog
 
 def ensure_infrastructure(conn: psycopg.Connection, vector_dimension: int):
     """
@@ -8,18 +8,20 @@ def ensure_infrastructure(conn: psycopg.Connection, vector_dimension: int):
     """
     ensure_core_infrastructure(conn, vector_dimension)
     ensure_dictionary_infrastructure(conn, vector_dimension)
-    log.info("Total PostgreSQL infrastructure verified.")
+    tomtelog.info("Total PostgreSQL infrastructure verified.")
 
 def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
     """Handles the user registry and the core Bounded Hybrid memory engine."""
     safe_dim = int(vector_dimension)
     try:
         with conn.cursor() as cur:
+            # CRITICAL FIX: Ensure both extensions are loaded for maximum compatibility
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+            cur.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
             
             # 1. User Registry Table
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS user_registry (
+                CREATE TABLE IF NOT EXISTS tomte_user_registry (
                     tenant_id TEXT NOT NULL,
                     user_id TEXT NOT NULL,
                     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -30,7 +32,7 @@ def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
 
             # 2. Core Memory Table
             cur.execute(f"""
-                CREATE TABLE IF NOT EXISTS memory_engine (
+                CREATE TABLE IF NOT EXISTS tomte_memory_engine (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     tenant_id TEXT NOT NULL,
                     user_id TEXT NOT NULL,
@@ -48,25 +50,25 @@ def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
             """)
             
             # Performance Indexes
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_importance ON memory_engine (importance DESC);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_importance ON tomte_memory_engine (importance DESC);")
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_mem_composite_lookup 
-                ON memory_engine (tenant_id, user_id, entity_domain);
+                ON tomte_memory_engine (tenant_id, user_id, entity_domain);
             """)
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_entity_id ON memory_engine (tenant_id, user_id, entity_id);")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_entity_type ON memory_engine (tenant_id, user_id, entity_type);")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_entity_name ON memory_engine (tenant_id, user_id, entity_name);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_entity_id ON tomte_memory_engine (tenant_id, user_id, entity_id);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_entity_type ON tomte_memory_engine (tenant_id, user_id, entity_type);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_entity_name ON tomte_memory_engine (tenant_id, user_id, entity_name);")
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_mem_vector 
-                ON memory_engine USING ivfflat (embedding vector_cosine_ops);
+                ON tomte_memory_engine USING ivfflat (embedding vector_cosine_ops);
             """)
             
             conn.commit()
-            log.info("Core Memory infrastructure ensured.")
+            tomtelog.info("Core Memory infrastructure ensured.")
             
     except Exception as e:
         conn.rollback()
-        log.error("Failed to ensure Core PG infrastructure", exc=e)
+        tomtelog.error("Failed to ensure Core PG infrastructure", exc=e)
         raise
 
 def ensure_dictionary_infrastructure(conn: psycopg.Connection, vector_dimension: int):
@@ -79,7 +81,7 @@ def ensure_dictionary_infrastructure(conn: psycopg.Connection, vector_dimension:
         with conn.cursor() as cur:
             # 1. Semantic Anchors (The Vector Anchor Points)
             cur.execute(f"""
-                CREATE TABLE IF NOT EXISTS semantic_anchors (
+                CREATE TABLE IF NOT EXISTS tomte_semantic_anchors (
                     dictionary_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     embedding vector({safe_dim}) NOT NULL
                 );
@@ -87,9 +89,9 @@ def ensure_dictionary_infrastructure(conn: psycopg.Connection, vector_dimension:
 
             # 2. Keyword Registry (The vocabulary linked to anchors)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS keyword_registry (
+                CREATE TABLE IF NOT EXISTS tomte_keyword_registry (
                     id BIGSERIAL PRIMARY KEY,
-                    dictionary_id UUID NOT NULL REFERENCES semantic_anchors(dictionary_id) ON DELETE CASCADE,
+                    dictionary_id UUID NOT NULL REFERENCES tomte_semantic_anchors(dictionary_id) ON DELETE CASCADE,
                     keyword TEXT NOT NULL,
                     keyword_type TEXT NOT NULL, -- 'ENTITY' or 'ATTRIBUTE'
                     hits INT DEFAULT 1,
@@ -100,17 +102,17 @@ def ensure_dictionary_infrastructure(conn: psycopg.Connection, vector_dimension:
             """)
 
             # Performance Indexes for the Dictionary
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_dict_hits ON keyword_registry (hits DESC);")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_dict_keyword ON keyword_registry (keyword);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_dict_hits ON tomte_keyword_registry (hits DESC);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_dict_keyword ON tomte_keyword_registry (keyword);")
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_dict_vector_lookup 
-                ON semantic_anchors USING ivfflat (embedding vector_cosine_ops);
+                ON tomte_semantic_anchors USING ivfflat (embedding vector_cosine_ops);
             """)
             
             conn.commit()
-            log.info("Semantic Dictionary infrastructure ensured.")
+            tomtelog.info("Semantic Dictionary infrastructure ensured.")
             
     except Exception as e:
         conn.rollback()
-        log.error("Failed to ensure Dictionary PG infrastructure", exc=e)
+        tomtelog.error("Failed to ensure Dictionary PG infrastructure", exc=e)
         raise

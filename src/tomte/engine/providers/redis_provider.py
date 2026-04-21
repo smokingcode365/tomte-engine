@@ -1,13 +1,17 @@
 """
 Default Redis implementation of the CacheProvider.
 """
+import uuid
 import redis
 import json
 import time
 from typing import List, Optional, Dict, Any
 from tomte.engine.core.config import settings
 from tomte.engine.database.cache_interfaces import CacheProvider
-from tomte.engine import log  # Importing the global logger we created earlier
+from tomte.engine import tomtelog
+from tomte.engine.utils.keys import generate_common_key, generate_persona_key, get_section_key_active_sessions
+from tomte.engine.utils.keys import generate_consolidation_key, generate_session_ref
+from tomte.engine.utils.security import get_security_guard
 
 class RedisCacheProvider(CacheProvider):
     def __init__(self, url: str = "redis://localhost:6379/0", **kwargs):
@@ -21,14 +25,31 @@ class RedisCacheProvider(CacheProvider):
     # YOUR ORIGINAL UTILITY METHODS (UNTOUCHED)
     # ==========================================
 
-    def acquire_lock(self, lock_key: str, ttl_seconds: int) -> bool:
+    def acquire_lock(self, lock_key: str,lock_value: str, ttl_seconds: int) -> bool:
         """
         Uses SETNX to acquire a lock. If it returns True, the worker is safe to proceed.
         If False, another worker is already processing this tenant/user.
         """
         # nx=True means "Only set if it does not already exist"
-        acquired = self.client.set(lock_key, "LOCKED", nx=True, ex=ttl_seconds)
+        acquired = self.client.set(lock_key, lock_value, nx=True, ex=ttl_seconds)
         return bool(acquired)
+
+ 
+    def release_lock(self, lock_key: str, lock_value: str) -> bool:
+        """
+        Safely releases the lock using an atomic Lua script.
+        Prevents a stale worker from deleting a new worker's lock.
+        """
+        lua_script = """
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+            return redis.call("del", KEYS[1])
+        else
+            return 0
+        end
+        """
+        # eval(script, num_keys, key1, arg1)
+        result = self.client.eval(lua_script, 1, lock_key, lock_value)
+        return bool(result)
 
     def set_value(self, key: str, value: str, ttl_seconds: Optional[int] = None) -> None:
         self.client.set(key, value, ex=ttl_seconds)
@@ -38,9 +59,6 @@ class RedisCacheProvider(CacheProvider):
         if result is None:
             return None
         return str(result)
-        
-    def release_lock(self, lock_key: str) -> None:
-        self.client.delete(lock_key)
 
     def push_to_list(self, list_key: str, message: str) -> None:
         """Appends a chat message to the right side of the list (RPUSH)."""
@@ -83,23 +101,13 @@ class RedisCacheProvider(CacheProvider):
     # NEW LOGIC: CHAT HOOK & DUAL-WRITE
     # ==========================================
 
-    def _generate_history_key(self, tenant_id: str, session_id: str, user_id: Optional[str]) -> str:
-        """Determines the correct Redis key based on session isolation rules."""
-        if not user_id:
-            if not session_id:
-                raise ValueError("Guests must have a session_id to maintain chat history.")
-            return f"chat:guest:{tenant_id}:{session_id}"
-            
-        if settings.isolate_chat_sessions:
-            return f"chat:user:{tenant_id}:{user_id}:{session_id}"
-        else:
-            return f"chat:user:{tenant_id}:{user_id}"
+    
 
     def append_chat_history(self, tenant_id: str, session_id: str, message: str, role: str, user_id: Optional[str] = None) -> None:
         """
         Formats the message to JSON, trims the context window, and handles dual-writes.
         """
-        history_key = self._generate_history_key(tenant_id, session_id, user_id)
+        history_key = generate_common_key(tenant_id, session_id, user_id)
         
         payload = {"role": role, "content": message, "timestamp": time.time()}
         json_payload = json.dumps(payload)
@@ -112,14 +120,26 @@ class RedisCacheProvider(CacheProvider):
         pipeline.execute()
 
 
-    def get_chat_history(self, tenant_id: str, session_id: str, limit: int, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Retrieves history using your existing get_list method."""
-        history_key = self._generate_history_key(tenant_id, session_id, user_id)
-        
-        # Using YOUR base method here!
+    def get_chat_history(
+        self, 
+        tenant_id: str, 
+        session_id: str, 
+        user_id: Optional[str] = None, 
+        limit: int = settings.history_chat_number
+    ) -> List[Dict[str, Any]]:
+        """Retrieves history using safe JSON parsing to prevent 'Poison Pill' crashes."""
+        history_key = generate_common_key(tenant_id, session_id, user_id)
         raw_items = self.get_list(history_key, limit)
-        return [json.loads(item) for item in raw_items]
-    # src/tomte/engine/providers/redis_provider.py
+        parsed_history = []
+        for item in raw_items:
+            try:
+                parsed_history.append(json.loads(item))
+            except json.JSONDecodeError as e:
+                # Log the corruption so ops can investigate, but do NOT crash the user's chat
+                tomtelog.error(f"Corrupted JSON in Redis history key: {history_key}", exc=e)
+                continue
+                
+        return parsed_history
 
     def enqueue_for_consolidation(
         self, 
@@ -135,8 +155,8 @@ class RedisCacheProvider(CacheProvider):
         activity tracker for background workers.
         """
         # 1. Define the unique session identifier for the worker
-        session_ref = f"{tenant_id}:{user_id}:{session_id}"
-        queue_key = f"consolidation:queue:{session_ref}"
+        session_ref = generate_session_ref(tenant_id, session_id, user_id)
+        queue_key = generate_consolidation_key(tenant_id, user_id, session_id)
         
         # 2. Build the heavy payload (includes vector and metadata)
         # This data is purely for consolidation, not for UI display.
@@ -144,7 +164,7 @@ class RedisCacheProvider(CacheProvider):
             "tenant_id": tenant_id, # Included as requested for worker context
             "user_id": user_id,
             "role": role,
-            "content": message,
+            "content": get_security_guard().scrub_pii(message),
             "vector": vector,
             "timestamp": time.time()
         }
@@ -156,20 +176,24 @@ class RedisCacheProvider(CacheProvider):
         pipeline.rpush(queue_key, json_payload)
         # Update the ZSET score (current time) to track the 'last modified' state
         # The worker uses this to find sessions idle for > 5 minutes.
-        pipeline.zadd("consolidation:active_sessions", {session_ref: payload["timestamp"]})
+        pipeline.zadd(get_section_key_active_sessions(), {session_ref: payload["timestamp"]})
         pipeline.execute()
 
     # --- Persona Operations ---
     
     def get_persona_entities(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
         """Uses your get_value method to pull raw JSON."""
-        key = f"persona:{tenant_id}:{user_id}"
+        key = generate_persona_key(tenant_id, user_id)
         data = self.get_value(key) # Using YOUR base method
         if data:
-            return json.loads(data)
+            try:
+                return json.loads(data)
+            except Exception as e:
+                tomtelog.error(f"Failed to decode persona entities for key {key}", exc=e)
+                return []
         return []
 
     def set_persona_entities(self, tenant_id: str, user_id: str, entities: List[Dict[str, Any]], ttl: int = 1800) -> None:
         """Uses your set_value method to store JSON."""
-        key = f"persona:{tenant_id}:{user_id}"
+        key = generate_persona_key(tenant_id, user_id)
         self.set_value(key, json.dumps(entities), ttl_seconds=ttl) # Using YOUR base method

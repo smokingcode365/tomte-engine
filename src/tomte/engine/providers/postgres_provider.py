@@ -7,8 +7,8 @@ from pgvector.psycopg import register_vector
 from tomte.engine.core.config import settings
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.core.enums import MemoryDomain
-from tomte.engine.exceptions import DatabaseConnectionError
-from tomte.engine.log import log
+from tomte.engine.exceptions import TomteDatabaseConnectionError
+from tomte.engine import tomtelog
 
 # Import separated logic
 from tomte.engine.database.postgre import schema
@@ -20,10 +20,10 @@ class PostgresProvider(DatabaseProvider):
             self.conn = psycopg.connect(connection_string, row_factory=dict_row)
             self.conn.autocommit = False 
             register_vector(self.conn)
-            log.info("PostgreSQL Provider initialized.")
+            tomtelog.info("PostgreSQL Provider initialized.")
         except Exception as e:
-            log.error("Database connection failed", exc=e)
-            raise DatabaseConnectionError(f"PG Connection Failed: {e}")
+            tomtelog.error("Database connection failed", exc=e)
+            raise TomteDatabaseConnectionError(f"PG Connection Failed: {e}")
 
     # --- JIT Provisioning & Health ---
     def ensure_infrastructure(self, vector_dimension: int) -> None:
@@ -37,7 +37,7 @@ class PostgresProvider(DatabaseProvider):
         try:
             operations.upsert_user_activity(self.conn, tenant_id, user_id)
         except Exception as e:
-            log.error(f"Failed to update activity for {user_id}", exc=e)
+            tomtelog.error(f"Failed to update activity for {user_id}", exc=e)
 
     # def get_baseline_facts(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
     #     return operations.get_baseline_facts(self.conn, tenant_id, user_id)
@@ -70,5 +70,5 @@ class PostgresProvider(DatabaseProvider):
         try:
             return operations.bulk_commit_updates(self.conn, updates)
         except Exception as e:
-            log.error("Bulk commit failed", exc=e)
+            tomtelog.error("Bulk commit failed", exc=e)
             return False

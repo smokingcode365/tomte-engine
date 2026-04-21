@@ -1,7 +1,7 @@
 from typing import List, Type, TypeVar, Optional
 from pydantic import BaseModel
 from pydantic_ai import Agent, Embedder
-from pydantic_ai.models.anthropic import AnthropicChatModel
+from pydantic_ai.models.anthropic import AnthropicModel
 from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.llm.structured import tomte_extractor_agent, junk_filter_agent, TomteDeps
@@ -68,15 +68,15 @@ class AnthropicLLMProvider(LLMProvider):
         system_prompt: str, 
         user_text: str, 
         schema: Type[T],
-        taxonomy: List[str] = [],
-        lexicon: List[str] = []
+        taxonomy: Optional[List[str]] = None,
+        lexicon: Optional[List[str]] = None
     ) -> T:
         """
         Dynamically routes the extraction based on the requested schema.
         """
         # Route A: Phase 2 Generative Extraction (Requires Dictionary Deps)
-        if schema is TomteMemorySchema:
-            deps = TomteDeps(taxonomy=taxonomy, lexicon=lexicon)
+        if isinstance(schema, type) and issubclass(schema, TomteMemorySchema):
+            deps = TomteDeps(taxonomy=taxonomy or [], lexicon=lexicon or [])
             result = tomte_extractor_agent.run_sync(
                 user_text,
                 model=self.strong_model,
@@ -88,7 +88,7 @@ class AnthropicLLMProvider(LLMProvider):
         else:
             # Spin up a temporary, stateless agent for this specific schema
             dynamic_agent = Agent(
-                result_type=schema,
+                output_type=schema,
                 system_prompt=system_prompt or "You are a helpful data extraction assistant."
             )
             result = dynamic_agent.run_sync(

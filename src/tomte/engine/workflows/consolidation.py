@@ -7,7 +7,7 @@ from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.dictionary.service import DictionaryService
 from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.core.enums import DictionaryKeywordType
-from tomte.engine import log
+from tomte.engine import tomtelog
 from tomte.engine.llm.prompts.consolidation_golden_record import RECONCILER_SYSTEM_PROMPT
 
 class ConsolidationWorkflow:
@@ -30,17 +30,17 @@ class ConsolidationWorkflow:
         chat_vectors = [m['vector'] for m in chat_items if m.get('vector')]
 
         if not chat_vectors:
-            log.warn(f"No vectors found for consolidation session: {user_id}")
+            tomtelog.warn(f"No vectors found for consolidation session: {user_id}")
             return False
 
         # --- PHASE 1: Semantic Bootstrapping ---
         # Clusters chat vectors to find relevant dictionary keywords [cite: 137-151]
-        log.debug(f"Phase 1: Bootstrapping dictionary for {user_id}")
+        tomtelog.debug(f"Phase 1: Bootstrapping dictionary for {user_id}")
         bootstrap_dict = self.dict_service.bootstrap(chat_vectors)
         
         # --- PHASE 2: Generative Extraction ---
         # First LLM Call: Extracts entities using the bootstrap dictionary 
-        log.debug(f"Phase 2: Executing primary extraction")
+        tomtelog.debug(f"Phase 2: Executing primary extraction")
         extracted_schema: TomteMemorySchema = self.llm.parse_structured(
             system_prompt=None, 
             user_text=chat_text,
@@ -51,7 +51,7 @@ class ConsolidationWorkflow:
 
         # --- PHASE 3: Golden Record Reconciliation ---
         # Second LLM Call: Matches extraction against the DB skeleton [cite: 157-159]
-        log.debug(f"Phase 3: Reconciling with Golden Records")
+        tomtelog.debug(f"Phase 3: Reconciling with Golden Records")
         skeleton = self.db.get_user_graph_skeleton(tenant_id, user_id)
         
         # We flatten the Pydantic schema into a list of entities for the reconciler
@@ -67,7 +67,7 @@ class ConsolidationWorkflow:
 
         # Before committing, we must generate vectors for any new or changed entities.
         # These vectors anchor the facts in the Knowledge Graph [cite: 160-171].
-        log.debug(f"Consolidation: Generating embeddings for {len(refined_ops)} operations")
+        tomtelog.debug(f"Consolidation: Generating embeddings for {len(refined_ops)} operations")
         for op in refined_ops:
             # Use your new utility to generate the concept-based vector
             # This ensures the vector is 'clean' (no JSON noise/timeline noise)
@@ -76,16 +76,16 @@ class ConsolidationWorkflow:
         # --- ATOMIC COMMIT ---
         # Now the ops contain the 'embedding' vector required by the SQL logic [cite: 145-177]
         if not self.db.commit_graph_updates(refined_ops):
-            log.error(f"Consolidation commit failed for user {user_id}")
+            tomtelog.error(f"Consolidation commit failed for user {user_id}")
             return False
 
         # --- PHASE 4: Dictionary Feedback Loop ---
         # We pass the same refined_ops (now with vectors) to the dictionary service
         # to nudge the anchors and update keyword hits [cite: 157-171].
-        log.debug(f"Phase 4: Applying dictionary feedback")
+        tomtelog.debug(f"Phase 4: Applying dictionary feedback")
         self.dict_service.apply_feedback(refined_ops)
 
-        log.info(f"Consolidation cycle complete for {user_id}")
+        tomtelog.info(f"Consolidation cycle complete for {user_id}")
         return True
 
     # ==========================================

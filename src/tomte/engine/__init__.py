@@ -3,7 +3,7 @@ from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.core.config import TomteSettings
 from tomte.engine.log.interfaces import LogProvider
-from tomte.engine.log.log import configure_log_provider
+from tomte.engine.log import tomtelog
 
 class Tomte:
     _cache: CacheProvider | None = None
@@ -24,7 +24,7 @@ class Tomte:
         cls._cache = cache_provider
         cls._llm = llm_provider
         if log_provider:
-            configure_log_provider(log_provider)
+            tomtelog.configure_log_provider(log_provider)
     @classmethod
     def get_db(cls) -> DatabaseProvider:
         if not cls._db:

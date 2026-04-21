@@ -1,7 +1,8 @@
 from typing import List, Type, TypeVar, Optional
 from pydantic import BaseModel
-from pydantic_ai import Embedder
-from pydantic_ai.models.gemini import GeminiChatModel
+from pydantic_ai import Agent, Embedder
+from pydantic_ai.models.gemini import GoogleModel
+from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.llm.structured import tomte_extractor_agent, junk_filter_agent, TomteDeps
 from tomte.engine.core.config import settings
@@ -17,11 +18,11 @@ class GeminiLLMProvider(LLMProvider):
         self.api_key = api_key
         
         # Initialize Gemini Chat Models
-        self.strong_model = GeminiChatModel(
+        self.strong_model = GoogleModel(
             settings.gemini.strong_model, 
             api_key=api_key
         )
-        self.cheap_model = GeminiChatModel(
+        self.cheap_model = GoogleModel(
             settings.gemini.cheap_model, 
             api_key=api_key
         )
@@ -61,18 +62,31 @@ class GeminiLLMProvider(LLMProvider):
         system_prompt: str, 
         user_text: str, 
         schema: Type[T],
-        taxonomy: List[str] = [],
-        lexicon: List[str] = []
+        taxonomy: Optional[List[str]] = None,
+        lexicon: Optional[List[str]] = None
     ) -> T:
         """
-        Performs deterministic graph extraction [cite: 71-73].
-        Forces the LLM to use the provided Taxonomy and Lexicon for ontology alignment[cite: 297].
+        Dynamically routes the extraction based on the requested schema.
         """
-        deps = TomteDeps(taxonomy=taxonomy, lexicon=lexicon)
-        
-        result = tomte_extractor_agent.run_sync(
-            user_text,
-            model=self.strong_model,
-            deps=deps
-        )
-        return result.data
+        # Route A: Phase 2 Generative Extraction (Requires Dictionary Deps)
+        if isinstance(schema, type) and issubclass(schema, TomteMemorySchema):
+            deps = TomteDeps(taxonomy=taxonomy or [], lexicon=lexicon or [])
+            result = tomte_extractor_agent.run_sync(
+                user_text,
+                model=self.strong_model,
+                deps=deps
+            )
+            return result.data
+            
+        # Route B: Phase 3 Reconciliation or Generic Tasks (Dynamic Schema)
+        else:
+            # Spin up a temporary, stateless agent for this specific schema
+            dynamic_agent = Agent(
+                output_type=schema,
+                system_prompt=system_prompt or "You are a helpful data extraction assistant."
+            )
+            result = dynamic_agent.run_sync(
+                user_text,
+                model=self.strong_model
+            )
+            return result.data

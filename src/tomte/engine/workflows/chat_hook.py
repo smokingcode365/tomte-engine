@@ -1,11 +1,13 @@
 from typing import Optional, Dict, Any, List
 from tomte.engine.core.config import settings
 from tomte.engine.core.enums import ChatSenderRole, MemoryDomain, ProviderDictionaryKeys
-from tomte.engine import log
+from tomte.engine.exceptions import TomteInvalidIdError, TomteInvalidInputError, TomteSecurityViolationError
+from tomte.engine import tomtelog
 from tomte.engine.core.schema import ChatHookPayload
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine.llm.interfaces import LLMProvider
+from tomte.engine.utils.keys import validate_id
 from tomte.engine.utils.security import SecurityGuard
 from tomte.engine.utils.cognitive import CognitiveProcessor
 
@@ -30,15 +32,13 @@ class ChatHookWorkflow:
         message: str, 
         sender_type: ChatSenderRole,
         user_id: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+    ) -> ChatHookPayload :
         """
         Main entry point. Routes the message based on sender and auth status.
         """
         # 1. Front-Door Security
-        clean_msg = self._handle_security(message, user_id)
-        if not clean_msg:
-            return self._build_payload(error="Security violation detected.")
-
+        self._input_validation(tenant_id, session_id, user_id, sender_type, message)
+        clean_msg = self._handle_security_and_sanitization(message, user_id)
         # 2. AI Path
         if sender_type == ChatSenderRole.ASSISTANT:
             return self._handle_assistant_sender(tenant_id, session_id, user_id, clean_msg)
@@ -50,30 +50,37 @@ class ChatHookWorkflow:
         # 4. Registered User Path (The Engine)
         return self._handle_registered_user(tenant_id, session_id, user_id, clean_msg)
 
+    def _input_validation(self, tenant_id: str, session_id: str, user_id: Optional[str],sender_type: ChatSenderRole,message: str) :
+        """Validates the input IDs."""
+        if not validate_id(tenant_id) or not validate_id(session_id) or not validate_id(user_id, can_be_empty=True):
+            raise TomteInvalidIdError(f"Invalid ID: {tenant_id}, {session_id}, {user_id}")
+        if not message or len(message.strip()) == 0:
+            raise TomteInvalidInputError("Message cannot be empty.")
+        if sender_type not in [ChatSenderRole.ASSISTANT, ChatSenderRole.USER]:
+            raise TomteInvalidInputError(f"Invalid sender type: {sender_type}")
     # ==========================================
     # ROUTING HELPERS
     # ==========================================
 
-    def _handle_security(self, message: str, user_id: Optional[str]) -> Optional[str]:
-        """Sanitizes input and checks for injection. Returns None if blocked."""
+    def _handle_security_and_sanitization(self, message: str, user_id: Optional[str]) -> str:
+        """Sanitizes input and checks for injection."""
         clean_msg = self.security.sanitize_input(message)
-        if self.security.check_for_injection(clean_msg):
-            log.warn(f"Security: Injection attempt blocked for User: {user_id or 'Guest'}")
-            return None
+        if not self.security.check_for_injection(clean_msg):
+            tomtelog.warn(f"Security: Injection attempt blocked for User: {user_id or 'Guest'}")
+            raise TomteSecurityViolationError(f"Security violation detected.Security: Injection attempt blocked for User: {user_id or 'Guest'}")
         return clean_msg
 
-    def _handle_assistant_sender(self, tenant_id: str, session_id: str, user_id: Optional[str], message: str) -> Dict[str, Any]:
-        """Logs AI responses to history. Returns None as no LLM generation is needed."""
-        log.debug(f"AI Path: Logging response to cache for {user_id or 'Guest'}")        
-        # Note: CacheProvider automatically handles the dual-write to the 
-        # consolidation queue here if user_id is present.
+    def _handle_assistant_sender(self, tenant_id: str, session_id: str, user_id: Optional[str], message: str) -> ChatHookPayload:
+        """Logs AI responses to history."""
+        tomtelog.debug(f"AI Path: Logging response to cache for {user_id or 'Guest'}")        
         self.cache.append_chat_history(tenant_id, session_id, message, role=ChatSenderRole.ASSISTANT.value, user_id=user_id)
-        self.cache.enqueue_for_consolidation(tenant_id, user_id, session_id, message, role=ChatSenderRole.ASSISTANT.value)
+        if user_id:
+            self.cache.enqueue_for_consolidation(tenant_id, user_id, session_id, message, role=ChatSenderRole.ASSISTANT.value)
         return self._build_payload(user_id=user_id,clean_message=message)
 
-    def _handle_guest_sender(self, tenant_id: str, session_id: str, message: str) -> Dict[str, Any]:
+    def _handle_guest_sender(self, tenant_id: str, session_id: str, message: str) -> ChatHookPayload:
         """Handles fast-path guest logic. No database or vector operations."""
-        log.debug(f"Guest Path: Processing session {session_id} for tenant {tenant_id}")
+        tomtelog.debug(f"Guest Path: Processing session {session_id} for tenant {tenant_id}")
         
         # History Handshake (Append Last Rule)
         chat_history = self.cache.get_chat_history(tenant_id, session_id, user_id=None,limit=settings.history_chat_number)
@@ -85,9 +92,9 @@ class ChatHookWorkflow:
             user_id=None
         )
 
-    def _handle_registered_user(self, tenant_id: str, session_id: str, user_id: str, message: str) -> Dict[str, Any]:
+    def _handle_registered_user(self, tenant_id: str, session_id: str, user_id: str, message: str) -> ChatHookPayload:
         """Executes the full RAG pipeline, persona logic, and history tracking."""
-        log.debug(f"User Path: Running full RAG for {user_id}")
+        tomtelog.debug(f"User Path: Running full RAG for {user_id}")
         query_vector = self.llm.embed_text(message)
         # 1. Heartbeat
         self.db.upsert_user_activity(tenant_id, user_id)
@@ -117,7 +124,7 @@ class ChatHookWorkflow:
         """Handles cache-first lookup for the user's permanent identity."""
         entities = self.cache.get_persona_entities(tenant_id, user_id)
         if not entities:
-            log.info(f"Cache Miss: Fetching Persona from DB for {user_id}")
+            tomtelog.info(f"Cache Miss: Fetching Persona from DB for {user_id}")
             entities = self.db.get_important_entities(tenant_id, user_id,domain=MemoryDomain.IDENTITY)
             self.cache.set_persona_entities(tenant_id, user_id, entities)
         return entities

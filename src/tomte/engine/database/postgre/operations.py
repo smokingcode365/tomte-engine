@@ -8,7 +8,7 @@ from tomte.engine.core.enums import MemoryDomain
 # --- Heartbeat ---
 def upsert_user_activity(conn: psycopg.Connection, tenant_id: str, user_id: str) -> None:
     sql = """
-        INSERT INTO user_registry (tenant_id, user_id, last_active_at)
+        INSERT INTO tomte_user_registry (tenant_id, user_id, last_active_at)
         VALUES (%s, %s, NOW())
         ON CONFLICT (tenant_id, user_id) DO UPDATE SET last_active_at = NOW();
     """
@@ -27,7 +27,7 @@ def get_entities_by_priority(conn: psycopg.Connection, tenant_id: str, user_id: 
     filter_val = domain.value if domain else None
     limit=limit if limit else settings.query_entities_limit
     sql = """
-        SELECT payload FROM memory_engine 
+        SELECT payload FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
         AND (%s::text IS NULL OR entity_domain = %s)
         ORDER BY importance DESC, mention_count DESC LIMIT %s;
@@ -40,7 +40,7 @@ def get_frequent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str
     """Pure fetch of most mentioned entities. No domain filtering."""
     limit=limit if limit else settings.query_entities_limit
     sql = """
-        SELECT payload FROM memory_engine 
+        SELECT payload FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
         ORDER BY mention_count DESC LIMIT %s;
     """
@@ -51,7 +51,7 @@ def get_frequent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str
 def get_recent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
     limit=limit if limit else settings.query_entities_limit
     sql = """
-        SELECT payload FROM memory_engine 
+        SELECT payload FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
         ORDER BY last_mentioned_at DESC LIMIT %s;
     """
@@ -64,7 +64,7 @@ def get_semantic_context(conn: psycopg.Connection, tenant_id: str, user_id: str,
     sql = """
         SELECT payload, 
         (1 - (embedding <=> %s::vector)) * (mention_count * exp(-0.0001 * extract(epoch from (now() - last_mentioned_at)))) as relevance_score 
-        FROM memory_engine 
+        FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
         ORDER BY relevance_score DESC LIMIT %s;
     """
@@ -79,7 +79,7 @@ def get_ontology_dictionaries(conn: psycopg.Connection, tenant_id: str, chat_vec
     sql = """
         WITH neighborhood AS (
             SELECT entity_domain, entity_type, payload 
-            FROM memory_engine 
+            FROM tomte_memory_engine 
             WHERE tenant_id = %s
             ORDER BY embedding <=> %s::vector 
             LIMIT 20
@@ -111,7 +111,7 @@ def get_user_graph_skeleton(conn: psycopg.Connection, tenant_id: str, user_id: s
     """Retrieves anchors including human-friendly name for extraction mapping."""
     sql = """
         SELECT id, entity_id, entity_name, entity_domain, entity_type 
-        FROM memory_engine 
+        FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s;
     """
     with conn.cursor() as cur:
@@ -120,7 +120,7 @@ def get_user_graph_skeleton(conn: psycopg.Connection, tenant_id: str, user_id: s
 
 def find_exact_fact(conn: psycopg.Connection, tenant_id: str, user_id: str, entity_id: str, attribute_name: str) -> Optional[UUID]:
     sql = """
-        SELECT id FROM memory_engine 
+        SELECT id FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s AND entity_id = %s
         AND payload @> jsonb_build_object('facts', jsonb_build_array(jsonb_build_object('attribute_name', %s::text)))
         LIMIT 1;
@@ -137,7 +137,7 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                 mode = op.get('mode')
                 if mode == 'INSERT':
                     cur.execute("""
-                        INSERT INTO memory_engine (
+                        INSERT INTO tomte_memory_engine (
                             tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload, embedding, importance
                         )
                         VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::vector, %s);
@@ -149,7 +149,7 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                 
                 elif mode == 'MUTATE':
                     cur.execute("""
-                        UPDATE memory_engine SET 
+                        UPDATE tomte_memory_engine SET 
                             payload = %s::jsonb, 
                             embedding = %s::vector, 
                             importance = %s, 
@@ -164,10 +164,11 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                         op['entity_name'], op['entity_domain'], op['entity_type'],
                         op['db_id'], op['tenant_id'], op['user_id']
                     ))
-
+                    if cur.rowcount == 0:
+                        raise ValueError(f"MUTATE failed: Record {op.get('db_id')} not found or namespace mismatch.")
                 elif mode == 'REINFORCE':
                     cur.execute("""
-                        UPDATE memory_engine 
+                        UPDATE tomte_memory_engine 
                         SET mention_count = mention_count + 1, last_mentioned_at = NOW()
                         WHERE id = %s AND tenant_id = %s AND user_id = %s;
                     """, (op['db_id'], op['tenant_id'], op['user_id']))

@@ -14,17 +14,25 @@ class TomteLockError(TomteError):
     """Raised when a background worker fails to acquire the Redis tenant/user Mutex lock."""
     pass
 
-class SchemaValidationError(TomteError):
+class TomteInvalidIdError(TomteError):
+    """Raised when an ID is invalid."""
+    pass
+
+class TomteSchemaValidationError(TomteError):
     """Raised when the LLM returns data that violates the Bounded Hybrid architecture."""
     pass
 
-class SecurityViolationError(Exception):
+class TomteSecurityViolationError(TomteError):
     """Raised when an active prompt injection or malicious input is detected."""
     pass
 
-class NamespaceError(Exception):
+class TomteNamespaceError(TomteError):
     """Raised when tenant_id or user_id are missing or malformed."""
     pass
 
-class DatabaseConnectionError(Exception):
+class TomteDatabaseConnectionError(TomteError):
+    pass
+
+class TomteInvalidInputError(TomteError):
+    """Raised when the input is invalid."""
     pass

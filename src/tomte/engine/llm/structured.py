@@ -14,12 +14,12 @@ class TomteDeps:
 
 # The templates now use the imported prompts
 tomte_extractor_agent = Agent(
-    result_type=TomteMemorySchema,
+    output_type=TomteMemorySchema,
     system_prompt=EXTRACTOR_SYSTEM_PROMPT
 )
 
 junk_filter_agent = Agent(
-    result_type=bool,
+    output_type=bool,
     system_prompt=JUNK_FILTER_PROMPT
 )
 

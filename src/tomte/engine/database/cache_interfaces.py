@@ -13,8 +13,13 @@ class CacheProvider(ABC):
     # ==========================================
 
     @abstractmethod
-    def acquire_lock(self, lock_key: str, ttl_seconds: int) -> bool:
-        """Attempts to acquire a distributed lock. Returns True if successful."""
+    def acquire_lock(self, lock_key: str, lock_value: str, ttl_seconds: int) -> bool:
+        """Attempts to acquire a distributed lock using a unique lock_value. Returns True if successful."""
+        pass
+
+    @abstractmethod
+    def release_lock(self, lock_key: str, lock_value: str) -> bool:
+        """Safely releases a distributed lock only if the lock_value matches. Returns True if deleted."""
         pass
 
     @abstractmethod
@@ -27,10 +32,6 @@ class CacheProvider(ABC):
         """Retrieves a raw string value by key. Returns None if missing."""
         pass
 
-    @abstractmethod
-    def release_lock(self, lock_key: str) -> None:
-        """Releases a distributed lock."""
-        pass
 
     @abstractmethod
     def push_to_list(self, list_key: str, message: str) -> None:
