@@ -2,7 +2,7 @@
 
 from typing import List, Dict, Any, Tuple
 from tomte.engine.database.db_interface import DatabaseProvider
-from tomte.engine.llm.embedder import embed_entity
+from tomte.engine.llm.embedder import embed_entity, get_entity_summary
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.dictionary.service import DictionaryService
 from tomte.engine.core.schema import TomteMemorySchema
@@ -20,6 +20,9 @@ class ConsolidationWorkflow:
         self.db = db
         self.llm = llm
         self.dict_service = dict_service
+    # ==========================================
+    # CONSOLIDATION CYCLE
+    # ==========================================
 
     def run_consolidation_cycle(self, tenant_id: str, user_id: str, chat_items: List[Dict[str, Any]]) -> bool:
         """
@@ -32,7 +35,9 @@ class ConsolidationWorkflow:
         if not chat_vectors:
             tomtelog.warn(f"No vectors found for consolidation session: {user_id}")
             return False
-
+        if self.llm.is_junk(chat_text):
+            tomtelog.info(f"Consolidation aborted: Chat log classified as junk/small-talk for {user_id}.")
+            return False
         # --- PHASE 1: Semantic Bootstrapping ---
         # Clusters chat vectors to find relevant dictionary keywords [cite: 137-151]
         tomtelog.debug(f"Phase 1: Bootstrapping dictionary for {user_id}")
@@ -68,11 +73,12 @@ class ConsolidationWorkflow:
         # Before committing, we must generate vectors for any new or changed entities.
         # These vectors anchor the facts in the Knowledge Graph [cite: 160-171].
         tomtelog.debug(f"Consolidation: Generating embeddings for {len(refined_ops)} operations")
-        for op in refined_ops:
-            # Use your new utility to generate the concept-based vector
-            # This ensures the vector is 'clean' (no JSON noise/timeline noise)
-            op['embedding'] = embed_entity(self.llm, op['payload']) # [cite: 114]
-
+        if refined_ops:
+            summaries_to_embed = [get_entity_summary(op['payload']) for op in refined_ops]
+            batch_vectors = self.llm.embed_batch(summaries_to_embed)
+            for i, op in enumerate(refined_ops):
+                op['embedding'] = batch_vectors[i]
+                
         # --- ATOMIC COMMIT ---
         # Now the ops contain the 'embedding' vector required by the SQL logic [cite: 145-177]
         if not self.db.commit_graph_updates(refined_ops):
@@ -111,6 +117,9 @@ class ConsolidationWorkflow:
                 all_entities.append(entity.model_dump(mode='json'))
         return all_entities
 
+    # ==========================================
+    # RECONCILIATION HELPER
+    # ==========================================
     def _reconcile_with_golden_records(
         self, 
         tenant_id: str, 
@@ -152,20 +161,34 @@ class ConsolidationWorkflow:
             for e in extracted
         ]
         
+        # PREPARE LLM CONTEXT (Fix 2: Token Saver & UUID Crash Fix)
+        # We summarize the skeleton so we don't blow up the LLM token limit with massive payloads,
+        # and we cast the UUID to a string so json.dumps doesn't crash.
+        llm_skeleton_view = [
+            {
+                "id": str(s["id"]), 
+                "entity_id": s["entity_id"],
+                "name": s["entity_name"],
+                "type": s["entity_type"],
+                # We only show the LLM the keys of existing facts so it knows what to MUTATE
+                "existing_fact_keys": [f["attribute_name"] for f in s.get("payload", {}).get("facts", [])] 
+            }
+            for s in skeleton
+        ]
+        
         reconciliation_context = (
-            f"EXISTING_GOLDEN_RECORDS (SKELETON):\n{json.dumps(skeleton, indent=2)}\n\n"
+            f"EXISTING_GOLDEN_RECORDS (SKELETON):\n{json.dumps(llm_skeleton_view, indent=2)}\n\n"
             f"NEW_EXTRACTED_ENTITIES:\n{json.dumps(extracted_summary, indent=2)}"
         )
 
-        # 3. Call the Reconciler LLM [cite: 159]
-        # This is the 'Second Time' call to reconcile with Golden Records
+        # 3. Call the Reconciler LLM
         response: ReconciliationResponse = self.llm.parse_structured(
             system_prompt=RECONCILER_SYSTEM_PROMPT,
             user_text=reconciliation_context,
             schema=ReconciliationResponse
         )
 
-        # 4. Map LLM decisions back to database operations [cite: 164-169]
+        # 4. Map LLM decisions back to database operations
         mapping_lookup = {m.extracted_entity_id: m for m in response.mappings}
         refined_ops = []
 
@@ -175,8 +198,35 @@ class ConsolidationWorkflow:
             # Default to INSERT if the LLM failed to provide a mapping for an entity
             mode = decision.mode if decision else "INSERT"
             db_id = decision.matched_db_id if decision else None
+            
+            # ==========================================
+            # FALLBACK GUARD (Fix 3: Prevent Rollbacks)
+            # ==========================================
+            if mode in ["MUTATE", "REINFORCE"] and not db_id:
+                tomtelog.warn(f"LLM flagged {mode} but provided no DB ID for {entity['entity_id']}. Falling back to INSERT.")
+                mode = "INSERT"
 
-            # Calculate entity-level importance based on the most important fact extracted
+            # ==========================================
+            # MERGE LOGIC (Fix 1 & 3: Prevent Alias Loss & Vector Dilution)
+            # ==========================================
+            # Isolate the newly extracted facts BEFORE merging so we don't contaminate the dictionary
+            extracted_new_facts = entity.get("facts", []) 
+            
+            if mode in ["MUTATE", "REINFORCE"] and db_id:
+                old_record = next((s for s in skeleton if str(s["id"]) == str(db_id)), None)
+                
+                if old_record and "payload" in old_record:
+                    # A. Merge Facts safely
+                    old_facts = {f["attribute_name"]: f for f in old_record["payload"].get("facts", [])}
+                    new_facts = {f["attribute_name"]: f for f in extracted_new_facts}
+                    old_facts.update(new_facts) 
+                    entity["facts"] = list(old_facts.values())
+
+                    # B. Merge Aliases safely
+                    old_aliases = set(old_record["payload"].get("aliases", []))
+                    new_aliases = set(entity.get("aliases", []))
+                    entity["aliases"] = list(old_aliases | new_aliases)
+
             max_imp = max([f.get("importance", 3) for f in entity.get("facts", [])]) if entity.get("facts") else 3
 
             op = {
@@ -187,14 +237,12 @@ class ConsolidationWorkflow:
                 "entity_name": entity.get("entity_name") or entity["entity_id"],
                 "entity_domain": entity["entity_domain"],
                 "entity_type": entity["entity_type"],
-                "payload": entity,
+                "payload": entity, # Full merged entity for the Database and Vector Embedder
+                "extracted_facts": extracted_new_facts, # Isolated new facts for the Dictionary Hits
                 "importance": max_imp
             }
             
-            # If we found a match, add the DB UUID to the operation [cite: 153-154]
             if db_id:
-                op["db_id"] = db_id
+                op["db_id"] = str(db_id)
                 
             refined_ops.append(op)
-
-        return refined_ops

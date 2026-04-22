@@ -110,7 +110,7 @@ def get_ontology_dictionaries(conn: psycopg.Connection, tenant_id: str, chat_vec
 def get_user_graph_skeleton(conn: psycopg.Connection, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
     """Retrieves anchors including human-friendly name for extraction mapping."""
     sql = """
-        SELECT id, entity_id, entity_name, entity_domain, entity_type 
+        SELECT id, entity_id, entity_name, entity_domain, entity_type, payload 
         FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s;
     """

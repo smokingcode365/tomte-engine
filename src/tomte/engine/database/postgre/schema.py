@@ -62,7 +62,19 @@ def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
                 CREATE INDEX IF NOT EXISTS idx_mem_vector 
                 ON tomte_memory_engine USING ivfflat (embedding vector_cosine_ops);
             """)
-            
+
+            # 3. Keyword Audit Log Table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS tomte_keyword_audit_log (
+                    id BIGSERIAL PRIMARY KEY,
+                    dictionary_id UUID,
+                    keyword TEXT NOT NULL,
+                    keyword_type TEXT NOT NULL,
+                    hits INT,
+                    last_modified_at TIMESTAMPTZ,
+                    removed_at TIMESTAMPTZ DEFAULT NOW()
+                );
+            """)
             conn.commit()
             tomtelog.info("Core Memory infrastructure ensured.")
             

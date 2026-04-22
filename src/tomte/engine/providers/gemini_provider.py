@@ -1,7 +1,7 @@
 from typing import List, Type, TypeVar, Optional
 from pydantic import BaseModel
 from pydantic_ai import Agent, Embedder
-from pydantic_ai.models.gemini import GoogleModel
+from pydantic_ai.models.google import GoogleModel
 from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.llm.structured import tomte_extractor_agent, junk_filter_agent, TomteDeps

@@ -13,12 +13,13 @@ def get_semantic_keywords(
 ) -> List[Dict[str, Any]]:
     """Phase 1: Retrieves ALL keywords for the Top K unique semantic IDs."""
     sql = """
-        SELECT r.keyword, r.keyword_type, r.hits, a.dictionary_id
+        -- CRITICAL FIX: Added a.score to the SELECT statement
+        SELECT r.keyword, r.keyword_type, r.hits, a.dictionary_id, a.score
         FROM (
-            SELECT dictionary_id
+            SELECT dictionary_id, (1 - (embedding <=> %(vec)s::vector)) as score
             FROM tomte_semantic_anchors
             WHERE (1 - (embedding <=> %(vec)s::vector)) > %(thresh)s
-            ORDER BY (1 - (embedding <=> %(vec)s::vector)) DESC
+            ORDER BY score DESC
             LIMIT %(limit)s
         ) a
         JOIN tomte_keyword_registry r ON a.dictionary_id = r.dictionary_id;
