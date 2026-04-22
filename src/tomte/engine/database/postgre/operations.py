@@ -160,20 +160,36 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                             mention_count = mention_count + 1
                         WHERE id = %s AND tenant_id = %s AND user_id = %s;
                     """, (
-                        json.dumps(op['payload']), op['embedding'] , op.get('importance', 3), 
+                        json.dumps(op['payload']), op['embedding'], op.get('importance', 3), 
                         op['entity_name'], op['entity_domain'], op['entity_type'],
                         op['db_id'], op['tenant_id'], op['user_id']
                     ))
+                    
+                    # Prevent silent database failures if the ID doesn't actually exist
                     if cur.rowcount == 0:
                         raise ValueError(f"MUTATE failed: Record {op.get('db_id')} not found or namespace mismatch.")
+
                 elif mode == 'REINFORCE':
+                    # CRITICAL FIX: Save the updated payload and embedding alongside the mention_count bump
                     cur.execute("""
                         UPDATE tomte_memory_engine 
-                        SET mention_count = mention_count + 1, last_mentioned_at = NOW()
+                        SET payload = %s::jsonb,
+                            embedding = %s::vector,
+                            mention_count = mention_count + 1, 
+                            last_mentioned_at = NOW()
                         WHERE id = %s AND tenant_id = %s AND user_id = %s;
-                    """, (op['db_id'], op['tenant_id'], op['user_id']))
+                    """, (
+                        json.dumps(op['payload']), op['embedding'], 
+                        op['db_id'], op['tenant_id'], op['user_id']
+                    ))
+                    
+                    # Prevent silent database failures if the ID doesn't actually exist
+                    if cur.rowcount == 0:
+                        raise ValueError(f"REINFORCE failed: Record {op.get('db_id')} not found or namespace mismatch.")
+                        
             conn.commit()
             return True
+            
     except Exception:
         conn.rollback()
         raise

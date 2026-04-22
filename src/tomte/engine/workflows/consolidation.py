@@ -35,8 +35,9 @@ class ConsolidationWorkflow:
         if not chat_vectors:
             tomtelog.warn(f"No vectors found for consolidation session: {user_id}")
             return False
+        # CRITICAL FIX: Inject the Junk Filter here
         if self.llm.is_junk(chat_text):
-            tomtelog.info(f"Consolidation aborted: Chat log classified as junk/small-talk for {user_id}.")
+            tomtelog.info(f"Consolidation aborted: Chat log is junk/small-talk for {user_id}.")
             return False
         # --- PHASE 1: Semantic Bootstrapping ---
         # Clusters chat vectors to find relevant dictionary keywords [cite: 137-151]
