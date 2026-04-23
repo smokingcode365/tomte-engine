@@ -2,28 +2,24 @@ from typing import Optional, Dict, Any, List
 from tomte.engine.core.config import settings
 from tomte.engine.core.enums import ChatSenderRole, MemoryDomain, ProviderDictionaryKeys
 from tomte.engine.exceptions import TomteInvalidIdError, TomteInvalidInputError, TomteSecurityViolationError
-from tomte.engine import tomtelog
+from tomte.engine import tomtelog, Tomte
 from tomte.engine.core.schema import ChatHookPayload
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.utils.keys import validate_id
-from tomte.engine.utils.security import SecurityGuard
-from tomte.engine.utils.cognitive import CognitiveProcessor
+from tomte.engine.utils.security import SecurityGuard, get_security_guard
+from tomte.engine.utils.cognitive import CognitiveProcessor, get_cognitive_processor
 
 class ChatHookWorkflow: 
     def __init__(
         self, 
-        providers: Dict[ProviderDictionaryKeys, Any], 
-        cognitive: Any, 
-        security: Any
     ):
-        self.db: DatabaseProvider = providers[ProviderDictionaryKeys.DB]
-        self.cache: CacheProvider = providers[ProviderDictionaryKeys.CACHE]
-        self.llm: LLMProvider = providers[ProviderDictionaryKeys.LLM]
-        
-        self.cog: CognitiveProcessor = cognitive
-        self.security: SecurityGuard = security
+        self.db: DatabaseProvider = Tomte.get_db()
+        self.cache: CacheProvider = Tomte.get_cache()
+        self.llm: LLMProvider = Tomte.get_llm()
+        self.cog: CognitiveProcessor = get_cognitive_processor()
+        self.security: SecurityGuard = get_security_guard()
 
     def on_chat(
         self, 

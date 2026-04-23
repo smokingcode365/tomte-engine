@@ -129,4 +129,17 @@ class CacheProvider(ABC):
 
 
 
+    @abstractmethod
+    def get_next_idle_session_4_consolidation(self, idle_seconds: int = 300) -> Optional[str]:
+        """Finds the absolute oldest session reference that has been idle."""
+        ...
 
+    @abstractmethod
+    def pop_session_chat_log_4_consolidation(self, tenant_id: str, user_id: str, session_id: str) -> List[Dict[str, Any]]:
+        """Pulls the chronological chat log payload for consolidation."""
+        ...
+
+    @abstractmethod
+    def clear_session_4_consolidation(self, tenant_id: str, user_id: str, session_id: str) -> None:
+        """Removes the chat log and removes the session from the active pool."""
+        ...

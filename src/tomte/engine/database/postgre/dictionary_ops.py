@@ -1,9 +1,21 @@
 # tomte/engine/database/postgre/dictionary_ops.py
 
 import json
-from typing import List, Dict, Any, Optional
+from typing import Any, List, Dict, Optional
 from uuid import UUID
 import psycopg
+
+def get_anchor_keywords(conn: psycopg.Connection, dictionary_id: UUID | str) -> List[Dict[str, Any]]:
+    """Returns all keyword rows for an anchor (used by maintenance and internal merge)."""
+    sql = """
+        SELECT keyword, keyword_type, hits, created_at, last_modified_at
+        FROM tomte_keyword_registry
+        WHERE dictionary_id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (dictionary_id,))
+        return cur.fetchall()
+
 
 def get_semantic_keywords(
     conn: psycopg.Connection, 
@@ -102,3 +114,83 @@ def find_matches_above_threshold(conn: psycopg.Connection, vector: List[float], 
             "thresh": threshold
         })
         return cur.fetchall()
+
+
+def execute_trim_job(conn: psycopg.Connection) -> int:
+    """Executes capacity-based trimming via atomic CTE."""
+    sql = """
+        WITH overweight_anchors AS (
+            SELECT dictionary_id FROM tomte_keyword_registry 
+            GROUP BY dictionary_id HAVING COUNT(*) > 100
+        ),
+        deleted_rows AS (
+            DELETE FROM tomte_keyword_registry
+            WHERE dictionary_id IN (SELECT dictionary_id FROM overweight_anchors)
+            AND hits < 3 AND last_modified_at < NOW() - INTERVAL '1 year'
+            RETURNING dictionary_id, keyword, keyword_type, hits, last_modified_at
+        )
+        INSERT INTO tomte_keyword_audit_log (dictionary_id, keyword, keyword_type, hits, last_modified_at)
+        SELECT dictionary_id, keyword, keyword_type, hits, last_modified_at FROM deleted_rows;
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return cur.rowcount
+
+def get_cross_anchor_merge_candidates(conn: psycopg.Connection) -> List[Dict[str, Any]]:
+    """Uses pgvector self-join to find overlapping concepts."""
+    sql = """
+        SELECT a.dictionary_id as id_a, b.dictionary_id as id_b, 
+               a.embedding as emb_a, b.embedding as emb_b
+        FROM tomte_semantic_anchors a
+        JOIN tomte_semantic_anchors b ON a.dictionary_id < b.dictionary_id
+        WHERE (1 - (a.embedding <=> b.embedding)) > 0.9;
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return cur.fetchall()
+
+def consolidate_duplicate_anchors(
+    conn: psycopg.Connection, id_a: str, id_b: str, merged_vector: List[float], merged_kws: Dict
+) -> None:
+    """Atomically commits a cross-anchor merge."""
+    with conn.cursor() as cur:
+        cur.execute("UPDATE tomte_semantic_anchors SET embedding = %s::vector WHERE dictionary_id = %s", (merged_vector, id_a))
+        cur.execute("DELETE FROM tomte_keyword_registry WHERE dictionary_id IN (%s, %s)", (id_a, id_b))
+        
+        for key, data in merged_kws.items():
+            cur.execute("""
+                INSERT INTO tomte_keyword_registry (dictionary_id, keyword, keyword_type, hits, created_at, last_modified_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (id_a, key[0], key[1], data['hits'], data['created_at'], data['last_modified_at']))
+        
+        cur.execute("DELETE FROM tomte_semantic_anchors WHERE dictionary_id = %s", (id_b,))
+
+def get_anchors_for_internal_merge(conn: psycopg.Connection) -> List[str]:
+    """Finds anchors that haven't been internally optimized in over a month."""
+    sql = """
+        SELECT dictionary_id FROM tomte_semantic_anchors
+        WHERE last_internal_merge_at IS NULL 
+           OR last_internal_merge_at < NOW() - INTERVAL '1 month';
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return [row['dictionary_id'] for row in cur.fetchall()]
+
+def execute_internal_keyword_merge(
+    conn: psycopg.Connection, anchor_id: str, kw_type: str, survivor: str, victims: List[str], total_hits: int
+) -> None:
+    """Updates the survivor's hits and deletes the victim synonyms."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE tomte_keyword_registry SET hits = %s, last_modified_at = NOW()
+            WHERE dictionary_id = %s AND keyword_type = %s AND keyword = %s
+        """, (total_hits, anchor_id, kw_type, survivor))
+        
+        cur.execute("""
+            DELETE FROM tomte_keyword_registry 
+            WHERE dictionary_id = %s AND keyword_type = %s AND keyword = ANY(%s)
+        """, (anchor_id, kw_type, victims))
+
+def mark_anchor_internal_merge_complete(conn: psycopg.Connection, anchor_id: str) -> None:
+    with conn.cursor() as cur:
+        cur.execute("UPDATE tomte_semantic_anchors SET last_internal_merge_at = NOW() WHERE dictionary_id = %s", (anchor_id,))

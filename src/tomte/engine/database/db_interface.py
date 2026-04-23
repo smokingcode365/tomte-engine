@@ -63,3 +63,54 @@ class DatabaseProvider(Protocol):
     def commit_graph_updates(self, updates: List[Any]) -> bool:
         """Executes a batch of graph mutations in an atomic transaction."""
         ...
+
+    # --- Dictionary semantic anchors (bootstrap + feedback) ---
+    def get_semantic_keywords(
+        self, vector: List[float], threshold: float, id_limit: int
+    ) -> List[Dict[str, Any]]:
+        """Top semantic anchors and their registry keywords for dictionary bootstrap."""
+        ...
+
+    def find_dictionary_matches_above_threshold(
+        self, vector: List[float], threshold: float
+    ) -> List[Dict[str, Any]]:
+        """Anchors whose embedding similarity exceeds ``threshold``."""
+        ...
+
+    def get_dictionary_anchor_details(self, dictionary_id: UUID) -> Optional[Dict[str, Any]]:
+        """Embedding and aggregate hit stats for nudging math."""
+        ...
+
+    def update_dictionary_anchor_vector(self, dictionary_id: UUID, new_vector: List[float]) -> None:
+        ...
+
+    def upsert_dictionary_keyword(self, dictionary_id: UUID, keyword: str, keyword_type: str) -> None:
+        ...
+
+    def create_dictionary_anchor(self, vector: List[float]) -> UUID:
+        ...
+
+    def commit_transaction(self) -> None:
+        """Commits the current transaction on the provider connection."""
+        ...
+
+    def rollback_transaction(self) -> None:
+        """Rolls back the current transaction on the provider connection."""
+        ...
+
+    def get_anchor_keywords(self, dictionary_id: str) -> List[Dict[str, Any]]:
+        """Keyword rows for one semantic anchor (maintenance / merge UIs)."""
+        ...
+
+    def execute_dictionary_trim(self) -> int:
+        ...
+    def get_cross_anchor_merge_candidates(self) -> List[Dict[str, Any]]:
+        ...
+    def consolidate_duplicate_anchors(self, id_a: str, id_b: str, merged_vector: List[float], merged_kws: Dict) -> bool:
+        ...
+    def get_anchors_for_internal_merge(self) -> List[str]:
+        ...
+    def apply_internal_merges(self, anchor_id: str, merges: List[Dict[str, Any]]) -> None:
+        ...
+    def mark_anchor_internal_merge_complete(self, anchor_id: str) -> None:
+        ...

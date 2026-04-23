@@ -95,7 +95,8 @@ def ensure_dictionary_infrastructure(conn: psycopg.Connection, vector_dimension:
             cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS tomte_semantic_anchors (
                     dictionary_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    embedding vector({safe_dim}) NOT NULL
+                    embedding vector({safe_dim}) NOT NULL,
+                    last_internal_merge_at TIMESTAMPTZ DEFAULT NULL
                 );
             """)
 

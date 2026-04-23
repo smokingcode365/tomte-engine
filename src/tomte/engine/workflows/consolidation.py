@@ -1,25 +1,20 @@
 # tomte/engine/workflows/consolidation.py
 
-from typing import List, Dict, Any, Tuple
-from tomte.engine.database.db_interface import DatabaseProvider
-from tomte.engine.llm.embedder import embed_entity, get_entity_summary
-from tomte.engine.llm.interfaces import LLMProvider
-from tomte.engine.dictionary.service import DictionaryService
+from typing import List, Dict, Any
+from tomte.engine.llm.embedder import  get_entity_summary
+from tomte.engine.dictionary.service import get_dictionary_service
 from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.core.enums import DictionaryKeywordType
-from tomte.engine import tomtelog
+from tomte.engine import tomtelog, Tomte
 from tomte.engine.llm.prompts.consolidation_golden_record import RECONCILER_SYSTEM_PROMPT
 
 class ConsolidationWorkflow:
     def __init__(
-        self, 
-        db: DatabaseProvider, 
-        llm: LLMProvider, 
-        dict_service: DictionaryService
+        self
     ):
-        self.db = db
-        self.llm = llm
-        self.dict_service = dict_service
+        self.db = Tomte.get_db()
+        self.llm = Tomte.get_llm()
+        self.dict_service = get_dictionary_service()
     # ==========================================
     # CONSOLIDATION CYCLE
     # ==========================================

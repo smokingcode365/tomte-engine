@@ -5,12 +5,12 @@ import uuid
 import redis
 import json
 import time
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from tomte.engine.core.config import settings
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine import tomtelog
 from tomte.engine.utils.keys import generate_common_key, generate_persona_key, get_section_key_active_sessions
-from tomte.engine.utils.keys import generate_consolidation_key, generate_session_ref
+from tomte.engine.utils.keys import generate_consolidation_key, generate_session_ref, parse_session_ref
 from tomte.engine.utils.security import get_security_guard
 
 class RedisCacheProvider(CacheProvider):
@@ -197,3 +197,51 @@ class RedisCacheProvider(CacheProvider):
         """Uses your set_value method to store JSON."""
         key = generate_persona_key(tenant_id, user_id)
         self.set_value(key, json.dumps(entities), ttl_seconds=ttl) # Using YOUR base method
+
+
+    def get_next_idle_session_4_consolidation(self, idle_seconds: int = 300) -> Optional[Tuple[str, str, str]]:
+        """
+        Fetches exactly ONE session that has been idle for the required time.
+        """
+        cutoff_time = time.time() - idle_seconds
+        
+        # LIMIT 0 1 ensures we only grab the absolute oldest idle session
+        idle_refs = self.client.zrangebyscore(
+            get_section_key_active_sessions(), 
+            "-inf", 
+            cutoff_time,
+            start=0,
+            num=1
+        )
+        return parse_session_ref(idle_refs[0]) if idle_refs else None
+
+    def pop_session_chat_log_4_consolidation(self, tenant_id: str, user_id: str, session_id: str) -> list[dict]:
+        """
+        Pulls the raw chat log for a session and parses the JSON.
+        """
+        # Corrected argument order to match keys.py: (tenant_id, user_id, session_id)
+        query_key = generate_consolidation_key(tenant_id, user_id, session_id)
+        raw_items = self.client.lrange(query_key, 0, -1)
+        
+        if not raw_items:
+            return []
+            
+        parsed_items = []
+        for item in raw_items:
+            try:
+                parsed_items.append(json.loads(item))
+            except json.JSONDecodeError as e:
+                tomtelog.error(f"Corrupted payload in consolidation queue {query_key}", exc=e)
+        return parsed_items
+
+    def clear_session_4_consolidation(self, tenant_id: str, user_id: str, session_id: str):
+        """
+        Deletes the chat log and removes the session from the active ZSET.
+        """
+        pipe = self.client.pipeline()
+        # Corrected argument order for generate_consolidation_key
+        queue_key = generate_consolidation_key(tenant_id, user_id, session_id)
+        session_ref = generate_session_ref(tenant_id, session_id, user_id)
+        pipe.delete(queue_key)
+        pipe.zrem(get_section_key_active_sessions(), session_ref)
+        pipe.execute()
