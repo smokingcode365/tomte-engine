@@ -242,3 +242,5 @@ class ConsolidationWorkflow:
                 op["db_id"] = str(db_id)
                 
             refined_ops.append(op)
+
+        return refined_ops

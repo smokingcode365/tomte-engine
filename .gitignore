@@ -30,7 +30,7 @@ uv.lock.bak
 .ipynb_checkpoints/
 
 # Logs & local data
-log/
+/log/
 data/
 *.log
 

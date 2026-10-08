@@ -9,7 +9,7 @@ from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.utils.keys import validate_id
 from tomte.engine.utils.security import SecurityGuard, get_security_guard
-from tomte.engine.utils.cognitive import CognitiveProcessor, get_cognitive_processor
+from tomte.engine.utils.cognitive import CognitiveProcessor
 
 class ChatHookWorkflow: 
     def __init__(
@@ -18,7 +18,7 @@ class ChatHookWorkflow:
         self.db: DatabaseProvider = Tomte.get_db()
         self.cache: CacheProvider = Tomte.get_cache()
         self.llm: LLMProvider = Tomte.get_llm()
-        self.cog: CognitiveProcessor = get_cognitive_processor()
+        self.cog: CognitiveProcessor = CognitiveProcessor()
         self.security: SecurityGuard = get_security_guard()
 
     def on_chat(

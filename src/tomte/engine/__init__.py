@@ -1,12 +1,11 @@
+from __future__ import annotations
+
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.core.config import TomteSettings
 from tomte.engine.log.interfaces import LogProvider
 from tomte.engine.log import tomtelog
-from tomte.engine.workers.runner import TomteWorker
-from tomte.engine.clients.chat_client import TomteChatClient
-from tomte.engine.clients.admin_client import TomteAdminClient
 
 class Tomte:
     _cache: CacheProvider | None = None
@@ -59,9 +58,23 @@ class Tomte:
         return cls._worker
 
     @classmethod
+    def _validate_init(cls):
+        if not cls._db or not cls._cache or not cls._llm:
+            raise RuntimeError("Tomte not initialized. Call Tomte.init() first.")
+
+    # ==========================================
+    @classmethod
     def create_tomte_client(cls, tenant_id: str) -> TomteChatClient:
+        cls._validate_init()
         return TomteChatClient(tenant_id=tenant_id)
 
     @classmethod
     def create_tomte_admin(cls, tenant_id: str) -> TomteAdminClient:
+        cls._validate_init()
         return TomteAdminClient(tenant_id=tenant_id)
+
+
+# These modules import Tomte, so load them after the class is defined.
+from tomte.engine.workers.runner import TomteWorker
+from tomte.engine.clients.chat_client import TomteChatClient
+from tomte.engine.clients.admin_client import TomteAdminClient
