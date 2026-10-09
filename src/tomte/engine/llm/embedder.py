@@ -1,5 +1,6 @@
 # engine/utils/cognitive.py (Recommended location)
 from typing import Dict, Any, List
+from tomte.engine.core.assertions import project_facts
 
 from tomte.engine.llm.interfaces import LLMProvider
 
@@ -29,7 +30,7 @@ def get_entity_summary(entity_data: Dict[str, Any]) -> str:
     # 3. Filtered Facts (The 'Substance')
     # We only include Stable or Permanent facts (Importance >= 3) to prevent 
     # transient comments (e.g., 'I am hungry') from drifting the anchor vector.
-    facts = entity_data.get("facts", [])
+    facts = project_facts(entity_data.get("facts", []))
     stable_facts = [
         f"{f['attribute_name'].replace('_', ' ')}: {f['value']}"
         for f in facts 

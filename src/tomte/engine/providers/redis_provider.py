@@ -7,6 +7,7 @@ import json
 import time
 from typing import List, Optional, Dict, Any, Tuple
 from tomte.engine.core.config import settings
+from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine import tomtelog
 from tomte.engine.utils.keys import generate_common_key, generate_persona_key, get_section_key_active_sessions
@@ -148,7 +149,8 @@ class RedisCacheProvider(CacheProvider):
         session_id: str, 
         message: str, 
         role: str, 
-        vector: Optional[List[float]] = None
+        vector: Optional[List[float]] = None,
+        recent_context: Optional[List[Dict[str, Any]]] = None
     ) -> None:
         """
         Saves message data to a session-specific queue and updates the global 
@@ -168,7 +170,10 @@ class RedisCacheProvider(CacheProvider):
             "role": role,
             "content": get_security_guard().scrub_pii(message),
             "vector": vector,
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "recent_context": [{"role": turn["role"],
+                                "content": get_security_guard().scrub_pii(turn["content"])}
+                               for turn in (recent_context or [])[-RECENT_CONTEXT_TURNS:]]
         }
         json_payload = json.dumps(payload)
 

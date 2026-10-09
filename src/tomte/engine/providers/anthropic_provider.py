@@ -80,6 +80,7 @@ class AnthropicLLMProvider(LLMProvider):
             result = tomte_extractor_agent.run_sync(
                 user_text,
                 model=self.strong_model,
+                output_type=schema,
                 deps=deps
             )
             return result.data

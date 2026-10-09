@@ -65,6 +65,7 @@ class OpenAILLMProvider(LLMProvider):
             result = tomte_extractor_agent.run_sync(
                 user_text,
                 model=self.strong_model,
+                output_type=schema,
                 model_settings={"openai_reasoning_effort": "low"},
                 deps=deps
             )

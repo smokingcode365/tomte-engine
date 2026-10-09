@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+from tomte.engine.core.assertions import project_facts
 
 
 class CognitiveProcessor:
@@ -21,11 +22,13 @@ class CognitiveProcessor:
                 # O(1) dictionary lookup/overwrite
                 eid = entity.get("entity_id")
                 if eid:
-                    master_map[eid] = entity
+                    # DB identity wins: corrupt logical-ID collisions must not drop rows.
+                    key = ("db", entity.get("tenant_id"), entity.get("user_id"), str(entity["id"])) if entity.get("id") else ("entity", eid)
+                    master_map[key] = entity
                     
         return list(master_map.values())
 
-    def format_entities(self, entities: List[Dict[str, Any]]) -> str:
+    def format_entities(self, entities: List[Dict[str, Any]], view: str = "current") -> str:
         """
         Formats raw dictionaries into LLM context.
         Handles the logic-heavy sorting and string building here.
@@ -35,7 +38,7 @@ class CognitiveProcessor:
 
         formatted_blocks = []
         for entity in entities:
-            facts = entity.get("facts", [])
+            facts = project_facts(entity.get("facts", []), view)
             
             # Internal sort: Importance 5 down to 1
             # We do this here so it's only done once right before the LLM call
@@ -46,7 +49,7 @@ class CognitiveProcessor:
             )
 
             fact_lines = [
-                f"- {f['attribute_name']}: {f['value']} (imp: {f['importance']})"
+                f"- {f['attribute_name']}: {f['value']} (imp: {f.get('importance', 3)}) [status: {f.get('status', 'active')}] [assertion: {f.get('assertion_state') or ('HISTORICAL' if f.get('status') == 'past' else 'ACTIVE')}]"
                 for f in sorted_facts
             ]
 
@@ -56,6 +59,8 @@ class CognitiveProcessor:
 
             block = (
                 f"[[ENTITY: {entity.get('entity_id')} | TYPE: {type_label}]]\n"
+                f"NAME: {entity.get('entity_name', 'unknown')}\n"
+                f"ALIASES: {', '.join(entity.get('aliases', [])) or 'none'}\n"
                 f"{chr(10).join(fact_lines)}"
             )
             formatted_blocks.append(block)

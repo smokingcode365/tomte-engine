@@ -1,3 +1,5 @@
+from tomte.engine.core.assertions import project_facts
+from resolution_helpers import resolution_response, mutation_response
 """Deterministic vehicle persistence/context checks on local PostgreSQL/Redis.
 
 Reuse the existing opt-in mechanics fixture and its scoped cleanup. These tests
@@ -12,11 +14,12 @@ from psycopg.pq import TransactionStatus
 import pytest
 
 from test_consolidation_mechanics import (
-    mechanics, memory_rows, dictionary_state, processed_count, acknowledge,
+    mechanics, memory_rows, dictionary_state, processed_count, acknowledge, extraction_response,
 )
 from tomte.engine import Tomte
 from tomte.engine.core.enums import ChatSenderRole, FactStatus, MemoryDomain
 from tomte.engine.core.schema import Entity, Fact, TimelineEvent, TomteMemorySchema
+from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.workflows.chat_hook import ChatHookWorkflow
 from tomte.engine.workflows.consolidation import ConsolidationWorkflow
 
@@ -58,7 +61,7 @@ class VehicleLLM:
         return self.vector()
 
     def is_junk(self, text):
-        assert text == "user: " + self.message
+        assert json.loads(text)["CURRENT_BATCH"][0]["content"] == self.message
         self.record("is_junk")
         return False
 
@@ -88,21 +91,24 @@ class VehicleLLM:
         )
 
     def parse_structured(self, system_prompt, user_text, schema, taxonomy=None, lexicon=None):
+        if schema.__name__ == "MutationPlanResponse":
+            self.record("mutate")
+            return mutation_response(schema,user_text)
         entity = self.extracted()
-        if schema is TomteMemorySchema:
-            assert user_text == "user: " + self.message
+        if schema is ExtractionMemorySchema:
+            assert json.loads(user_text)["CURRENT_BATCH"][0]["content"] == self.message
             assert isinstance(taxonomy, list) and isinstance(lexicon, list)
             self.record("extract")
-            return schema(**{entity.entity_domain.value: [entity]})
-        assert schema.__name__ == "ReconciliationResponse"
+            return extraction_response(schema, entity, user_text)[0]
+        assert schema.__name__ == "ResolutionResponse"
         if self.db_id:
             assert str(self.db_id) in user_text and '"entity_id": "veh_01"' in user_text
         self.record("reconcile")
-        return schema.model_validate({"mappings": [{
+        return resolution_response(schema, {"mappings": [{
             "extracted_entity_id": entity.entity_id, "mode": self.mode,
             "matched_db_id": str(self.db_id) if self.db_id else None,
             "reasoning": "Prescribed synthetic match, not a model-quality claim",
-        }]})
+        }]}, user_text)
 
     def embed_batch(self, texts):
         assert len(texts) == 1
@@ -136,7 +142,7 @@ def vehicle_case(mechanics, monkeypatch):
 
 
 def facts(row):
-    return {fact["attribute_name"]: fact for fact in row["payload"]["facts"]}
+    return {fact["attribute_name"]: fact for fact in project_facts(row["payload"]["facts"])}
 
 
 def queue_input(case):
@@ -151,7 +157,7 @@ def consolidate_stage(case, stage, db_id=None):
     case.llm.prepare(stage, db_id)
     queue = queue_input(case)
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch"]
     row, = memory_rows(case)
     assert row["entity_id"] == row["payload"]["entity_id"] == "veh_01"
     assert row["payload"]["entity_type"] == "vehicle"
@@ -208,13 +214,19 @@ def test_full_vehicle_lifecycle_preserves_identity_state_history_and_replay(vehi
     assert len({row["id"] for row in snapshots}) == 1
     assert len(memory_rows(case)) == 1 and processed_count(case) == 4
     assert facts(snapshots[0])["ownership_status"]["timeline"][0]["event_description"] == "Purchased vehicle"
-    # Replacement drops that timeline, although the distinct purchase fact survives.
-    assert facts(final)["ownership_status"]["timeline"] == []
+    # Assertion history retains the immutable original purchase truth/provenance.
+    original = facts(snapshots[0])["ownership_status"]
+    historical=next(f for f in final["payload"]["facts"] if f["fact_id"]==original["fact_id"])
+    assert historical["assertion_state"]=="HISTORICAL" and historical["value"]=="owned"
+    assert historical["timeline"]==original["timeline"]
+    assert historical["source_chat_id"]==original["source_chat_id"]
+    assert facts(final)["ownership_status"]["supersedes_fact_id"]==original["fact_id"]
+    assert facts(final)["ownership_status"]["fact_id"]!=original["fact_id"]
     assert facts(final)["purchase_event"]["status"] == "past"
     assert facts(final)["paint_color"]["timeline"][0]["event_description"] == "Painted vehicle red"
     assert facts(final)["nickname"]["timeline"][0]["event_description"] == "Named vehicle Little Dog"
     assert facts(final)["sale_event"]["timeline"][0]["event_description"] == "Sold vehicle"
-    # Formatter emits current values, but not aliases, status or timeline metadata.
+    # Formatter emits identity and current status, but not timeline metadata.
     assert "Purchased vehicle" not in text and "Sold vehicle" not in text
     assert len(case.anchors) == 1
     hits = {item["keyword"]: item["hits"] for item in case.db.get_anchor_keywords(str(case.anchors[0]))}

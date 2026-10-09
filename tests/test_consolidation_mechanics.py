@@ -1,3 +1,5 @@
+from tomte.engine.core.assertions import project_facts
+from resolution_helpers import resolution_response, mutation_response
 """Deterministic mechanics against bootstrapped local PostgreSQL and Redis.
 
 Enable TOMTE_RUN_POSTGRES_TESTS=1 and TOMTE_RUN_REDIS_TESTS=1. Requires local
@@ -7,6 +9,7 @@ the workflow itself never acknowledges the Redis queue. No model APIs run.
 """
 
 import os
+import json
 import threading
 from types import SimpleNamespace
 from urllib.parse import urlsplit
@@ -21,6 +24,7 @@ from tomte.engine import Tomte
 from tomte.engine.core.config import settings
 from tomte.engine.core.enums import ChatSenderRole
 from tomte.engine.core.schema import Entity, Fact, TomteMemorySchema
+from tomte.engine.core.extraction import ExtractionMemorySchema, resolve_extraction
 from tomte.engine.dictionary import service
 from tomte.engine.llm.embedder import get_entity_summary
 from tomte.engine.providers.postgres_provider import PostgresProvider
@@ -37,6 +41,25 @@ REAL_THREAD_START = threading.Thread.start
 
 MESSAGE = "My favorite programming language is Python."
 QUESTION = "What programming language do I like?"
+
+
+def extraction_response(schema, entity, user_text):
+    """Prescribe semantic content only; verify new source input, never model timestamps."""
+    data = json.loads(user_text)
+    assert set(data) == {"CURRENT_BATCH", "RECENT_CONTEXT_REFERENCE_ONLY"}
+    assert len(data["CURRENT_BATCH"]) == 1
+    wire = entity.model_dump(mode="json")
+    for fact in wire["facts"]:
+        fact.pop("last_mentioned_at")
+        for field in ("fact_id", "assertion_state", "origin", "created_at", "effective_at", "ended_at", "supersedes_fact_id", "corrects_fact_id", "evidence"):
+            fact.pop(field, None)
+        fact["source_chat_id"] = None
+        for event in fact["timeline"]:
+            event.pop("timestamp")
+            event["source_chat_id"] = None
+    result = schema.model_validate({entity.entity_domain.value: [wire]})
+    normalized = resolve_extraction(result, data["CURRENT_BATCH"])
+    return result, getattr(normalized, entity.entity_domain.value)[0]
 
 
 class DeterministicInsertLLM:
@@ -58,7 +81,7 @@ class DeterministicInsertLLM:
 
     def record(self, method):
         assert self.db.conn.info.transaction_status == TransactionStatus.IDLE
-        expected = ["embed_text", "is_junk", "extract", "reconcile", "embed_batch", "embed_text"]
+        expected = ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch", "embed_text"]
         assert len(self.calls) < len(expected) and method == expected[len(self.calls)]
         self.calls.append(method)
 
@@ -76,23 +99,27 @@ class DeterministicInsertLLM:
         return [self.vector()]
 
     def is_junk(self, chat_log):
-        assert chat_log == "user: " + MESSAGE
+        assert json.loads(chat_log)["CURRENT_BATCH"][0]["content"] == MESSAGE
         self.record("is_junk")
         return False
 
     def parse_structured(self, system_prompt, user_text, schema, taxonomy=None, lexicon=None):
-        if schema is TomteMemorySchema:
-            assert user_text == "user: " + MESSAGE
+        if schema.__name__ == "MutationPlanResponse":
+            self.record("mutate")
+            return mutation_response(schema,user_text)
+        if schema is ExtractionMemorySchema:
+            assert json.loads(user_text)["CURRENT_BATCH"][0]["content"] == MESSAGE
             assert isinstance(taxonomy, list) and isinstance(lexicon, list)
             self.record("extract")
-            return TomteMemorySchema(preferences_and_traits=[self.entity])
-        if schema.__name__ == "ReconciliationResponse":
-            assert "EXISTING_GOLDEN_RECORDS (SKELETON):\n[]" in user_text
+            result, self.entity = extraction_response(schema, self.entity, user_text)
+            return result
+        if schema.__name__ == "ResolutionResponse":
+            assert not any(json.loads(user_text)["CANDIDATES_BY_OBJECT"].values())
             self.record("reconcile")
-            return schema.model_validate({"mappings": [{
+            return resolution_response(schema, {"mappings": [{
                 "extracted_entity_id": "pre_01", "mode": "INSERT",
                 "matched_db_id": None, "reasoning": "Deterministic synthetic insertion",
-            }]})
+            }]}, user_text)
         raise AssertionError("Unexpected structured model call")
 
 
@@ -168,7 +195,13 @@ def test_deterministic_insert_is_committed_and_retrievable(mechanics):
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue) is True
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     row = case.observer.execute("SELECT payload, vector_dims(embedding) FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s", (case.tenant, case.user)).fetchall()
-    assert len(row) == 1 and row[0] == (case.llm.entity.model_dump(mode="json"), 1536)
+    assert len(row) == 1 and row[0][1] == 1536
+    payload=row[0][0]
+    expected=case.llm.entity.model_dump(mode="json")
+    assert {k:v for k,v in payload.items() if k!="facts"}=={k:v for k,v in expected.items() if k!="facts"}
+    stored,=payload["facts"]
+    assert stored["value"]=="Python" and stored["assertion_state"]=="ACTIVE"
+    assert stored["fact_id"] and stored["evidence"][0]["source_chat_id"]==queue[0]["item_id"]
     assert len(case.anchors) == 1
     keywords = case.db.get_anchor_keywords(str(case.anchors[0]))
     assert {(k["keyword"], k["keyword_type"], k["hits"]) for k in keywords} == {
@@ -177,7 +210,7 @@ def test_deterministic_insert_is_committed_and_retrievable(mechanics):
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, QUESTION, ChatSenderRole.USER, case.user)
     assert "favorite_programming_language: Python" in context["context_text"]
     assert context["context_text"].count("[[ENTITY: pre_01") == 1
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "embed_batch", "embed_text"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch", "embed_text"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -198,7 +231,7 @@ def test_keyword_write_failure_rolls_back_and_retains_retry_queue(mechanics, mon
     assert case.db.get_anchor_keywords(str(case.anchors[0])) == []
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is not None
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -239,24 +272,28 @@ class LifecycleLLM(DeterministicInsertLLM):
         return self.vector()
 
     def is_junk(self, chat_log):
-        assert chat_log == "user: " + self.message
+        assert json.loads(chat_log)["CURRENT_BATCH"][0]["content"] == self.message
         self.record("is_junk")
         return False
 
     def parse_structured(self, system_prompt, user_text, schema, taxonomy=None, lexicon=None):
-        if schema is TomteMemorySchema:
-            assert user_text == "user: " + self.message
+        if schema.__name__ == "MutationPlanResponse":
+            self.record("mutate")
+            return mutation_response(schema,user_text)
+        if schema is ExtractionMemorySchema:
+            assert json.loads(user_text)["CURRENT_BATCH"][0]["content"] == self.message
             self.record("extract")
-            return TomteMemorySchema(preferences_and_traits=[self.entity])
-        assert schema.__name__ == "ReconciliationResponse"
+            result, self.entity = extraction_response(schema, self.entity, user_text)
+            return result
+        assert schema.__name__ == "ResolutionResponse"
         if self.db_id:
             assert str(self.db_id) in user_text
         self.record("reconcile")
-        return schema.model_validate({"mappings": [{
+        return resolution_response(schema, {"mappings": [{
             "extracted_entity_id": self.entity.entity_id, "mode": self.mode,
             "matched_db_id": str(self.db_id) if self.db_id else None,
             "reasoning": "Prescribed local lifecycle decision",
-        }]})
+        }]}, user_text)
 
     def embed_batch(self, texts):
         assert len(texts) == 1
@@ -288,7 +325,7 @@ def dictionary_state(case):
 
 
 def language(row):
-    return next(f for f in row["payload"]["facts"] if f["attribute_name"] == "favorite_programming_language")
+    return next(f for f in project_facts(row["payload"]["facts"]) if f["attribute_name"] == "favorite_programming_language")
 
 
 def run_message(case):
@@ -296,7 +333,7 @@ def run_message(case):
     queue = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
     assert len(queue) == 1 and queue[0]["content"] == case.llm.message
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     return queue
@@ -336,8 +373,13 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     assert reinforced["vector"] != inserted["vector"]
     assert reinforced["importance"] == 4 and language(reinforced)["importance"] == 5
     assert language(reinforced)["confidence"] == 0.9
-    assert language(reinforced)["mention_count"] == 1
-    assert language(reinforced)["last_mentioned_at"] == "2026-10-08T00:01:00Z"
+    assert language(reinforced)["mention_count"] == 2
+    assert language(reinforced)["fact_id"] == language(inserted)["fact_id"]
+    snapshot = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
+    from tomte.engine.core.extraction import source_timestamps
+    assert language(reinforced)["source_chat_id"] == language(inserted)["source_chat_id"]
+    assert language(reinforced)["evidence"][-1]["source_chat_id"] == snapshot[0]["item_id"]
+    assert language(reinforced)["last_mentioned_at"] == source_timestamps(snapshot)[snapshot[0]["item_id"]]
     acknowledge(case)
     assert_context(case, "Python")
 
@@ -352,13 +394,16 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     assert language(mutated)["value"] == "Rust" and language(mutated)["confidence"] == 1.0
     assert language(mutated)["timeline"] == [] and language(mutated)["mention_count"] == 1
     assert unrelated in mutated["payload"]["facts"]
+    historical=next(f for f in mutated["payload"]["facts"] if f["fact_id"]==language(reinforced)["fact_id"])
+    assert historical["value"]=="Python" and historical["assertion_state"]=="HISTORICAL"
+    assert language(mutated)["supersedes_fact_id"]==historical["fact_id"]
     assert set(mutated["payload"]["aliases"]) == {"my favorite programming language", "my preferred language"}
     hits = {k["keyword"]: k["hits"] for k in case.db.get_anchor_keywords(str(case.anchors[0]))}
     assert hits == {"programming_preference": 3, "favorite_programming_language": 3, "preferred_editor": 1}
     assert len(case.anchors) == 1
     acknowledge(case)
     assert_context(case, "Rust")
-    print("Lifecycle: one pre_01, same UUID; Python -> Python -> Rust; row counts 1/2/3; keyword hits 3/3/1; empty fact history; Rust context verified")
+    print("Lifecycle: one pre_01, same UUID; Python -> Python -> Rust; row counts 1/2/3; keyword hits 3/3/1; structured Python history preserved; Rust context verified")
 
 
 @pytest.mark.parametrize("mode,value,step", [("REINFORCE", "Python", 1), ("MUTATE", "Rust", 2)])
@@ -468,13 +513,13 @@ def test_missing_matched_golden_record_fails_before_persistence(mechanics, monke
     case.llm.prepare(mode, value, "I still really like Python." if mode == "REINFORCE" else "Actually, I prefer Rust now.", missing_id, step)
     parse = case.llm.parse_structured
     def missing_match(system_prompt, user_text, schema, taxonomy=None, lexicon=None):
-        if schema is TomteMemorySchema:
+        if schema is ExtractionMemorySchema:
             return parse(system_prompt, user_text, schema, taxonomy, lexicon)
         case.llm.record("reconcile")
-        return schema.model_validate({"mappings": [{
+        return resolution_response(schema, {"mappings": [{
             "extracted_entity_id": "pre_01", "mode": mode,
             "matched_db_id": str(missing_id), "reasoning": "Synthetic nonexistent match",
-        }]})
+        }]}, user_text)
     monkeypatch.setattr(case.llm, "parse_structured", missing_match)
     ChatHookWorkflow().on_chat(case.tenant, case.session, case.llm.message, ChatSenderRole.USER, case.user)
     queue = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
@@ -517,7 +562,7 @@ def test_failed_batch_has_no_marker_and_retry_can_commit(mechanics, monkeypatch)
     assert updated["id"] == before["id"] and language(updated)["value"] == "Rust"
     assert updated["mention_count"] == before["mention_count"] + 1
     assert processed_count(case) == 2
-    assert case.llm.calls == ["is_junk", "extract", "reconcile", "embed_batch"]
+    assert case.llm.calls == ["is_junk", "extract", "reconcile", "mutate", "embed_batch"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -578,7 +623,7 @@ def test_direct_worker_acknowledges_new_and_replayed_success(mechanics, monkeypa
     assert len(memory_rows(case)) == 1 and processed_count(case) == 1
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == []
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is None
-    assert case.llm.calls == ([] if already_processed else ["embed_text", "is_junk", "extract", "reconcile", "embed_batch"])
+    assert case.llm.calls == ([] if already_processed else ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch"])
 
 
 @pytest.mark.parametrize("raises", [False, True])

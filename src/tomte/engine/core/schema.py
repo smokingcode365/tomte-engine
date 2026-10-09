@@ -11,6 +11,7 @@ highly explicit Field descriptions to eliminate categorization ambiguity.
 from typing import Any, List, Optional, TypedDict, Dict
 from pydantic import BaseModel, Field
 
+from tomte.engine.core.assertions import AssertionState, EvidenceType, FactEvidence
 from tomte.engine.core.enums import FactStatus, MemoryDomain, Sentiment, Volatility
 
 # ==========================================
@@ -46,7 +47,17 @@ class TimelineEvent(BaseModel):
 
 
 class Fact(BaseModel):
-    """An edge in the Knowledge Graph. Represents a single attribute, trait, or relationship."""
+    """One semantic assertion; lifecycle changes preserve its attribute/value identity."""
+
+    fact_id: Optional[str] = None
+    assertion_state: Optional[AssertionState] = None
+    origin: Optional[EvidenceType] = None
+    created_at: Optional[str] = Field(default=None, pattern=ISO_8601_REGEX)
+    effective_at: Optional[str] = Field(default=None, pattern=ISO_8601_REGEX)
+    ended_at: Optional[str] = Field(default=None, pattern=ISO_8601_REGEX)
+    supersedes_fact_id: Optional[str] = None
+    corrects_fact_id: Optional[str] = None
+    evidence: List[FactEvidence] = Field(default_factory=list)
 
     attribute_name: str = Field(
         description=f"The categorical key for this specific data point (e.g., 'paint_color', 'job_title', 'purchase_price'). {TAXONOMY_RULE}"
@@ -78,7 +89,7 @@ class Fact(BaseModel):
     confidence: float = Field(
         ge=0.0,
         le=1.0,
-        description="Your AI confidence score that this fact is true and not a joke or sarcasm. $$0.0$$ is complete uncertainty, $$1.0$$ is absolute certainty.",
+        description="Uncalibrated stored fact-confidence signal, distinct from identity and mutation interpretation confidence.",
     )
     source_chat_id: str = Field(
         description="The unique ID of the raw chat message where this fact was found."

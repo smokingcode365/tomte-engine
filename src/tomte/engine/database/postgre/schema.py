@@ -62,6 +62,18 @@ def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
             );
         """)
 
+        # Existing duplicate identities require explicit repair, never silent data loss.
+        cur.execute("""
+            SELECT 1 FROM tomte_memory_engine
+            GROUP BY tenant_id, user_id, entity_id HAVING count(*) > 1 LIMIT 1;
+        """)
+        if cur.fetchone():
+            raise ValueError("Duplicate canonical entity IDs require repair before schema bootstrap")
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_mem_canonical_identity
+            ON tomte_memory_engine (tenant_id, user_id, entity_id);
+        """)
+
         # Performance Indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_importance ON tomte_memory_engine (importance DESC);")
         cur.execute("""

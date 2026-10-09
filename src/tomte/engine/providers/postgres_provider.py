@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional
 from uuid import UUID
 
 from tomte.engine.core.config import settings
+from tomte.engine.core.assertions import adapt_assertions
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.core.enums import MemoryDomain
 from tomte.engine.exceptions import TomteDatabaseConnectionError
@@ -57,6 +58,9 @@ class PostgresProvider(DatabaseProvider):
                 entity = dict(row)
             if not isinstance(entity.get("entity_id"), str) or not entity["entity_id"].strip():
                 raise ValueError(f"Invalid retrieved memory row at index {index}: missing a nonempty entity_id")
+            if isinstance(entity.get("id"), UUID):
+                entity["id"] = str(entity["id"])  # Portable through Redis persona JSON.
+            entity["facts"] = adapt_assertions(entity.get("facts", []), str(entity.get("id") or entity["entity_id"]))
             entities.append(entity)
         return entities
 
@@ -96,6 +100,9 @@ class PostgresProvider(DatabaseProvider):
 
     def get_user_graph_skeleton(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
         return operations.get_user_graph_skeleton(self.conn, tenant_id, user_id)
+
+    def get_resolution_candidates(self, tenant_id, user_id, names, domain, vector, context, limit=5):
+        return operations.get_resolution_candidates(self.conn, tenant_id, user_id, names, domain, vector, context, limit)
 
     def find_exact_fact(self, tenant_id: str, user_id: str, entity_id: str, attribute_name: str) -> Optional[UUID]:
         return operations.find_exact_fact(self.conn, tenant_id, user_id, entity_id, attribute_name)

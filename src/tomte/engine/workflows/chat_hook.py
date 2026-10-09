@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Any, List
 from tomte.engine.core.config import settings
+from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS
 from tomte.engine.core.enums import ChatSenderRole, MemoryDomain, ProviderDictionaryKeys
 from tomte.engine.exceptions import TomteInvalidIdError, TomteInvalidInputError, TomteSecurityViolationError
 from tomte.engine import tomtelog, Tomte
@@ -69,9 +70,10 @@ class ChatHookWorkflow:
     def _handle_assistant_sender(self, tenant_id: str, session_id: str, user_id: Optional[str], message: str) -> ChatHookPayload:
         """Logs AI responses to history."""
         tomtelog.debug(f"AI Path: Logging response to cache for {user_id or 'Guest'}")        
+        recent_context = self.cache.get_chat_history(tenant_id, session_id, user_id=user_id, limit=RECENT_CONTEXT_TURNS) if user_id else []
         self.cache.append_chat_history(tenant_id, session_id, message, role=ChatSenderRole.ASSISTANT.value, user_id=user_id)
         if user_id:
-            self.cache.enqueue_for_consolidation(tenant_id, user_id, session_id, message, role=ChatSenderRole.ASSISTANT.value)
+            self.cache.enqueue_for_consolidation(tenant_id, user_id, session_id, message, role=ChatSenderRole.ASSISTANT.value, recent_context=recent_context)
         return self._build_payload(user_id=user_id,clean_message=message)
 
     def _handle_guest_sender(self, tenant_id: str, session_id: str, message: str) -> ChatHookPayload:
@@ -104,7 +106,8 @@ class ChatHookWorkflow:
         # 3. History Handshake (Append Last Rule)
         chat_history = self.cache.get_chat_history(tenant_id, session_id, user_id=user_id,limit=settings.history_chat_number)
         self.cache.append_chat_history(tenant_id, session_id, message, role=ChatSenderRole.USER.value, user_id=user_id)
-        self.cache.enqueue_for_consolidation(tenant_id, user_id, session_id, message, role=ChatSenderRole.USER.value,vector=query_vector)
+        self.cache.enqueue_for_consolidation(tenant_id, user_id, session_id, message, role=ChatSenderRole.USER.value,vector=query_vector,
+                                             recent_context=chat_history[-RECENT_CONTEXT_TURNS:])
         return self._build_payload(
             context_text=context_text,
             chat_history=chat_history,

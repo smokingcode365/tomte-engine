@@ -95,11 +95,13 @@ class CacheProvider(ABC):
         session_id: str, 
         message: str, 
         role: str, 
-        vector: Optional[List[float]] = None
+        vector: Optional[List[float]] = None,
+        recent_context: Optional[List[Dict[str, Any]]] = None
     ) -> None:
         """
         Appends high-fidelity message data (including vectors) to a background 
-        consolidation queue. This is isolated from the live chat context window.
+        consolidation queue. recent_context is the bounded, reference-only history
+        preceding this message, captured at ingestion for stable retries.
         """
         pass
     # ==========================================

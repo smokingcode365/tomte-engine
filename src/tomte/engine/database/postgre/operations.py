@@ -2,7 +2,7 @@ import json
 import psycopg
 from tomte.engine.database.postgre.transactions import transactional
 from typing import List, Dict, Any, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 from tomte.engine.core.config import settings
 from tomte.engine.core.enums import MemoryDomain
 
@@ -34,7 +34,7 @@ def get_entities_by_priority(conn: psycopg.Connection, tenant_id: str, user_id: 
     filter_val = domain.value if domain else None
     limit=limit if limit else settings.query_entities_limit
     sql = """
-        SELECT payload FROM tomte_memory_engine 
+        SELECT id, tenant_id, user_id, entity_id, payload FROM tomte_memory_engine
         WHERE tenant_id = %s AND user_id = %s 
         AND (%s::text IS NULL OR entity_domain = %s)
         ORDER BY importance DESC, mention_count DESC LIMIT %s;
@@ -48,7 +48,7 @@ def get_frequent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str
     """Pure fetch of most mentioned entities. No domain filtering."""
     limit=limit if limit else settings.query_entities_limit
     sql = """
-        SELECT payload FROM tomte_memory_engine 
+        SELECT id, tenant_id, user_id, entity_id, payload FROM tomte_memory_engine
         WHERE tenant_id = %s AND user_id = %s 
         ORDER BY mention_count DESC LIMIT %s;
     """
@@ -60,7 +60,7 @@ def get_frequent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str
 def get_recent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
     limit=limit if limit else settings.query_entities_limit
     sql = """
-        SELECT payload FROM tomte_memory_engine 
+        SELECT id, tenant_id, user_id, entity_id, payload FROM tomte_memory_engine
         WHERE tenant_id = %s AND user_id = %s 
         ORDER BY last_mentioned_at DESC LIMIT %s;
     """
@@ -72,7 +72,7 @@ def get_recent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, 
 def get_semantic_context(conn: psycopg.Connection, tenant_id: str, user_id: str, vector: List[float], limit: int) -> List[Dict[str, Any]]:
     limit=limit if limit else settings.semantic_retrieval_limit
     sql = """
-        SELECT payload, 
+        SELECT id, tenant_id, user_id, entity_id, payload,
         (1 - (embedding <=> %s::vector)) * (mention_count * exp(-0.0001 * extract(epoch from (now() - last_mentioned_at)))) as relevance_score 
         FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s 
@@ -146,9 +146,32 @@ def find_exact_fact(conn: psycopg.Connection, tenant_id: str, user_id: str, enti
 @transactional
 def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]]) -> bool:
     with conn.cursor() as cur:
+        # Stable lock order also supports batches spanning multiple namespaces.
+        namespaces = sorted({json.dumps([op['tenant_id'], op['user_id']])
+                             for op in updates if op.get('mode') == 'INSERT'})
+        for namespace in namespaces:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (namespace,))
+        matched = sorted((op for op in updates if "_expected_payload" in op),
+                         key=lambda op:(op["tenant_id"], op["user_id"], str(op["db_id"])))
+        for op in matched:
+            cur.execute("SELECT payload FROM tomte_memory_engine WHERE id=%s AND tenant_id=%s AND user_id=%s FOR UPDATE",
+                        (op["db_id"], op["tenant_id"], op["user_id"]))
+            current = cur.fetchone()
+            if current is None or current["payload"] != op["_expected_payload"]:
+                raise ValueError("Stale assertion snapshot; retry the frozen batch")
         for op in updates:
             mode = op.get('mode')
             if mode == 'INSERT':
+                # Allocation remains inside the write transaction and its namespace lock.
+                canonical = op['entity_id']
+                while True:
+                    cur.execute("SELECT 1 FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",
+                                (op['tenant_id'], op['user_id'], canonical))
+                    if not cur.fetchone():
+                        break
+                    canonical = f"{op['entity_id']}_{uuid4().hex}"
+                op['entity_id'] = canonical
+                op['payload']['entity_id'] = canonical
                 cur.execute("""
                     INSERT INTO tomte_memory_engine (
                         tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload, embedding, importance
@@ -219,3 +242,30 @@ def claim_consolidation_batch(conn: psycopg.Connection, tenant_id: str, user_id:
             VALUES (%s, %s, %s) ON CONFLICT DO NOTHING RETURNING batch_id
         """, (tenant_id, user_id, batch_id))
         return cur.fetchone() is not None
+
+
+@transactional
+def get_resolution_candidates(conn, tenant_id, user_id, names, domain, vector, context, limit=5):
+    """Bounded scoped identity search; similarity proposes candidates, never a match."""
+    if not 1 <= limit <= 5:
+        raise ValueError("Resolution candidate limit must be between one and five")
+    with conn.cursor() as cur:
+        cur.execute(r"""
+            WITH scored AS (
+                SELECT id, entity_id, entity_name, entity_domain, entity_type, payload,
+                    lower(regexp_replace(trim(entity_name), '\s+', ' ', 'g')) = ANY(%(names)s)
+                    OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(payload->'aliases','[]'::jsonb)) a
+                        WHERE lower(regexp_replace(trim(a), '\s+', ' ', 'g')) = ANY(%(names)s)) AS exact_match,
+                    (length(entity_name)>2 AND strpos(lower(%(context)s),lower(entity_name))>0)
+                    OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(payload->'aliases','[]'::jsonb)) a
+                        WHERE length(a)>2 AND strpos(lower(%(context)s),lower(a))>0) AS context_match,
+                    entity_domain=%(domain)s AS domain_match,
+                    (1 - (embedding <=> %(vector)s::vector)) AS similarity
+                FROM tomte_memory_engine WHERE tenant_id=%(tenant)s AND user_id=%(user)s
+            ) SELECT *, sum((exact_match OR context_match)::int) OVER () AS identity_matches_total FROM scored
+            ORDER BY exact_match DESC, (context_match AND domain_match) DESC, domain_match DESC,
+                     context_match DESC, similarity DESC NULLS LAST, id
+            LIMIT %(limit)s
+        """, {"tenant":tenant_id,"user":user_id,"names":names,"domain":domain,
+               "vector":vector,"context":context,"limit":limit})
+        return cur.fetchall()

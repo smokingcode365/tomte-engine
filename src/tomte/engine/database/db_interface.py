@@ -73,6 +73,12 @@ class DatabaseProvider(Protocol):
         """Retrieves entity_ids and aliases for anchoring new facts."""
         ...
 
+    def get_resolution_candidates(self, tenant_id: str, user_id: str, names: List[str],
+                                  domain: str, vector: List[float], context: str,
+                                  limit: int = 5) -> List[Dict[str, Any]]:
+        """Scoped, bounded storage records for identity resolution; no automatic matches."""
+        ...
+
     def find_exact_fact(
         self, tenant_id: str, user_id: str, entity_id: str, attribute_name: str
     ) -> Optional[UUID]:

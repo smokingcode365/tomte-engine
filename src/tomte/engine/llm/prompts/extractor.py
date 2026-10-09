@@ -33,7 +33,10 @@ Every entity must be sorted into exactly one domain:
 8. **Unstructured Observations**: Niche data that fits nowhere else.
 
 ### **III. ENTITY ANCHORING**
-- **Reuse IDs**: Use provided 'entity_id' (e.g., 'per_01') if the user refers to a known entity.
+- Extract only facts stated, repeated or updated in CURRENT_BATCH.
+- RECENT_CONTEXT_REFERENCE_ONLY supplies antecedents for interpretation; do not extract its facts as new updates.
+- Entity IDs are temporary extraction-local labels, not canonical database identities.
+- For multiple current messages, every fact/timeline event must select a supporting CURRENT_BATCH item_id as source_chat_id. For one message, omit the source and code will supply it. Never invent source IDs or timestamps.
 - **New IDs**: Create new IDs using 3-letter prefixes: 'per_' (person), 'veh_' (vehicle), 'loc_' (location), 'org_' (organization), 'prj_' (project), 'pet_' (pet).
 
 ### **IV. IMPORTANCE SCORING (1-5)**

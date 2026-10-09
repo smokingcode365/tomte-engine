@@ -56,6 +56,12 @@ def test_retrieval_preserves_entity_and_context(monkeypatch, provider, entity, m
     retrieved = getattr(provider, method)("synthetic-tenant", "synthetic-user", *extra)
 
     fetch.assert_called_once_with(provider.conn, "synthetic-tenant", "synthetic-user", *extra)
+    adapted=retrieved[0]["facts"][0]
+    from uuid import UUID
+    assert UUID(adapted["fact_id"]).version==5 and adapted["assertion_state"]=="ACTIVE"
+    assert {k:adapted[k] for k in entity["facts"][0]}==entity["facts"][0]
+    assert adapted["origin"]=="LEGACY" and adapted["evidence"]==[]
+    expected["facts"]=deepcopy(retrieved[0]["facts"])
     assert retrieved == [expected]
     assert row == original  # Normalization does not mutate the database result.
     cog = CognitiveProcessor()
@@ -111,7 +117,11 @@ def test_registered_chat_context_equivalent_for_flat_and_postgres_rows(monkeypat
 
         results.append(result)
         llm.embed_text.assert_called_once_with("What language do I like?")
-        cache.set_persona_entities.assert_called_once_with("synthetic-tenant", "synthetic-user", [entity])
+        adapted=cache.set_persona_entities.call_args.args[2][0]
+        assert adapted["facts"][0]["assertion_state"]=="ACTIVE" and adapted["facts"][0]["fact_id"]
+        assert {k:adapted[k] for k in entity if k!="facts"}=={k:entity[k] for k in entity if k!="facts"}
+        assert {k:adapted["facts"][0][k] for k in entity["facts"][0]}==entity["facts"][0]
+        cache.set_persona_entities.assert_called_once_with("synthetic-tenant", "synthetic-user", [adapted])
         cache.append_chat_history.assert_called_once()
         cache.enqueue_for_consolidation.assert_called_once()
     assert results[0] == results[1]

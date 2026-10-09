@@ -14,6 +14,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from tomte.engine.core.config import OpenAISettings
 from tomte.engine.core.schema import TomteMemorySchema
+from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.providers import openai_provider
 
 
@@ -34,15 +35,17 @@ def test_junk_filter_returns_output_without_legacy_data(provider, monkeypatch, e
                                 model_settings={"openai_reasoning_effort": "none"})
 
 
-def test_extraction_returns_typed_output_and_passes_dictionary_dependencies(provider, monkeypatch):
-    expected = TomteMemorySchema()
+@pytest.mark.parametrize("schema", [TomteMemorySchema, ExtractionMemorySchema])
+def test_extraction_returns_typed_output_and_passes_dictionary_dependencies(provider, monkeypatch, schema):
+    expected = schema()
     run = Mock(return_value=SimpleNamespace(output=expected))
     monkeypatch.setattr(openai_provider.tomte_extractor_agent, "run_sync", run)
-    assert provider.parse_structured(None, "Synthetic extraction", TomteMemorySchema,
+    assert provider.parse_structured(None, "Synthetic extraction", schema,
                                      taxonomy=["vehicle"], lexicon=["paint_color"]) is expected
     run.assert_called_once()
     args, kwargs = run.call_args
     assert args == ("Synthetic extraction",) and kwargs["model"] == provider.strong_model
+    assert kwargs["output_type"] is schema
     assert kwargs["model_settings"] == {"openai_reasoning_effort": "low"}
     assert kwargs["deps"].taxonomy == ["vehicle"] and kwargs["deps"].lexicon == ["paint_color"]
 

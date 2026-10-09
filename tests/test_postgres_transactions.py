@@ -197,10 +197,12 @@ def test_caught_normalization_failure_rolls_back_earlier_writes(local_db, method
         with db.transaction():
             db.upsert_user_activity(tenant, user)
             assert db.commit_graph_updates([malformed])
+            # Simulate corrupt storage; canonical identity now comes from the row.
+            db.conn.execute("UPDATE tomte_memory_engine SET payload='[]'::jsonb WHERE tenant_id=%s AND user_id=%s", (tenant,user))
             assert local_db.visible(user) == 0
             arguments = (tenant, user, [1.0] + [0.0] * 1535) if method == "semantic_retrieval" else (tenant, user)
             # The SQL read succeeds; provider normalization fails and is caught.
-            with pytest.raises(ValueError, match="missing a nonempty entity_id"):
+            with pytest.raises(ValueError, match="dictionary payload"):
                 getattr(db, method)(*arguments)
     assert local_db.visible(user) == 0
     assert local_db.observer.execute(
