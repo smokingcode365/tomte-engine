@@ -1,8 +1,5 @@
-import psycopg
-from psycopg.rows import dict_row
 from typing import List, Dict, Any, Optional
 from uuid import UUID
-from pgvector.psycopg import register_vector
 
 from tomte.engine.core.config import settings
 from tomte.engine.database.db_interface import DatabaseProvider
@@ -12,18 +9,27 @@ from tomte.engine import tomtelog
 
 # Import separated logic
 from tomte.engine.database.postgre import dictionary_ops, schema
-from tomte.engine.database.postgre import operations
+from tomte.engine.database.postgre import operations, transactions
 
 class PostgresProvider(DatabaseProvider):
     def __init__(self, connection_string: str):
         try:
-            self.conn = psycopg.connect(connection_string, row_factory=dict_row)
-            self.conn.autocommit = False 
-            register_vector(self.conn)
+            self.conn = transactions.connect(connection_string)
             tomtelog.info("PostgreSQL Provider initialized.")
         except Exception as e:
             tomtelog.error("Database connection failed", exc=e)
             raise TomteDatabaseConnectionError(f"PG Connection Failed: {e}")
+
+    def transaction(self):
+        """Join nested scopes; any failed child rolls back the whole unit of work."""
+        return transactions.transaction(self.conn)
+
+    def close(self) -> None:
+        transactions.close(self.conn)
+
+    def delete_user_memory(self, tenant_id: str, user_id: str) -> None:
+        """Delete only this user's memory rows and registry entry atomically."""
+        operations.delete_user_memory(self.conn, tenant_id, user_id)
 
     # --- JIT Provisioning & Health ---
     def ensure_infrastructure(self, vector_dimension: int) -> None:
@@ -33,27 +39,49 @@ class PostgresProvider(DatabaseProvider):
         return self.conn is not None and not self.conn.closed
 
     # --- Workflow 1: Chat Hook (Read Ops) ---
+
+    @staticmethod
+    def _normalize_memory_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Expose flat entities while preserving payload fields and row metadata."""
+        entities = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise ValueError(f"Invalid retrieved memory row at index {index}: expected a dictionary")
+            if "payload" in row:
+                if not isinstance(row["payload"], dict):
+                    raise ValueError(f"Invalid retrieved memory row at index {index}: expected a dictionary payload")
+                entity = dict(row["payload"])
+                # Explicit row metadata takes precedence over conflicting payload fields.
+                entity.update({key: value for key, value in row.items() if key != "payload"})
+            else:
+                entity = dict(row)
+            if not isinstance(entity.get("entity_id"), str) or not entity["entity_id"].strip():
+                raise ValueError(f"Invalid retrieved memory row at index {index}: missing a nonempty entity_id")
+            entities.append(entity)
+        return entities
+
     def upsert_user_activity(self, tenant_id: str, user_id: str) -> None:
-        try:
-            operations.upsert_user_activity(self.conn, tenant_id, user_id)
-        except Exception as e:
-            tomtelog.error(f"Failed to update activity for {user_id}", exc=e)
+        operations.upsert_user_activity(self.conn, tenant_id, user_id)
 
     # def get_baseline_facts(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
     #     return operations.get_baseline_facts(self.conn, tenant_id, user_id)
 
     def get_important_entities(self, tenant_id: str, user_id: str, domain: Optional[MemoryDomain]=None, limit: int|None = None) -> List[Dict[str, Any]]:
         # Passed None to domain to fetch across all types globally, matching your limit parameter
-        return operations.get_entities_by_priority(self.conn, tenant_id, user_id, domain, limit)
+        with self.transaction():
+            return self._normalize_memory_rows(operations.get_entities_by_priority(self.conn, tenant_id, user_id, domain, limit))
 
     def get_frequent_entities(self, tenant_id: str, user_id: str, limit: int|None = None) -> List[Dict[str, Any]]:
-        return operations.get_frequent_entities(self.conn, tenant_id, user_id, limit)
+        with self.transaction():
+            return self._normalize_memory_rows(operations.get_frequent_entities(self.conn, tenant_id, user_id, limit))
 
     def semantic_retrieval(self, tenant_id: str, user_id: str, query_vector: List[float], limit: int|None = None) -> List[Dict[str, Any]]:
-        return operations.get_semantic_context(self.conn, tenant_id, user_id, query_vector, limit)
+        with self.transaction():
+            return self._normalize_memory_rows(operations.get_semantic_context(self.conn, tenant_id, user_id, query_vector, limit))
 
     def get_recent_entities(self, tenant_id: str, user_id: str, limit: int|None = None) -> List[Dict[str, Any]]:
-        return operations.get_recent_entities(self.conn, tenant_id, user_id, limit)
+        with self.transaction():
+            return self._normalize_memory_rows(operations.get_recent_entities(self.conn, tenant_id, user_id, limit))
 
     # --- Workflow 2: Dictionary Builder ---
     def get_ontology_dictionaries(self, tenant_id: str, query_vector: List[float]) -> Dict[str, Dict[str, List[str]]]:
@@ -61,14 +89,7 @@ class PostgresProvider(DatabaseProvider):
 
     # --- Workflow 3: Consolidation (Write Ops) ---
     def get_user_graph_skeleton(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
-        try:
-            skeleton = operations.get_user_graph_skeleton(self.conn, tenant_id, user_id)
-            # CRITICAL FIX: Close the read transaction before the Phase 3 LLM call!
-            self.conn.commit() 
-            return skeleton
-        except Exception as e:
-            self.conn.rollback()
-            raise e
+        return operations.get_user_graph_skeleton(self.conn, tenant_id, user_id)
 
     def find_exact_fact(self, tenant_id: str, user_id: str, entity_id: str, attribute_name: str) -> Optional[UUID]:
         return operations.find_exact_fact(self.conn, tenant_id, user_id, entity_id, attribute_name)
@@ -77,6 +98,8 @@ class PostgresProvider(DatabaseProvider):
         try:
             return operations.bulk_commit_updates(self.conn, updates)
         except Exception as e:
+            if transactions.in_transaction(self.conn):
+                raise
             tomtelog.error("Bulk commit failed", exc=e)
             return False
 
@@ -84,14 +107,7 @@ class PostgresProvider(DatabaseProvider):
     def get_semantic_keywords(
         self, vector: List[float], threshold: float, id_limit: int
     ) -> List[Dict[str, Any]]:
-        try:
-            keywords = dictionary_ops.get_semantic_keywords(self.conn, vector, threshold, id_limit)
-            # CRITICAL FIX: Close the read transaction before the Phase 2 Extractor LLM call!
-            self.conn.commit() 
-            return keywords
-        except Exception as e:
-            self.conn.rollback()
-            raise e
+        return dictionary_ops.get_semantic_keywords(self.conn, vector, threshold, id_limit)
 
     def find_dictionary_matches_above_threshold(
         self, vector: List[float], threshold: float
@@ -110,86 +126,35 @@ class PostgresProvider(DatabaseProvider):
     def create_dictionary_anchor(self, vector: List[float]) -> UUID:
         return dictionary_ops.create_new_anchor(self.conn, vector)
 
-    def commit_transaction(self) -> None:
-        self.conn.commit()
 
-    def rollback_transaction(self) -> None:
-        self.conn.rollback()
 
     def get_anchor_keywords(self, dictionary_id: str) -> List[Dict[str, Any]]:
-        try:
-            kws = dictionary_ops.get_anchor_keywords(self.conn, dictionary_id)
-            self.conn.commit() # CRITICAL: Close the read transaction!
-            return kws
-        except Exception as e:
-            self.conn.rollback()
-            raise e
+        return dictionary_ops.get_anchor_keywords(self.conn, dictionary_id)
 
     # ==========================================
     # DICTIONARY MAINTENANCE
     # ==========================================
     def execute_dictionary_trim(self) -> int:
-        try:
-            n = dictionary_ops.execute_trim_job(self.conn)
-            self.conn.commit()
-            return n
-        except Exception as e:
-            self.conn.rollback()
-            tomtelog.error(f"Dictionary trim job failed: {e}")
-            raise
+        return dictionary_ops.execute_trim_job(self.conn)
 
     def get_cross_anchor_merge_candidates(self) -> List[Dict[str, Any]]:
-        try:
-            candidates = dictionary_ops.get_cross_anchor_merge_candidates(self.conn)
-            self.conn.commit() # CRITICAL: Close the read transaction!
-            return candidates
-        except Exception as e:
-            self.conn.rollback()
-            raise e
+        return dictionary_ops.get_cross_anchor_merge_candidates(self.conn)
 
     def consolidate_duplicate_anchors(self, id_a: str, id_b: str, merged_vector: List[float], merged_kws: Dict) -> bool:
         try:
             dictionary_ops.consolidate_duplicate_anchors(self.conn, id_a, id_b, merged_vector, merged_kws)
-            self.conn.commit()
             return True
         except Exception as e:
-            self.conn.rollback()
+            if transactions.in_transaction(self.conn):
+                raise
             tomtelog.error(f"Cross-anchor merge DB commit failed: {e}")
             return False
 
     def get_anchors_for_internal_merge(self) -> List[str]:
-        """Fetches pending anchors. Commits immediately to close the read transaction."""
-        try:
-            anchors = dictionary_ops.get_anchors_for_internal_merge(self.conn)
-            self.conn.commit()
-            return anchors
-        except Exception as e:
-            self.conn.rollback()
-            raise e
+        return dictionary_ops.get_anchors_for_internal_merge(self.conn)
 
     def apply_internal_merges(self, anchor_id: str, merges: List[Dict[str, Any]]) -> None:
-        """Applies all LLM-approved merges for a single anchor in one quick atomic commit."""
-        try:
-            for merge in merges:
-                dictionary_ops.execute_internal_keyword_merge(
-                    self.conn,
-                    anchor_id,
-                    merge["kw_type"],
-                    merge["survivor"],
-                    merge["victims"],
-                    merge["total_hits"],
-                )
-            # Mark it complete in the same transaction
-            dictionary_ops.mark_anchor_internal_merge_complete(self.conn, anchor_id)
-            self.conn.commit()
-        except Exception as e:
-            self.conn.rollback()
-            tomtelog.error(f"Failed to apply internal merges for {anchor_id}: {e}")
+        dictionary_ops.apply_internal_merges(self.conn, anchor_id, merges)
 
     def mark_anchor_internal_merge_complete(self, anchor_id: str) -> None:
-        """Marks an anchor complete if no merges were needed."""
-        try:
-            dictionary_ops.mark_anchor_internal_merge_complete(self.conn, anchor_id)
-            self.conn.commit()
-        except Exception as e:
-            self.conn.rollback()
+        dictionary_ops.mark_anchor_internal_merge_complete(self.conn, anchor_id)

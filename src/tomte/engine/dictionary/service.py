@@ -98,7 +98,7 @@ class DictionaryService:
         """
         Phase 4: Updates hit counts and nudges vectors based on refined results.
         """
-        try:
+        with self.db.transaction():
             for op in refined_ops:
                 vector = op["embedding"]
 
@@ -129,11 +129,6 @@ class DictionaryService:
                     new_id = self.db.create_dictionary_anchor(vector)
                     for kw, kw_type in keywords:
                         self.db.upsert_dictionary_keyword(new_id, kw, kw_type.value)
-
-            self.db.commit_transaction()
-        except Exception:
-            self.db.rollback_transaction()
-            raise
 
 
 

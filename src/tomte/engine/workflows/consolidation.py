@@ -75,20 +75,18 @@ class ConsolidationWorkflow:
             for i, op in enumerate(refined_ops):
                 op['embedding'] = batch_vectors[i]
                 
-        # --- ATOMIC COMMIT ---
-        # Now the ops contain the 'embedding' vector required by the SQL logic [cite: 145-177]
-        if not self.db.commit_graph_updates(refined_ops):
-            tomtelog.error(f"Consolidation commit failed for user {user_id}")
-            return False
-
-        # --- PHASE 4: Dictionary Feedback Loop ---
-        # We pass the same refined_ops (now with vectors) to the dictionary service
-        # to nudge the anchors and update keyword hits [cite: 157-171].
-        tomtelog.debug(f"Phase 4: Applying dictionary feedback")
-        self.dict_service.apply_feedback(refined_ops)
+        # Prepared memory writes and dictionary feedback form one PostgreSQL unit.
+        self._commit_refined_operations(refined_ops)
 
         tomtelog.info(f"Consolidation cycle complete for {user_id}")
         return True
+
+    def _commit_refined_operations(self, refined_ops: List[Dict[str, Any]]) -> None:
+        """Persist prepared memory changes and dictionary feedback atomically."""
+        with self.db.transaction():
+            if not self.db.commit_graph_updates(refined_ops):
+                raise RuntimeError("Consolidation memory write failed")
+            self.dict_service.apply_feedback(refined_ops)
 
     # ==========================================
     # INTERNAL HELPERS

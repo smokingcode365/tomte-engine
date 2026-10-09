@@ -62,7 +62,7 @@ def bootstrap(connection_string: str, dimension: int) -> None:
     try:
         provider.ensure_infrastructure(dimension)
     finally:
-        provider.conn.close()
+        provider.close()
 
 
 def main() -> int:

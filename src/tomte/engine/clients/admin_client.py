@@ -48,12 +48,8 @@ class TomteAdminClient:
             db = Tomte.get_db()
             cache = Tomte.get_cache()
             
-            with db.conn.cursor() as cur:
-                # Cascades via tenant and user ID
-                cur.execute("DELETE FROM tomte_memory_engine WHERE tenant_id = %s AND user_id = %s", (self.tenant_id, user_id))
-                cur.execute("DELETE FROM tomte_user_registry WHERE tenant_id = %s AND user_id = %s", (self.tenant_id, user_id))
-            db.conn.commit()
-            
+            db.delete_user_memory(self.tenant_id, user_id)
+
             # Clear Persona Cache
             from tomte.engine.utils.keys import generate_persona_key
             cache.client.delete(generate_persona_key(self.tenant_id, user_id))

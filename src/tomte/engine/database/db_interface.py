@@ -1,4 +1,4 @@
-from typing import Protocol, List, Dict, Any, Optional
+from typing import Protocol, List, Dict, Any, Optional, ContextManager
 from uuid import UUID
 
 from tomte.engine.core.config import settings
@@ -10,6 +10,14 @@ class DatabaseProvider(Protocol):
     Supports multi-tenancy via (tenant_id, user_id) composite logic.
     """
 
+    def transaction(self) -> ContextManager[None]:
+        """Atomic scope; nested scopes join and failed children abort the whole scope."""
+        ...
+
+    def delete_user_memory(self, tenant_id: str, user_id: str) -> None:
+        """Atomically delete only the specified user's memory and registry rows."""
+        ...
+
     # --- JIT Provisioning & Health ---
     def ensure_infrastructure(self, vector_dimension: int) -> None:
         """Verifies extensions and creates tables if they don't exist."""
@@ -20,6 +28,9 @@ class DatabaseProvider(Protocol):
         ...
 
     # --- Workflow 1: Chat Hook (Read Ops) ---
+    # The four entity retrieval methods return flat entity dictionaries with
+    # entity_id, facts, aliases, and any available retrieval metadata (e.g. scores).
+    # Storage payload wrappers are normalized by the provider; invalid rows raise.
     def upsert_user_activity(self, tenant_id: str, user_id: str) -> None:
         """Heartbeat: Registers user/tenant combo and updates timestamp."""
         ...
@@ -90,13 +101,7 @@ class DatabaseProvider(Protocol):
     def create_dictionary_anchor(self, vector: List[float]) -> UUID:
         ...
 
-    def commit_transaction(self) -> None:
-        """Commits the current transaction on the provider connection."""
-        ...
 
-    def rollback_transaction(self) -> None:
-        """Rolls back the current transaction on the provider connection."""
-        ...
 
     def get_anchor_keywords(self, dictionary_id: str) -> List[Dict[str, Any]]:
         """Keyword rows for one semantic anchor (maintenance / merge UIs)."""
@@ -113,4 +118,8 @@ class DatabaseProvider(Protocol):
     def apply_internal_merges(self, anchor_id: str, merges: List[Dict[str, Any]]) -> None:
         ...
     def mark_anchor_internal_merge_complete(self, anchor_id: str) -> None:
+        ...
+
+    def close(self) -> None:
+        """Release the provider connection after all transaction scopes finish."""
         ...

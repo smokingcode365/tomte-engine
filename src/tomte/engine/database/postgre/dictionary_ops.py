@@ -4,7 +4,20 @@ import json
 from typing import Any, List, Dict, Optional
 from uuid import UUID
 import psycopg
+from tomte.engine.database.postgre.transactions import transactional
 
+
+@transactional
+def apply_internal_merges(conn: psycopg.Connection, anchor_id: str, merges: List[Dict[str, Any]]) -> None:
+    """Apply the complete merge batch and its cooldown marker atomically."""
+    for merge in merges:
+        execute_internal_keyword_merge(
+            conn, anchor_id, merge["kw_type"], merge["survivor"],
+            merge["victims"], merge["total_hits"],
+        )
+    mark_anchor_internal_merge_complete(conn, anchor_id)
+
+@transactional
 def get_anchor_keywords(conn: psycopg.Connection, dictionary_id: UUID | str) -> List[Dict[str, Any]]:
     """Returns all keyword rows for an anchor (used by maintenance and internal merge)."""
     sql = """
@@ -17,6 +30,7 @@ def get_anchor_keywords(conn: psycopg.Connection, dictionary_id: UUID | str) -> 
         return cur.fetchall()
 
 
+@transactional
 def get_semantic_keywords(
     conn: psycopg.Connection, 
     vector: List[float], 
@@ -59,6 +73,7 @@ def get_semantic_keywords(
 #         row = cur.fetchone()
 #         return row['dictionary_id'] if row else None
 
+@transactional
 def update_anchor_vector(conn: psycopg.Connection, dictionary_id: UUID, new_vector: List[float]) -> None:
     """Updates the semantic anchor vector after mathematical nudging."""
     with conn.cursor() as cur:
@@ -66,6 +81,7 @@ def update_anchor_vector(conn: psycopg.Connection, dictionary_id: UUID, new_vect
             UPDATE tomte_semantic_anchors SET embedding = %s::vector WHERE dictionary_id = %s;
         """, (new_vector, dictionary_id))
 
+@transactional
 def upsert_keyword(conn: psycopg.Connection, dictionary_id: UUID, keyword: str, k_type: str) -> None:
     """Increments hits for an existing keyword or inserts a new one."""
     with conn.cursor() as cur:
@@ -77,6 +93,7 @@ def upsert_keyword(conn: psycopg.Connection, dictionary_id: UUID, keyword: str, 
         """, (dictionary_id, keyword, k_type))
    
 
+@transactional
 def get_anchor_details(conn: psycopg.Connection, dictionary_id: UUID) -> Optional[Dict[str, Any]]:
     """Retrieves the current vector and total hits for nudging math."""
     sql = """
@@ -91,6 +108,7 @@ def get_anchor_details(conn: psycopg.Connection, dictionary_id: UUID) -> Optiona
         cur.execute(sql, (dictionary_id,))
         return cur.fetchone()
 
+@transactional
 def create_new_anchor(conn: psycopg.Connection, vector: List[float]) -> UUID:
     """Phase 4.3 (Scenario B): Creates a new conceptual anchor ."""
     sql = "INSERT INTO tomte_semantic_anchors (embedding) VALUES (%s::vector) RETURNING dictionary_id;"
@@ -98,6 +116,7 @@ def create_new_anchor(conn: psycopg.Connection, vector: List[float]) -> UUID:
         cur.execute(sql, (vector,))
         return cur.fetchone()['dictionary_id']
 
+@transactional
 def find_matches_above_threshold(conn: psycopg.Connection, vector: List[float], threshold: float) -> List[Dict[str, Any]]:
     """Phase 4.3 (Scenario A): Finds all anchors to update/nudge."""
     sql = """
@@ -116,6 +135,7 @@ def find_matches_above_threshold(conn: psycopg.Connection, vector: List[float], 
         return cur.fetchall()
 
 
+@transactional
 def execute_trim_job(conn: psycopg.Connection) -> int:
     """Executes capacity-based trimming via atomic CTE."""
     sql = """
@@ -136,6 +156,7 @@ def execute_trim_job(conn: psycopg.Connection) -> int:
         cur.execute(sql)
         return cur.rowcount
 
+@transactional
 def get_cross_anchor_merge_candidates(conn: psycopg.Connection) -> List[Dict[str, Any]]:
     """Uses pgvector self-join to find overlapping concepts."""
     sql = """
@@ -149,6 +170,7 @@ def get_cross_anchor_merge_candidates(conn: psycopg.Connection) -> List[Dict[str
         cur.execute(sql)
         return cur.fetchall()
 
+@transactional
 def consolidate_duplicate_anchors(
     conn: psycopg.Connection, id_a: str, id_b: str, merged_vector: List[float], merged_kws: Dict
 ) -> None:
@@ -165,6 +187,7 @@ def consolidate_duplicate_anchors(
         
         cur.execute("DELETE FROM tomte_semantic_anchors WHERE dictionary_id = %s", (id_b,))
 
+@transactional
 def get_anchors_for_internal_merge(conn: psycopg.Connection) -> List[str]:
     """Finds anchors that haven't been internally optimized in over a month."""
     sql = """
@@ -176,6 +199,7 @@ def get_anchors_for_internal_merge(conn: psycopg.Connection) -> List[str]:
         cur.execute(sql)
         return [row['dictionary_id'] for row in cur.fetchall()]
 
+@transactional
 def execute_internal_keyword_merge(
     conn: psycopg.Connection, anchor_id: str, kw_type: str, survivor: str, victims: List[str], total_hits: int
 ) -> None:
@@ -191,6 +215,7 @@ def execute_internal_keyword_merge(
             WHERE dictionary_id = %s AND keyword_type = %s AND keyword = ANY(%s)
         """, (anchor_id, kw_type, victims))
 
+@transactional
 def mark_anchor_internal_merge_complete(conn: psycopg.Connection, anchor_id: str) -> None:
     with conn.cursor() as cur:
         cur.execute("UPDATE tomte_semantic_anchors SET last_internal_merge_at = NOW() WHERE dictionary_id = %s", (anchor_id,))
