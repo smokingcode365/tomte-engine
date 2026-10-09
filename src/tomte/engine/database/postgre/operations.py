@@ -201,3 +201,21 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                     raise ValueError(f"REINFORCE failed: Record {op.get('db_id')} not found or namespace mismatch.")
                     
         return True
+
+
+@transactional
+def is_consolidation_processed(conn: psycopg.Connection, tenant_id: str, user_id: str, batch_id: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM tomte_processed_consolidations WHERE tenant_id=%s AND user_id=%s AND batch_id=%s", (tenant_id, user_id, batch_id))
+        return cur.fetchone() is not None
+
+
+@transactional
+def claim_consolidation_batch(conn: psycopg.Connection, tenant_id: str, user_id: str, batch_id: str) -> bool:
+    """Unique insertion serializes rivals; caller joins memory/feedback in its scope."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO tomte_processed_consolidations (tenant_id, user_id, batch_id)
+            VALUES (%s, %s, %s) ON CONFLICT DO NOTHING RETURNING batch_id
+        """, (tenant_id, user_id, batch_id))
+        return cur.fetchone() is not None

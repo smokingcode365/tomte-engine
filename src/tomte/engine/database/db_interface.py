@@ -61,6 +61,14 @@ class DatabaseProvider(Protocol):
         ...
 
     # --- Workflow 3: Consolidation (Write Ops) ---
+    def is_consolidation_processed(self, tenant_id: str, user_id: str, batch_id: str) -> bool:
+        """Check a committed batch identity before preparing model work."""
+        ...
+
+    def claim_consolidation_batch(self, tenant_id: str, user_id: str, batch_id: str) -> bool:
+        """Within transaction(), claim once alongside memory and dictionary writes."""
+        ...
+
     def get_user_graph_skeleton(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
         """Retrieves entity_ids and aliases for anchoring new facts."""
         ...

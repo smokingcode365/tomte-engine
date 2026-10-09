@@ -10,7 +10,7 @@ from tomte.engine.core.config import settings
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine import tomtelog
 from tomte.engine.utils.keys import generate_common_key, generate_persona_key, get_section_key_active_sessions
-from tomte.engine.utils.keys import generate_consolidation_key, generate_session_ref, parse_session_ref
+from tomte.engine.utils.keys import generate_consolidation_key, generate_consolidation_batch_key, generate_session_ref, parse_session_ref
 from tomte.engine.utils.security import get_security_guard
 
 class RedisCacheProvider(CacheProvider):
@@ -161,6 +161,8 @@ class RedisCacheProvider(CacheProvider):
         # 2. Build the heavy payload (includes vector and metadata)
         # This data is purely for consolidation, not for UI display.
         payload = {
+            "item_id": str(uuid.uuid4()),
+            "session_id": session_id,
             "tenant_id": tenant_id, # Included as requested for worker context
             "user_id": user_id,
             "role": role,
@@ -216,32 +218,52 @@ class RedisCacheProvider(CacheProvider):
         return parse_session_ref(idle_refs[0]) if idle_refs else None
 
     def pop_session_chat_log_4_consolidation(self, tenant_id: str, user_id: str, session_id: str) -> list[dict]:
-        """
-        Pulls the raw chat log for a session and parses the JSON.
-        """
-        # Corrected argument order to match keys.py: (tenant_id, user_id, session_id)
-        query_key = generate_consolidation_key(tenant_id, user_id, session_id)
-        raw_items = self.client.lrange(query_key, 0, -1)
-        
-        if not raw_items:
-            return []
-            
-        parsed_items = []
-        for item in raw_items:
-            try:
-                parsed_items.append(json.loads(item))
-            except json.JSONDecodeError as e:
-                tomtelog.error(f"Corrupted payload in consolidation queue {query_key}", exc=e)
-        return parsed_items
-
-    def clear_session_4_consolidation(self, tenant_id: str, user_id: str, session_id: str):
-        """
-        Deletes the chat log and removes the session from the active ZSET.
-        """
-        pipe = self.client.pipeline()
-        # Corrected argument order for generate_consolidation_key
+        """Freeze one batch; retries read it while later messages remain queued."""
         queue_key = generate_consolidation_key(tenant_id, user_id, session_id)
+        batch_key = generate_consolidation_batch_key(tenant_id, user_id, session_id)
+        lua = """
+        if redis.call('exists', KEYS[2]) == 0 then
+            if redis.call('exists', KEYS[1]) == 0 then return {} end
+            redis.call('rename', KEYS[1], KEYS[2])
+        end
+        local items = redis.call('lrange', KEYS[2], 0, -1)
+        for i, raw in ipairs(items) do
+            local item = cjson.decode(raw)
+            -- Upgrade old queues once, storing IDs so retries use the same batch.
+            if not item.item_id or not item.session_id then
+                item.item_id = item.item_id or (ARGV[1] .. ':' .. i)
+                item.session_id = item.session_id or ARGV[2]
+                raw = cjson.encode(item)
+                redis.call('lset', KEYS[2], i - 1, raw)
+                items[i] = raw
+            end
+        end
+        return items
+        """
+        raw_items = self.client.eval(lua, 2, queue_key, batch_key, str(uuid.uuid4()), session_id)
+        return [json.loads(item) for item in raw_items]
+
+    def clear_session_4_consolidation(self, tenant_id: str, user_id: str, session_id: str, chat_items: Optional[List[Dict[str, Any]]] = None) -> bool:
+        """Acknowledge only the supplied snapshot, never newly queued messages."""
+        queue_key = generate_consolidation_key(tenant_id, user_id, session_id)
+        batch_key = generate_consolidation_batch_key(tenant_id, user_id, session_id)
         session_ref = generate_session_ref(tenant_id, session_id, user_id)
-        pipe.delete(queue_key)
-        pipe.zrem(get_section_key_active_sessions(), session_ref)
-        pipe.execute()
+        ids = [item['item_id'] for item in chat_items] if chat_items else []
+        lua = """
+        local expected = cjson.decode(ARGV[2])
+        local items = redis.call('lrange', KEYS[2], 0, -1)
+        if #expected > 0 then
+            if #items ~= #expected then return 0 end
+            for i, raw in ipairs(items) do
+                if cjson.decode(raw).item_id ~= expected[i] then return 0 end
+            end
+            redis.call('del', KEYS[2])
+        elseif #items > 0 then
+            return 0
+        end
+        if redis.call('llen', KEYS[1]) == 0 and redis.call('llen', KEYS[2]) == 0 then
+            redis.call('zrem', KEYS[3], ARGV[1])
+        end
+        return 1
+        """
+        return bool(self.client.eval(lua, 3, queue_key, batch_key, get_section_key_active_sessions(), session_ref, json.dumps(ids)))

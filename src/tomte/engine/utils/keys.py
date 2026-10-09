@@ -17,6 +17,11 @@ def generate_common_key(tenant_id: str, session_id: str, user_id: Optional[str] 
 def generate_consolidation_key(tenant_id: str, user_id: str, session_id: str) -> str:
     return f"Tomte:consolidation:queue:{tenant_id}:{user_id}:{session_id}"
 
+def generate_consolidation_batch_key(tenant_id: str, user_id: str, session_id: str) -> str:
+    """Durable Redis snapshot awaiting PostgreSQL commit and acknowledgment."""
+    return generate_consolidation_key(tenant_id, user_id, session_id) + ":processing"
+
+
 def generate_session_ref(tenant_id: str, session_id: str, user_id:str) -> str:
     return f"{tenant_id}:{user_id}:{session_id}"
 

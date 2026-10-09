@@ -136,10 +136,13 @@ class CacheProvider(ABC):
 
     @abstractmethod
     def pop_session_chat_log_4_consolidation(self, tenant_id: str, user_id: str, session_id: str) -> List[Dict[str, Any]]:
-        """Pulls the chronological chat log payload for consolidation."""
+        """Freeze/read a retry-stable snapshot with item_id and session_id fields."""
         ...
 
     @abstractmethod
-    def clear_session_4_consolidation(self, tenant_id: str, user_id: str, session_id: str) -> None:
-        """Removes the chat log and removes the session from the active pool."""
+    def clear_session_4_consolidation(self, tenant_id: str, user_id: str, session_id: str, chat_items: Optional[List[Dict[str, Any]]] = None) -> bool:
+        """Acknowledge exactly this snapshot; retain later messages and activity.
+
+        Without chat_items, only remove activity for an already empty session.
+        """
         ...

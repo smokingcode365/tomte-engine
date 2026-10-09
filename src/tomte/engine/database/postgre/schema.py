@@ -32,6 +32,17 @@ def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
             );
         """)
 
+        # Retain processed identities indefinitely; no chat payloads are stored.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS tomte_processed_consolidations (
+                tenant_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                batch_id TEXT NOT NULL,
+                processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (tenant_id, user_id, batch_id)
+            );
+        """)
+
         # 2. Core Memory Table
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS tomte_memory_engine (

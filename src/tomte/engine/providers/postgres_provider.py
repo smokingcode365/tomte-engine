@@ -88,6 +88,12 @@ class PostgresProvider(DatabaseProvider):
         return operations.get_ontology_dictionaries(self.conn, tenant_id, query_vector)
 
     # --- Workflow 3: Consolidation (Write Ops) ---
+    def is_consolidation_processed(self, tenant_id: str, user_id: str, batch_id: str) -> bool:
+        return operations.is_consolidation_processed(self.conn, tenant_id, user_id, batch_id)
+
+    def claim_consolidation_batch(self, tenant_id: str, user_id: str, batch_id: str) -> bool:
+        return operations.claim_consolidation_batch(self.conn, tenant_id, user_id, batch_id)
+
     def get_user_graph_skeleton(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
         return operations.get_user_graph_skeleton(self.conn, tenant_id, user_id)
 

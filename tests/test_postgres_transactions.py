@@ -50,6 +50,9 @@ def local_db():
         # Business transaction contexts must have completed before fixture cleanup.
         for user in users:
             db.delete_user_memory(tenant, user)
+        with db.transaction():
+            with db.conn.cursor() as cursor:
+                cursor.execute("DELETE FROM tomte_processed_consolidations WHERE tenant_id=%s", (tenant,))
         observer.close()
         db.close()
 
@@ -269,7 +272,7 @@ def test_dictionary_feedback_failure_rolls_back_consolidation_memory(local_db, m
     workflow = ConsolidationWorkflow.__new__(ConsolidationWorkflow)
     workflow.db, workflow.dict_service = db, service
     with pytest.raises(RuntimeError, match="forced feedback failure"):
-        workflow._commit_refined_operations([memory_update(tenant, user)])
+        workflow._commit_refined_operations([memory_update(tenant, user)], tenant, user, "synthetic-failure-batch")
     assert anchor_ids
     assert db.get_recent_entities(tenant, user) == []
     assert all(db.get_dictionary_anchor_details(a) is None for a in anchor_ids)

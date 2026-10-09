@@ -33,7 +33,8 @@ def run_consolidation_job():
                     tomtelog.info(f"Consolidating {len(chat_items)} messages for user {user_id}")
                     success = consolidation_workflow.run_consolidation_cycle(tenant_id, user_id, chat_items)
                     if success:
-                        redis_provider.clear_session_4_consolidation(tenant_id, user_id, session_id)
+                        # Newly committed and already-processed batches are both safe to ack.
+                        redis_provider.clear_session_4_consolidation(tenant_id, user_id, session_id, chat_items)
                 else:
                     redis_provider.clear_session_4_consolidation(tenant_id, user_id, session_id)
                     

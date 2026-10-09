@@ -1,5 +1,8 @@
 # tomte/engine/workflows/consolidation.py
 
+import hashlib
+import json
+
 from typing import List, Dict, Any
 from tomte.engine.llm.embedder import  get_entity_summary
 from tomte.engine.dictionary.service import get_dictionary_service
@@ -23,6 +26,12 @@ class ConsolidationWorkflow:
         """
         Executes the full 4-Phase consolidation cycle[cite: 137, 152, 157].
         """
+        if not chat_items:
+            return False
+        batch_id = self._batch_id(tenant_id, user_id, chat_items)
+        if self.db.is_consolidation_processed(tenant_id, user_id, batch_id):
+            return True  # Idempotent success: the worker may acknowledge Redis.
+
         # 1. Preparation: Extract text and vectors [cite: 139-140]
         chat_text = "\n".join([f"{m['role']}: {m['content']}" for m in chat_items])
         chat_vectors = [m['vector'] for m in chat_items if m.get('vector')]
@@ -76,14 +85,34 @@ class ConsolidationWorkflow:
                 op['embedding'] = batch_vectors[i]
                 
         # Prepared memory writes and dictionary feedback form one PostgreSQL unit.
-        self._commit_refined_operations(refined_ops)
+        self._commit_refined_operations(refined_ops, tenant_id, user_id, batch_id)
 
         tomtelog.info(f"Consolidation cycle complete for {user_id}")
         return True
 
-    def _commit_refined_operations(self, refined_ops: List[Dict[str, Any]]) -> None:
-        """Persist prepared memory changes and dictionary feedback atomically."""
+    @staticmethod
+    def _batch_id(tenant_id: str, user_id: str, chat_items: List[Dict[str, Any]]) -> str:
+        """Hash identities, not content; similar later messages have new IDs."""
+        session_id = chat_items[0].get("session_id")
+        ids = []
+        for item in chat_items:
+            item_id = item.get("item_id")
+            if (not isinstance(item_id, str) or not item_id or
+                    not isinstance(session_id, str) or not session_id or
+                    item.get("session_id") != session_id or
+                    item.get("tenant_id") != tenant_id or item.get("user_id") != user_id):
+                raise ValueError("Consolidation requires stable, consistently scoped queue item identities")
+            ids.append(item_id)
+        if len(set(ids)) != len(ids):
+            raise ValueError("Consolidation batch contains duplicate queue item identities")
+        identity = json.dumps([tenant_id, user_id, session_id, ids], separators=(",", ":"))
+        return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+    def _commit_refined_operations(self, refined_ops: List[Dict[str, Any]], tenant_id: str, user_id: str, batch_id: str) -> None:
+        """Persist batch claim, prepared memory changes and feedback atomically."""
         with self.db.transaction():
+            if not self.db.claim_consolidation_batch(tenant_id, user_id, batch_id):
+                return  # Another attempt committed while model work was prepared.
             if not self.db.commit_graph_updates(refined_ops):
                 raise RuntimeError("Consolidation memory write failed")
             self.dict_service.apply_feedback(refined_ops)
@@ -208,8 +237,12 @@ class ConsolidationWorkflow:
             
             if mode in ["MUTATE", "REINFORCE"] and db_id:
                 old_record = next((s for s in skeleton if str(s["id"]) == str(db_id)), None)
-                
-                if old_record and "payload" in old_record:
+                if old_record is None:
+                    raise ValueError(f"Matched Golden Record not found in user graph for {mode}")
+
+                # A matched Golden Record owns identity, not the new extraction.
+                entity["entity_id"] = old_record["entity_id"]
+                if "payload" in old_record:
                     # A. Merge Facts safely
                     old_facts = {f["attribute_name"]: f for f in old_record["payload"].get("facts", [])}
                     new_facts = {f["attribute_name"]: f for f in extracted_new_facts}
