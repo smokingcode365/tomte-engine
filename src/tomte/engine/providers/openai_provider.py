@@ -9,6 +9,9 @@ from tomte.engine.core.config import settings
 T = TypeVar('T', bound=BaseModel)
 
 class OpenAILLMProvider(LLMProvider):
+    """Use Responses for structured output: low effort for extraction/reconciliation,
+    none for the simple junk classifier. Embeddings retain their existing vector space.
+    """
     def __init__(self, api_key: str):
         # Store the key; pydantic-ai will use it from env or explicit config
         self.api_key = api_key
@@ -16,9 +19,9 @@ class OpenAILLMProvider(LLMProvider):
         # We use Pydantic-AI's Embedder for all vector tasks
         self.embedder = Embedder(settings.openai.embed_model)
         
-        # We pull the model strings from our config
-        self.strong_model = settings.openai.strong_model
-        self.cheap_model = settings.openai.cheap_model
+        # Explicit routing avoids Pydantic-AI inferring Chat Completions from bare names.
+        self.strong_model = f"openai-responses:{settings.openai.strong_model}"
+        self.cheap_model = f"openai-responses:{settings.openai.cheap_model}"
 
     def get_vector_dimension(self) -> int:
         return settings.openai.vector_dimension
@@ -39,9 +42,10 @@ class OpenAILLMProvider(LLMProvider):
         """Runs the junk filter agent with the cheap model."""
         result = junk_filter_agent.run_sync(
             chat_log, 
-            model=self.cheap_model
+            model=self.cheap_model,
+            model_settings={"openai_reasoning_effort": "none"}
         )
-        return result.data
+        return result.output
 
 
     def parse_structured(
@@ -61,9 +65,10 @@ class OpenAILLMProvider(LLMProvider):
             result = tomte_extractor_agent.run_sync(
                 user_text,
                 model=self.strong_model,
+                model_settings={"openai_reasoning_effort": "low"},
                 deps=deps
             )
-            return result.data
+            return result.output
             
         # Route B: Phase 3 Reconciliation or Generic Tasks (Dynamic Schema)
         else:
@@ -74,6 +79,7 @@ class OpenAILLMProvider(LLMProvider):
             )
             result = dynamic_agent.run_sync(
                 user_text,
-                model=self.strong_model
+                model=self.strong_model,
+                model_settings={"openai_reasoning_effort": "low"}
             )
-            return result.data
+            return result.output

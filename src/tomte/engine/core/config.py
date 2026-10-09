@@ -2,9 +2,9 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class OpenAISettings(BaseModel):
-    strong_model: str = "gpt-4o-2024-08-06"
-    cheap_model: str = "gpt-4o-mini"
-    embed_model: str = "text-embedding-3-small"
+    strong_model: str = "gpt-6.1-sol"
+    cheap_model: str = "gpt-6-luna"
+    embed_model: str = "openai:text-embedding-3-small"
     vector_dimension: int = 1536
 
 class AnthropicSettings(BaseModel):
