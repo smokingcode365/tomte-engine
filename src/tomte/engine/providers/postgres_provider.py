@@ -118,9 +118,11 @@ class PostgresProvider(DatabaseProvider):
 
     # --- Dictionary semantic anchors (bootstrap + feedback) ---
     def get_semantic_keywords(
-        self, vector: List[float], threshold: float, id_limit: int
+        self, vector: List[float], threshold: float, id_limit: int,
+        keyword_type: Optional[str] = None, keyword_limit: int = 5,
     ) -> List[Dict[str, Any]]:
-        return dictionary_ops.get_semantic_keywords(self.conn, vector, threshold, id_limit)
+        return dictionary_ops.get_semantic_keywords(self.conn, vector, threshold, id_limit,
+                                                    keyword_type, keyword_limit)
 
     def find_dictionary_matches_above_threshold(
         self, vector: List[float], threshold: float

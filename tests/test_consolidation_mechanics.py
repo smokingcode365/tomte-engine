@@ -8,6 +8,7 @@ Only unique synthetic fixtures are written. Teardown removes those fixtures;
 the workflow itself never acknowledges the Redis queue. No model APIs run.
 """
 
+from collections import Counter
 import os
 import json
 import threading
@@ -81,7 +82,7 @@ class DeterministicInsertLLM:
 
     def record(self, method):
         assert self.db.conn.info.transaction_status == TransactionStatus.IDLE
-        expected = ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch", "embed_text"]
+        expected = ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch", "embed_text"]
         assert len(self.calls) < len(expected) and method == expected[len(self.calls)]
         self.calls.append(method)
 
@@ -94,6 +95,9 @@ class DeterministicInsertLLM:
         return self.vector()
 
     def embed_batch(self, texts):
+        if texts and texts[0].startswith("domain: "):
+            self.record("dictionary_embed")
+            return [self.vector() for _ in texts]
         assert texts == [get_entity_summary(self.entity.model_dump(mode="json"))]
         self.record("embed_batch")
         return [self.vector()]
@@ -104,12 +108,15 @@ class DeterministicInsertLLM:
         return False
 
     def parse_structured(self, system_prompt, user_text, schema, taxonomy=None, lexicon=None):
+        if schema.__name__ == "TerminologyAlignmentResponse":
+            self.record("align")
+            return schema()
         if schema.__name__ == "MutationPlanResponse":
             self.record("mutate")
             return mutation_response(schema,user_text)
         if schema is ExtractionMemorySchema:
             assert json.loads(user_text)["CURRENT_BATCH"][0]["content"] == MESSAGE
-            assert isinstance(taxonomy, list) and isinstance(lexicon, list)
+            assert taxonomy is None and lexicon is None
             self.record("extract")
             result, self.entity = extraction_response(schema, self.entity, user_text)
             return result
@@ -202,15 +209,15 @@ def test_deterministic_insert_is_committed_and_retrievable(mechanics):
     stored,=payload["facts"]
     assert stored["value"]=="Python" and stored["assertion_state"]=="ACTIVE"
     assert stored["fact_id"] and stored["evidence"][0]["source_chat_id"]==queue[0]["item_id"]
-    assert len(case.anchors) == 1
-    keywords = case.db.get_anchor_keywords(str(case.anchors[0]))
+    assert len(case.anchors) == 2
+    keywords = [k for a in case.anchors for k in case.db.get_anchor_keywords(str(a))]
     assert {(k["keyword"], k["keyword_type"], k["hits"]) for k in keywords} == {
         ("programming_preference", "ENTITY", 1), ("favorite_programming_language", "ATTRIBUTE", 1),
     }
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, QUESTION, ChatSenderRole.USER, case.user)
     assert "favorite_programming_language: Python" in context["context_text"]
     assert context["context_text"].count("[[ENTITY: pre_01") == 1
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch", "embed_text"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch", "embed_text"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -226,12 +233,12 @@ def test_keyword_write_failure_rolls_back_and_retains_retry_queue(mechanics, mon
         ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
     assert case.db.get_user_graph_skeleton(case.tenant, case.user) == []
-    assert len(case.anchors) == 1
-    assert case.db.get_dictionary_anchor_details(case.anchors[0]) is None
-    assert case.db.get_anchor_keywords(str(case.anchors[0])) == []
+    assert len(case.anchors) == 2
+    assert all(case.db.get_dictionary_anchor_details(a) is None for a in case.anchors)
+    assert all(case.db.get_anchor_keywords(str(a)) == [] for a in case.anchors)
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is not None
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -277,6 +284,9 @@ class LifecycleLLM(DeterministicInsertLLM):
         return False
 
     def parse_structured(self, system_prompt, user_text, schema, taxonomy=None, lexicon=None):
+        if schema.__name__ == "TerminologyAlignmentResponse":
+            self.record("align")
+            return schema()
         if schema.__name__ == "MutationPlanResponse":
             self.record("mutate")
             return mutation_response(schema,user_text)
@@ -296,6 +306,9 @@ class LifecycleLLM(DeterministicInsertLLM):
         }]}, user_text)
 
     def embed_batch(self, texts):
+        if texts and texts[0].startswith("domain: "):
+            self.record("dictionary_embed")
+            return [self.vector() for _ in texts]
         assert len(texts) == 1
         assert self.entity.facts[0].value in texts[0] and "VSCode" in texts[0]
         self.record("embed_batch")
@@ -333,7 +346,7 @@ def run_message(case):
     queue = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
     assert len(queue) == 1 and queue[0]["content"] == case.llm.message
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     return queue
@@ -398,9 +411,12 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     assert historical["value"]=="Python" and historical["assertion_state"]=="HISTORICAL"
     assert language(mutated)["supersedes_fact_id"]==historical["fact_id"]
     assert set(mutated["payload"]["aliases"]) == {"my favorite programming language", "my preferred language"}
-    hits = {k["keyword"]: k["hits"] for k in case.db.get_anchor_keywords(str(case.anchors[0]))}
+    hits = Counter()
+    for anchor in case.anchors:
+        for k in case.db.get_anchor_keywords(str(anchor)):
+            hits[k["keyword"]] += k["hits"]
     assert hits == {"programming_preference": 3, "favorite_programming_language": 3, "preferred_editor": 1}
-    assert len(case.anchors) == 1
+    assert len(case.anchors) == 7
     acknowledge(case)
     assert_context(case, "Rust")
     print("Lifecycle: one pre_01, same UUID; Python -> Python -> Rust; row counts 1/2/3; keyword hits 3/3/1; structured Python history preserved; Rust context verified")
@@ -513,7 +529,7 @@ def test_missing_matched_golden_record_fails_before_persistence(mechanics, monke
     case.llm.prepare(mode, value, "I still really like Python." if mode == "REINFORCE" else "Actually, I prefer Rust now.", missing_id, step)
     parse = case.llm.parse_structured
     def missing_match(system_prompt, user_text, schema, taxonomy=None, lexicon=None):
-        if schema is ExtractionMemorySchema:
+        if schema is ExtractionMemorySchema or schema.__name__ == "TerminologyAlignmentResponse":
             return parse(system_prompt, user_text, schema, taxonomy, lexicon)
         case.llm.record("reconcile")
         return resolution_response(schema, {"mappings": [{
@@ -525,7 +541,7 @@ def test_missing_matched_golden_record_fails_before_persistence(mechanics, monke
     queue = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
     with pytest.raises(ValueError, match="Matched Golden Record not found"):
         ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile"]
     assert memory_rows(case) == before and dictionary_state(case) == dictionary_before
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
@@ -562,7 +578,7 @@ def test_failed_batch_has_no_marker_and_retry_can_commit(mechanics, monkeypatch)
     assert updated["id"] == before["id"] and language(updated)["value"] == "Rust"
     assert updated["mention_count"] == before["mention_count"] + 1
     assert processed_count(case) == 2
-    assert case.llm.calls == ["is_junk", "extract", "reconcile", "mutate", "embed_batch"]
+    assert case.llm.calls == ["is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -623,7 +639,7 @@ def test_direct_worker_acknowledges_new_and_replayed_success(mechanics, monkeypa
     assert len(memory_rows(case)) == 1 and processed_count(case) == 1
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == []
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is None
-    assert case.llm.calls == ([] if already_processed else ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch"])
+    assert case.llm.calls == ([] if already_processed else ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"])
 
 
 @pytest.mark.parametrize("raises", [False, True])
@@ -659,6 +675,10 @@ def test_concurrent_batch_claim_applies_memory_and_feedback_only_once(mechanics,
         **{key: entity[key] for key in ("entity_id", "entity_name", "entity_domain", "entity_type")},
         "payload": entity, "embedding": case.llm.vector(), "importance": 4,
         "extracted_facts": entity["facts"],
+        "_dictionary_evidence": [
+            {"keyword": word, "keyword_type": kind, "vector": case.llm.vector(), "dictionary_id": None}
+            for word, kind in [(entity["entity_type"], "ENTITY")] +
+            [(f["attribute_name"], "ATTRIBUTE") for f in entity["facts"]]],
     }
     config = dotenv_values(".env")
     url = os.environ.get("POSTGRES_URL") or config.get("POSTGRES_URL")
@@ -692,8 +712,9 @@ def test_concurrent_batch_claim_applies_memory_and_feedback_only_once(mechanics,
         assert inserted["entity_id"] == "pre_01" and inserted["mention_count"] == 1
         assert processed_count(case) == 1
         matches = case.db.find_dictionary_matches_above_threshold(case.llm.vector(), 0.999)
-        assert len(matches) == 1
-        hits = {k["keyword"]: k["hits"] for k in case.db.get_anchor_keywords(str(matches[0]["dictionary_id"]))}
+        assert len(matches) == 3
+        hits = {k["keyword"]: k["hits"] for m in matches
+                for k in case.db.get_anchor_keywords(str(m["dictionary_id"]))}
         assert hits == {"programming_preference": 1, "favorite_programming_language": 1, "preferred_editor": 1}
         assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     finally:

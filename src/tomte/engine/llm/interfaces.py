@@ -36,5 +36,7 @@ class LLMProvider(Protocol):
         """
         Uses a high-intelligence model to perform deterministic extraction.
         Must return an instantiated Pydantic model (TomteMemorySchema).
+        taxonomy supplies established entity types; lexicon supplies attribute names,
+        not fact values. These argument names are retained for caller compatibility.
         """
         ...

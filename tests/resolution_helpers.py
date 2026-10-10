@@ -48,6 +48,8 @@ def mutation_response(schema, user_text):
 
 def mutation_aware(model):
     def wrapped(system_prompt,user_text,schema,**kwargs):
+        if schema.__name__ == "TerminologyAlignmentResponse":
+            return schema()  # Prescribed KEEP_RAW; decision mechanics tested separately.
         if schema.__name__=="MutationPlanResponse":
             return mutation_response(schema,user_text)
         return model(system_prompt,user_text,schema,**kwargs)

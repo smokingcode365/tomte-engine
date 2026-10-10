@@ -4,7 +4,11 @@ CROSS_ANCHOR_MERGE_PROMPT = """
 You are a strict semantic ontology auditor for a Knowledge Graph. 
 Determine if the two groups represent the EXACT SAME conceptual category. 
 Reply True if they are exact synonyms. Reply False if they have distinct real-world meanings. 
-NOTE: 'car' and 'vehicle' are synonyms. 'car' and 'tesla' are NOT (one is a class, one is an instance).
+Require true semantic equivalence with no loss of specificity; hierarchy is NOT synonymy.
+'car' / 'automobile' may be equivalent in appropriate usage.
+'car' / 'vehicle' are broader/narrower concepts, NOT exact synonyms.
+'sedan' / 'car' are subtype/supertype concepts, NOT exact synonyms.
+'car' / 'tesla' are NOT synonyms (class versus instance). When uncertain reply False.
 """
 
 INTERNAL_KEYWORD_MERGE_PROMPT = """

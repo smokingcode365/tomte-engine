@@ -224,7 +224,13 @@ def test_dictionary_feedback_terms_return_when_vectors_match(mechanics):
     op["entity_type"]="vehicle"
     op["embedding"]=case.llm.vector()
     op["extracted_facts"]=[fact("ownership_status","Owned")]
+    op["_dictionary_evidence"] = [
+        {"keyword": word, "keyword_type": kind, "vector": case.llm.vector(), "dictionary_id": None}
+        for word, kind in [("vehicle", "ENTITY"), ("ownership_status", "ATTRIBUTE")]]
     service.apply_feedback([op])
+    # Only explicit accepted candidate identities may update these anchors.
+    for evidence, anchor in zip(op["_dictionary_evidence"], case.anchors):
+        evidence["dictionary_id"] = str(anchor)
     from tomte.engine.core.enums import DictionaryKeywordType
     first=service.bootstrap([case.llm.vector()])
     assert first[DictionaryKeywordType.ENTITY] == ["vehicle"]

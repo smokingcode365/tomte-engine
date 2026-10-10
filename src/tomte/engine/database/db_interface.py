@@ -91,9 +91,10 @@ class DatabaseProvider(Protocol):
 
     # --- Dictionary semantic anchors (bootstrap + feedback) ---
     def get_semantic_keywords(
-        self, vector: List[float], threshold: float, id_limit: int
+        self, vector: List[float], threshold: float, id_limit: int,
+        keyword_type: Optional[str] = None, keyword_limit: int = 5,
     ) -> List[Dict[str, Any]]:
-        """Top semantic anchors and their registry keywords for dictionary bootstrap."""
+        """Optional typed top keywords, filtered before limiting; otherwise legacy anchors."""
         ...
 
     def find_dictionary_matches_above_threshold(

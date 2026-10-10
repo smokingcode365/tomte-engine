@@ -95,42 +95,27 @@ class DictionaryService:
         }
 
     def apply_feedback(self, refined_ops: List[Dict[str, Any]]) -> None:
-        """
-        Phase 4: Updates hit counts and nudges vectors based on refined results.
+        """Persist prepared focused evidence; never infer synonymy from similarity.
+
+        Joins the memory/claim transaction. No embedding or model calls occur here.
+        Missing/deleted accepted anchors abort atomically rather than redirecting
+        feedback to a different concept. Stage fallback supplies no evidence.
         """
         with self.db.transaction():
             for op in refined_ops:
-                vector = op["embedding"]
-
-                keywords = [(op["entity_type"], DictionaryKeywordType.ENTITY)]
-                for fact in op.get("extracted_facts", []):
-                    keywords.append((fact["attribute_name"], DictionaryKeywordType.ATTRIBUTE))
-
-                matches = self.db.find_dictionary_matches_above_threshold(
-                    vector, settings.llm_threshold_mid
-                )
-
-                if matches:
-                    best_match = matches[0]
-                    d_id: UUID = best_match["dictionary_id"]
-
-                    details = self.db.get_dictionary_anchor_details(d_id)
-                    if not details:
-                        continue
-                    new_v = logic.nudge_vector(
-                        details["embedding"], vector, details["total_hits"]
-                    )
-
-                    self.db.update_dictionary_anchor_vector(d_id, new_v)
-
-                    for kw, kw_type in keywords:
-                        self.db.upsert_dictionary_keyword(d_id, kw, kw_type.value)
-                else:
-                    new_id = self.db.create_dictionary_anchor(vector)
-                    for kw, kw_type in keywords:
-                        self.db.upsert_dictionary_keyword(new_id, kw, kw_type.value)
-
-
+                for evidence in op.get("_dictionary_evidence", []):
+                    kind = evidence["keyword_type"]
+                    anchor = evidence["dictionary_id"]
+                    vector = evidence["vector"]
+                    if anchor is None:
+                        anchor = self.db.create_dictionary_anchor(vector)
+                    else:
+                        details = self.db.get_dictionary_anchor_details(anchor)
+                        if not details:
+                            raise ValueError("Accepted dictionary anchor no longer exists")
+                        self.db.update_dictionary_anchor_vector(anchor, logic.nudge_vector(
+                            details["embedding"], vector, details["total_hits"]))
+                    self.db.upsert_dictionary_keyword(anchor, evidence["keyword"], kind)
 
     def dictionary_trim(self) -> int:
         return self.db.execute_dictionary_trim()
@@ -289,4 +274,3 @@ def get_dictionary_service() -> DictionaryService:
     if _dictionary_service_instance is None:
         _dictionary_service_instance = DictionaryService()
     return _dictionary_service_instance
-

@@ -7,6 +7,7 @@ prescribe model outputs and vectors; they do not evaluate natural-language
 extraction, entity resolution, or real embedding quality. No daemon/model API runs.
 """
 
+from collections import Counter
 import json
 
 import psycopg
@@ -39,6 +40,9 @@ class VehicleLLM:
     def __init__(self, db, index):
         self.db, self.index, self.calls = db, index, []
         self.source = None
+
+    def get_vector_dimension(self):
+        return 1536
 
     def prepare(self, stage, db_id=None):
         self.stage, self.db_id, self.message = stage, db_id, MESSAGES[stage]
@@ -91,13 +95,16 @@ class VehicleLLM:
         )
 
     def parse_structured(self, system_prompt, user_text, schema, taxonomy=None, lexicon=None):
+        if schema.__name__ == "TerminologyAlignmentResponse":
+            self.record("align")
+            return schema()
         if schema.__name__ == "MutationPlanResponse":
             self.record("mutate")
             return mutation_response(schema,user_text)
         entity = self.extracted()
         if schema is ExtractionMemorySchema:
             assert json.loads(user_text)["CURRENT_BATCH"][0]["content"] == self.message
-            assert isinstance(taxonomy, list) and isinstance(lexicon, list)
+            assert taxonomy is None and lexicon is None
             self.record("extract")
             return extraction_response(schema, entity, user_text)[0]
         assert schema.__name__ == "ResolutionResponse"
@@ -111,6 +118,9 @@ class VehicleLLM:
         }]}, user_text)
 
     def embed_batch(self, texts):
+        if texts and texts[0].startswith("domain: "):
+            self.record("dictionary_embed")
+            return [self.vector() for _ in texts]
         assert len(texts) == 1
         if self.extra_entity is None:
             assert "Tesla" in texts[0] and "Model Y" in texts[0]
@@ -157,7 +167,7 @@ def consolidate_stage(case, stage, db_id=None):
     case.llm.prepare(stage, db_id)
     queue = queue_input(case)
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "reconcile", "mutate", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"]
     row, = memory_rows(case)
     assert row["entity_id"] == row["payload"]["entity_id"] == "veh_01"
     assert row["payload"]["entity_type"] == "vehicle"
@@ -228,8 +238,11 @@ def test_full_vehicle_lifecycle_preserves_identity_state_history_and_replay(vehi
     assert facts(final)["sale_event"]["timeline"][0]["event_description"] == "Sold vehicle"
     # Formatter emits identity and current status, but not timeline metadata.
     assert "Purchased vehicle" not in text and "Sold vehicle" not in text
-    assert len(case.anchors) == 1
-    hits = {item["keyword"]: item["hits"] for item in case.db.get_anchor_keywords(str(case.anchors[0]))}
+    assert len(case.anchors) == 12
+    hits = Counter()
+    for anchor in case.anchors:
+        for item in case.db.get_anchor_keywords(str(anchor)):
+            hits[item["keyword"]] += item["hits"]
     assert hits == {"vehicle": 4, "make": 1, "model": 1, "ownership_status": 2,
                     "purchase_event": 1, "paint_color": 1, "nickname": 1, "sale_event": 1}
     assert not {"car", "Tesla", "Model Y", "Little Dog"}.intersection(hits)

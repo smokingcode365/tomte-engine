@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import List, Dict, Any
 from tomte.engine.llm.embedder import  get_entity_summary
 from tomte.engine.dictionary.service import get_dictionary_service
+from tomte.engine.dictionary.alignment import align_terms
 from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.llm.prompts.contextual_action import CONTEXTUAL_ACTION_PROMPT
@@ -16,7 +17,6 @@ from tomte.engine.llm.prompts.fact_mutation import MUTATION_SYSTEM_PROMPT
 from tomte.engine.core.resolution import ResolutionResponse, CANDIDATE_LIMIT, MIN_RESOLUTION_CONFIDENCE, STRONG_EVIDENCE
 from tomte.engine.dictionary.terminology import canonical_attribute, ATTRIBUTE_ALIASES
 from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS, ExtractionMemorySchema, build_extraction_input, resolve_extraction, validate_operation_provenance
-from tomte.engine.core.enums import DictionaryKeywordType
 from tomte.engine import tomtelog, Tomte
 from tomte.engine.llm.prompts.consolidation_golden_record import RECONCILER_SYSTEM_PROMPT
 
@@ -53,20 +53,13 @@ class ConsolidationWorkflow:
         if self.llm.is_junk(extraction_input):
             tomtelog.info(f"Consolidation aborted: Chat log is junk/small-talk for {user_id}.")
             return False
-        # --- PHASE 1: Semantic Bootstrapping ---
-        # Clusters chat vectors to find relevant dictionary keywords [cite: 137-151]
-        tomtelog.debug(f"Phase 1: Bootstrapping dictionary for {user_id}")
-        bootstrap_dict = self.dict_service.bootstrap(chat_vectors)
-        
-        # --- PHASE 2: Generative Extraction ---
-        # First LLM Call: Extracts entities using the bootstrap dictionary 
+        # Raw extraction is authoritative; dictionary alignment happens only after
+        # deterministic current-batch provenance validation.
         tomtelog.debug(f"Phase 2: Executing primary extraction")
         extracted_result = self.llm.parse_structured(
             system_prompt=None, 
             user_text=extraction_input,
             schema=ExtractionMemorySchema,
-            taxonomy=bootstrap_dict[DictionaryKeywordType.ENTITY],
-            lexicon=bootstrap_dict[DictionaryKeywordType.ATTRIBUTE]
         )
 
         extracted_schema = resolve_extraction(extracted_result, chat_items)
@@ -77,6 +70,12 @@ class ConsolidationWorkflow:
         # Reuse current-message vectors; no extra embedding/model request is needed.
         raw_entities = self._flatten_schema(extracted_schema)
         input_data = json.loads(extraction_input)
+        if raw_entities:
+            alignment = align_terms(raw_entities, input_data["CURRENT_BATCH"], self.llm, self.db)
+            self.last_terminology_metrics = alignment.metrics
+            raw_entities = alignment.entities
+            for entity, evidence in zip(raw_entities, alignment.evidence):
+                entity["_dictionary_evidence"] = evidence
         reference = input_data["RECENT_CONTEXT_REFERENCE_ONLY"]
         search_context = "\n".join(item["content"] for item in input_data["CURRENT_BATCH"] + reference)
         vector = [sum(values) / len(chat_vectors) for values in zip(*chat_vectors)]
@@ -227,6 +226,11 @@ class ConsolidationWorkflow:
                 {"attribute_name":canonical_attribute(m.attribute_name) if m.attribute_name else
                     next(f["attribute_name"] for f in operation["payload"]["facts"] if f["fact_id"] == m.target_fact_id)}
                 for m in mutations]
+            # Fully prepare feedback before the persistence transaction. The
+            # dictionary writer only applies accepted, already-embedded evidence.
+            accepted_attributes = {f["attribute_name"] for f in operation["extracted_facts"]}
+            operation["_dictionary_evidence"] = [e for e in operation.get("_dictionary_evidence", [])
+                if e["keyword_type"] == "ENTITY" or e["keyword"] in accepted_attributes]
         # A NEW target with no accepted facts/aliases must not create an empty guessed memory.
         return [op for op in prepared if op.get("db_id") or op["payload"]["facts"]]
 
@@ -382,6 +386,7 @@ class ConsolidationWorkflow:
                     previous = prepared[db_id]
                     previous["payload"] = op["payload"]
                     previous["extracted_facts"] += op["extracted_facts"]
+                    previous.setdefault("_dictionary_evidence", []).extend(op.get("_dictionary_evidence", []))
                     if op["mode"] == "MUTATE":
                         previous["mode"] = "MUTATE"
                     previous.update(entity_name=op["entity_name"], entity_type=op["entity_type"],
@@ -395,6 +400,7 @@ class ConsolidationWorkflow:
     def _prepare_operation(tenant_id, user_id, entity, record):
         """Existing fact merge/history semantics; identity decisions never choose a mode."""
         payload = deepcopy(entity)
+        dictionary_evidence = payload.pop("_dictionary_evidence", [])
         incoming = deepcopy(entity.get("facts", []))
         mode = "INSERT"
         if record is not None:
@@ -417,6 +423,7 @@ class ConsolidationWorkflow:
               "entity_id": payload["entity_id"], "entity_name": payload.get("entity_name") or payload["entity_id"],
               "entity_type": payload["entity_type"], "entity_domain": payload["entity_domain"],
               "payload": payload, "extracted_facts": incoming,
+              "_dictionary_evidence": dictionary_evidence,
               "importance": max((f.get("importance", 3) for f in payload.get("facts", [])), default=3)}
         if record is not None:
             op["db_id"] = str(record["id"])

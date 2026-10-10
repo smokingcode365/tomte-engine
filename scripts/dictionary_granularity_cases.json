@@ -1,0 +1,1217 @@
+{
+  "limitations": [
+    "Human-authored gold extraction fixtures; extraction and normalization are not evaluated.",
+    "Candidates are vocabulary guidance, not automatic synonym assignments.",
+    "One exemplar value per candidate; sensitivity to anchor values needs broader testing."
+  ],
+  "attribute_families": [
+    {
+      "candidate": "paint_color",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "red",
+      "originating_chat": "I painted my Tesla red.",
+      "queries": [
+        {
+          "raw_attribute": "exterior_color",
+          "value": "red",
+          "followup": "The outside paint on my Tesla is red."
+        },
+        {
+          "raw_attribute": "exterior_vehicle_colour",
+          "value": "red",
+          "followup": "My Tesla has red bodywork."
+        },
+        {
+          "raw_attribute": "vehicle_paint",
+          "value": "red",
+          "followup": "The coating on the car is red."
+        },
+        {
+          "raw_attribute": "body_color",
+          "value": "red",
+          "followup": "I chose red for the car body."
+        },
+        {
+          "raw_attribute": "car_colour",
+          "value": "red",
+          "followup": "The automobile is red on the outside."
+        },
+        {
+          "raw_attribute": "color",
+          "value": "red",
+          "followup": "My car exterior looks red."
+        }
+      ],
+      "hard_negatives": [
+        "interior_color",
+        "seat_color",
+        "vehicle_type"
+      ]
+    },
+    {
+      "candidate": "ownership_status",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "owned",
+      "originating_chat": "I own a Tesla.",
+      "queries": [
+        {
+          "raw_attribute": "ownership",
+          "value": "owned",
+          "followup": "The Tesla belongs to me."
+        },
+        {
+          "raw_attribute": "vehicle_ownership",
+          "value": "owned",
+          "followup": "I still own the automobile."
+        },
+        {
+          "raw_attribute": "possession_status",
+          "value": "owned",
+          "followup": "The car is my property."
+        },
+        {
+          "raw_attribute": "belongs_to_me",
+          "value": "owned",
+          "followup": "This vehicle is mine."
+        },
+        {
+          "raw_attribute": "owner_state",
+          "value": "sold",
+          "followup": "I sold the Tesla and no longer own it."
+        },
+        {
+          "raw_attribute": "status",
+          "value": "sold",
+          "followup": "The car is no longer mine after the sale."
+        }
+      ],
+      "hard_negatives": [
+        "sale_status",
+        "purchase_status",
+        "registration_status"
+      ]
+    },
+    {
+      "candidate": "job_title",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "Engineering Manager",
+      "originating_chat": "I work as an Engineering Manager.",
+      "queries": [
+        {
+          "raw_attribute": "role",
+          "value": "Engineering Manager",
+          "followup": "My role at work is Engineering Manager."
+        },
+        {
+          "raw_attribute": "position",
+          "value": "Engineering Manager",
+          "followup": "I hold the Engineering Manager position."
+        },
+        {
+          "raw_attribute": "work_title",
+          "value": "Engineering Manager",
+          "followup": "People at work call my job Engineering Manager."
+        },
+        {
+          "raw_attribute": "employment_title",
+          "value": "Engineering Manager",
+          "followup": "The title on my contract is Engineering Manager."
+        },
+        {
+          "raw_attribute": "career_role",
+          "value": "Engineering Manager",
+          "followup": "I was hired to be an Engineering Manager."
+        },
+        {
+          "raw_attribute": "title_at_work",
+          "value": "Engineering Manager",
+          "followup": "I lead engineering under the title Engineering Manager."
+        }
+      ],
+      "hard_negatives": [
+        "professional_field",
+        "employer",
+        "employment_status"
+      ]
+    },
+    {
+      "candidate": "current_home_address",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "123 Example Street",
+      "originating_chat": "I live at 123 Example Street.",
+      "queries": [
+        {
+          "raw_attribute": "home_address",
+          "value": "123 Example Street",
+          "followup": "My home address remains 123 Example Street."
+        },
+        {
+          "raw_attribute": "residential_address",
+          "value": "123 Example Street",
+          "followup": "I reside at 123 Example Street."
+        },
+        {
+          "raw_attribute": "address",
+          "value": "123 Example Street",
+          "followup": "My house is at 123 Example Street."
+        },
+        {
+          "raw_attribute": "residence_address",
+          "value": "123 Example Street",
+          "followup": "I have my residence at 123 Example Street."
+        },
+        {
+          "raw_attribute": "where_i_live",
+          "value": "123 Example Street",
+          "followup": "The place I live is 123 Example Street."
+        },
+        {
+          "raw_attribute": "location",
+          "value": "123 Example Street",
+          "followup": "I make my home at 123 Example Street."
+        }
+      ],
+      "hard_negatives": [
+        "current_location",
+        "hometown",
+        "mailing_address"
+      ]
+    },
+    {
+      "candidate": "programming_language",
+      "domain": "activities_and_skills",
+      "entity_name": "User programming",
+      "entity_type": "skill",
+      "raw_entity_type": "programming activity",
+      "value": "Python",
+      "originating_chat": "I use Python for programming.",
+      "queries": [
+        {
+          "raw_attribute": "coding_language",
+          "value": "Python",
+          "followup": "I write code in Python."
+        },
+        {
+          "raw_attribute": "language_used",
+          "value": "Python",
+          "followup": "I use Python when programming."
+        },
+        {
+          "raw_attribute": "development_language",
+          "value": "Python",
+          "followup": "My programs are written in Python."
+        },
+        {
+          "raw_attribute": "code_language",
+          "value": "Python",
+          "followup": "I develop software using Python."
+        },
+        {
+          "raw_attribute": "language_for_programming",
+          "value": "Python",
+          "followup": "I also code in Python."
+        },
+        {
+          "raw_attribute": "language",
+          "value": "Python",
+          "followup": "The language I choose for code is Python."
+        }
+      ],
+      "hard_negatives": [
+        "programming_skill_level",
+        "years_experience",
+        "framework"
+      ]
+    },
+    {
+      "candidate": "nickname",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "Little Dog",
+      "originating_chat": "I named my Tesla Little Dog.",
+      "queries": [
+        {
+          "raw_attribute": "pet_name",
+          "value": "Little Dog",
+          "followup": "I affectionately call my Tesla Little Dog."
+        },
+        {
+          "raw_attribute": "informal_name",
+          "value": "Little Dog",
+          "followup": "My car has the informal name Little Dog."
+        },
+        {
+          "raw_attribute": "called_name",
+          "value": "Little Dog",
+          "followup": "I refer to this vehicle as Little Dog."
+        },
+        {
+          "raw_attribute": "friendly_name",
+          "value": "Little Dog",
+          "followup": "The name I gave the car is Little Dog."
+        },
+        {
+          "raw_attribute": "personal_moniker",
+          "value": "Little Dog",
+          "followup": "My nickname for the automobile is Little Dog."
+        },
+        {
+          "raw_attribute": "name",
+          "value": "Little Dog",
+          "followup": "Among friends I call my Tesla Little Dog."
+        }
+      ],
+      "hard_negatives": [
+        "model_name",
+        "legal_name",
+        "vehicle_type"
+      ]
+    },
+    {
+      "candidate": "purchase_year",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "2024",
+      "originating_chat": "I bought my Tesla in 2024.",
+      "queries": [
+        {
+          "raw_attribute": "year_bought",
+          "value": "2024",
+          "followup": "I bought the car during 2024."
+        },
+        {
+          "raw_attribute": "year_of_purchase",
+          "value": "2024",
+          "followup": "The purchase took place in 2024."
+        },
+        {
+          "raw_attribute": "acquisition_year",
+          "value": "2024",
+          "followup": "I acquired the Tesla in 2024."
+        },
+        {
+          "raw_attribute": "bought_in_year",
+          "value": "2024",
+          "followup": "I became its owner in the year 2024."
+        },
+        {
+          "raw_attribute": "buying_year",
+          "value": "2024",
+          "followup": "The year I purchased it was 2024."
+        },
+        {
+          "raw_attribute": "year",
+          "value": "2024",
+          "followup": "It was 2024 when I bought my car."
+        }
+      ],
+      "hard_negatives": [
+        "manufacture_year",
+        "service_date",
+        "registration_expiry"
+      ]
+    },
+    {
+      "candidate": "service_date",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "2026-10-01",
+      "originating_chat": "I serviced my Tesla on October 1, 2026.",
+      "queries": [
+        {
+          "raw_attribute": "maintenance_date",
+          "value": "2026-10-01",
+          "followup": "The car was serviced on 2026-10-01."
+        },
+        {
+          "raw_attribute": "serviced_on",
+          "value": "2026-10-01",
+          "followup": "Maintenance happened on 2026-10-01."
+        },
+        {
+          "raw_attribute": "last_service_date",
+          "value": "2026-10-01",
+          "followup": "The mechanic worked on it on 2026-10-01."
+        },
+        {
+          "raw_attribute": "maintenance_day",
+          "value": "2026-10-01",
+          "followup": "I took the Tesla for service on 2026-10-01."
+        },
+        {
+          "raw_attribute": "garage_visit_date",
+          "value": "2026-10-01",
+          "followup": "Its garage service visit was on 2026-10-01."
+        },
+        {
+          "raw_attribute": "date",
+          "value": "2026-10-01",
+          "followup": "My car received maintenance on 2026-10-01."
+        }
+      ],
+      "hard_negatives": [
+        "purchase_year",
+        "registration_expiry",
+        "tire_install_date"
+      ]
+    },
+    {
+      "candidate": "start_date",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "2022-04-01",
+      "originating_chat": "I started my job on April 1, 2022.",
+      "queries": [
+        {
+          "raw_attribute": "employment_start",
+          "value": "2022-04-01",
+          "followup": "My first day at work was 2022-04-01."
+        },
+        {
+          "raw_attribute": "hired_on",
+          "value": "2022-04-01",
+          "followup": "I started employment on 2022-04-01."
+        },
+        {
+          "raw_attribute": "role_start_date",
+          "value": "2022-04-01",
+          "followup": "I began this role on 2022-04-01."
+        },
+        {
+          "raw_attribute": "joined_on",
+          "value": "2022-04-01",
+          "followup": "I joined the company on 2022-04-01."
+        },
+        {
+          "raw_attribute": "work_begin_date",
+          "value": "2022-04-01",
+          "followup": "My work there began on 2022-04-01."
+        },
+        {
+          "raw_attribute": "date",
+          "value": "2022-04-01",
+          "followup": "The day I started the job was 2022-04-01."
+        }
+      ],
+      "hard_negatives": [
+        "contract_end_date",
+        "service_date",
+        "graduation_date"
+      ]
+    },
+    {
+      "candidate": "marital_status",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "married",
+      "originating_chat": "I am married.",
+      "queries": [
+        {
+          "raw_attribute": "marriage_status",
+          "value": "married",
+          "followup": "I am legally married."
+        },
+        {
+          "raw_attribute": "relationship_legal_status",
+          "value": "married",
+          "followup": "My marital situation is married."
+        },
+        {
+          "raw_attribute": "marital_state",
+          "value": "married",
+          "followup": "My civil relationship status is married."
+        },
+        {
+          "raw_attribute": "spousal_status",
+          "value": "married",
+          "followup": "I am married to my spouse."
+        },
+        {
+          "raw_attribute": "civil_status",
+          "value": "married",
+          "followup": "My marriage status is married."
+        },
+        {
+          "raw_attribute": "status",
+          "value": "married",
+          "followup": "I remain married."
+        }
+      ],
+      "hard_negatives": [
+        "relationship_status",
+        "employment_status",
+        "ownership_status"
+      ]
+    },
+    {
+      "candidate": "programming_skill_level",
+      "domain": "activities_and_skills",
+      "entity_name": "User programming",
+      "entity_type": "skill",
+      "raw_entity_type": "programming activity",
+      "value": "advanced",
+      "originating_chat": "I have advanced programming ability.",
+      "queries": [
+        {
+          "raw_attribute": "coding_level",
+          "value": "advanced",
+          "followup": "My programming proficiency is advanced."
+        },
+        {
+          "raw_attribute": "proficiency",
+          "value": "advanced",
+          "followup": "I code at an advanced level."
+        },
+        {
+          "raw_attribute": "programming_ability",
+          "value": "advanced",
+          "followup": "My ability to program is advanced."
+        },
+        {
+          "raw_attribute": "coding_proficiency",
+          "value": "advanced",
+          "followup": "I consider my coding skill advanced."
+        },
+        {
+          "raw_attribute": "skill_rating",
+          "value": "advanced",
+          "followup": "My software development level is advanced."
+        },
+        {
+          "raw_attribute": "level",
+          "value": "advanced",
+          "followup": "In programming I am advanced."
+        }
+      ],
+      "hard_negatives": [
+        "programming_language",
+        "years_experience",
+        "education_level"
+      ]
+    },
+    {
+      "candidate": "vehicle_type",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "SUV",
+      "originating_chat": "My Tesla is an SUV.",
+      "queries": [
+        {
+          "raw_attribute": "car_category",
+          "value": "SUV",
+          "followup": "My vehicle is in the SUV category."
+        },
+        {
+          "raw_attribute": "body_style",
+          "value": "SUV",
+          "followup": "The car has an SUV body style."
+        },
+        {
+          "raw_attribute": "automobile_class",
+          "value": "SUV",
+          "followup": "It is an SUV automobile."
+        },
+        {
+          "raw_attribute": "car_type",
+          "value": "SUV",
+          "followup": "This Tesla is an SUV."
+        },
+        {
+          "raw_attribute": "vehicle_category",
+          "value": "SUV",
+          "followup": "The category of my vehicle is SUV."
+        },
+        {
+          "raw_attribute": "type",
+          "value": "SUV",
+          "followup": "My car is classed as an SUV."
+        }
+      ],
+      "hard_negatives": [
+        "model_name",
+        "tire_type",
+        "registration_status"
+      ]
+    },
+    {
+      "candidate": "legal_name",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "Casey Example",
+      "originating_chat": "My legal name is Casey Example.",
+      "queries": [
+        {
+          "raw_attribute": "registered_name",
+          "value": "Casey Example",
+          "followup": "My official name is Casey Example."
+        },
+        {
+          "raw_attribute": "official_name",
+          "value": "Casey Example",
+          "followup": "My identity documents say Casey Example."
+        },
+        {
+          "raw_attribute": "full_legal_name",
+          "value": "Casey Example",
+          "followup": "I am legally named Casey Example."
+        },
+        {
+          "raw_attribute": "name_on_documents",
+          "value": "Casey Example",
+          "followup": "The name on my passport is Casey Example."
+        },
+        {
+          "raw_attribute": "civil_name",
+          "value": "Casey Example",
+          "followup": "My full registered name is Casey Example."
+        },
+        {
+          "raw_attribute": "name",
+          "value": "Casey Example",
+          "followup": "Legally I go by Casey Example."
+        }
+      ],
+      "hard_negatives": [
+        "nickname",
+        "model_name",
+        "employer"
+      ]
+    },
+    {
+      "candidate": "current_location",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "Brussels",
+      "originating_chat": "I am currently in Brussels.",
+      "queries": [
+        {
+          "raw_attribute": "where_i_am",
+          "value": "Brussels",
+          "followup": "I am in Brussels right now."
+        },
+        {
+          "raw_attribute": "present_location",
+          "value": "Brussels",
+          "followup": "At present I am visiting Brussels."
+        },
+        {
+          "raw_attribute": "current_place",
+          "value": "Brussels",
+          "followup": "My current whereabouts are Brussels."
+        },
+        {
+          "raw_attribute": "visiting_location",
+          "value": "Brussels",
+          "followup": "Right now you can find me in Brussels."
+        },
+        {
+          "raw_attribute": "at_the_moment_location",
+          "value": "Brussels",
+          "followup": "I am temporarily in Brussels."
+        },
+        {
+          "raw_attribute": "location",
+          "value": "Brussels",
+          "followup": "At the moment I am in Brussels."
+        }
+      ],
+      "hard_negatives": [
+        "current_home_address",
+        "hometown",
+        "mailing_address"
+      ]
+    },
+    {
+      "candidate": "interior_color",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "beige",
+      "originating_chat": "My Tesla interior is beige.",
+      "queries": [
+        {
+          "raw_attribute": "cabin_color",
+          "value": "beige",
+          "followup": "The cabin of my Tesla is beige."
+        },
+        {
+          "raw_attribute": "inside_colour",
+          "value": "beige",
+          "followup": "My car is beige on the inside."
+        },
+        {
+          "raw_attribute": "interior_vehicle_colour",
+          "value": "beige",
+          "followup": "The vehicle interior looks beige."
+        },
+        {
+          "raw_attribute": "cabin_colour",
+          "value": "beige",
+          "followup": "I chose beige for the cabin."
+        },
+        {
+          "raw_attribute": "inside_color",
+          "value": "beige",
+          "followup": "Inside the automobile it is beige."
+        },
+        {
+          "raw_attribute": "color",
+          "value": "beige",
+          "followup": "My Tesla interior remains beige."
+        }
+      ],
+      "hard_negatives": [
+        "paint_color",
+        "seat_color",
+        "body_material"
+      ]
+    }
+  ],
+  "attribute_candidates": [
+    {
+      "candidate": "paint_color",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "red",
+      "originating_chat": "I painted my Tesla red."
+    },
+    {
+      "candidate": "ownership_status",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "owned",
+      "originating_chat": "I own a Tesla."
+    },
+    {
+      "candidate": "job_title",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "Engineering Manager",
+      "originating_chat": "I work as an Engineering Manager."
+    },
+    {
+      "candidate": "current_home_address",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "123 Example Street",
+      "originating_chat": "I live at 123 Example Street."
+    },
+    {
+      "candidate": "programming_language",
+      "domain": "activities_and_skills",
+      "entity_name": "User programming",
+      "entity_type": "skill",
+      "raw_entity_type": "programming activity",
+      "value": "Python",
+      "originating_chat": "I use Python for programming."
+    },
+    {
+      "candidate": "nickname",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "Little Dog",
+      "originating_chat": "I named my Tesla Little Dog."
+    },
+    {
+      "candidate": "purchase_year",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "2024",
+      "originating_chat": "I bought my Tesla in 2024."
+    },
+    {
+      "candidate": "service_date",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "2026-10-01",
+      "originating_chat": "I serviced my Tesla on October 1, 2026."
+    },
+    {
+      "candidate": "start_date",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "2022-04-01",
+      "originating_chat": "I started my job on April 1, 2022."
+    },
+    {
+      "candidate": "marital_status",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "married",
+      "originating_chat": "I am married."
+    },
+    {
+      "candidate": "programming_skill_level",
+      "domain": "activities_and_skills",
+      "entity_name": "User programming",
+      "entity_type": "skill",
+      "raw_entity_type": "programming activity",
+      "value": "advanced",
+      "originating_chat": "I have advanced programming ability."
+    },
+    {
+      "candidate": "vehicle_type",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "SUV",
+      "originating_chat": "My Tesla is an SUV."
+    },
+    {
+      "candidate": "legal_name",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "Casey Example",
+      "originating_chat": "My legal name is Casey Example."
+    },
+    {
+      "candidate": "current_location",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "Brussels",
+      "originating_chat": "I am currently in Brussels."
+    },
+    {
+      "candidate": "interior_color",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "beige",
+      "originating_chat": "My Tesla interior is beige."
+    },
+    {
+      "candidate": "seat_color",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "black",
+      "originating_chat": "The seats of my Tesla are black."
+    },
+    {
+      "candidate": "sale_status",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "sold",
+      "originating_chat": "The sale transaction for my Tesla is complete."
+    },
+    {
+      "candidate": "purchase_status",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "completed",
+      "originating_chat": "My vehicle purchase transaction is complete."
+    },
+    {
+      "candidate": "registration_status",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "registered",
+      "originating_chat": "My Tesla is registered."
+    },
+    {
+      "candidate": "professional_field",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "software engineering",
+      "originating_chat": "My professional field is software engineering."
+    },
+    {
+      "candidate": "employer",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "Example Systems",
+      "originating_chat": "My employer is Example Systems."
+    },
+    {
+      "candidate": "employment_status",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "employed",
+      "originating_chat": "I am currently employed."
+    },
+    {
+      "candidate": "hometown",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "Exampleville",
+      "originating_chat": "I grew up in Exampleville."
+    },
+    {
+      "candidate": "mailing_address",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "456 Mail Street",
+      "originating_chat": "Send letters to 456 Mail Street."
+    },
+    {
+      "candidate": "years_experience",
+      "domain": "activities_and_skills",
+      "entity_name": "User programming",
+      "entity_type": "skill",
+      "raw_entity_type": "programming activity",
+      "value": "5",
+      "originating_chat": "I have five years of programming experience."
+    },
+    {
+      "candidate": "framework",
+      "domain": "activities_and_skills",
+      "entity_name": "User programming",
+      "entity_type": "skill",
+      "raw_entity_type": "programming activity",
+      "value": "Django",
+      "originating_chat": "I use the Django framework."
+    },
+    {
+      "candidate": "model_name",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "Model Y",
+      "originating_chat": "The Tesla model is Model Y."
+    },
+    {
+      "candidate": "manufacture_year",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "2024",
+      "originating_chat": "My Tesla was manufactured in 2024."
+    },
+    {
+      "candidate": "registration_expiry",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "2026-10-01",
+      "originating_chat": "My vehicle registration expires on October 1, 2026."
+    },
+    {
+      "candidate": "tire_install_date",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "2026-10-01",
+      "originating_chat": "The tires were installed on October 1, 2026."
+    },
+    {
+      "candidate": "contract_end_date",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "2022-04-01",
+      "originating_chat": "My employment contract ended on April 1, 2022."
+    },
+    {
+      "candidate": "graduation_date",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "entity_type": "employment",
+      "raw_entity_type": "job",
+      "value": "2022-04-01",
+      "originating_chat": "I graduated on April 1, 2022."
+    },
+    {
+      "candidate": "relationship_status",
+      "domain": "identity_and_demographics",
+      "entity_name": "Synthetic User",
+      "entity_type": "person",
+      "raw_entity_type": "individual",
+      "value": "in a relationship",
+      "originating_chat": "I am in a relationship."
+    },
+    {
+      "candidate": "education_level",
+      "domain": "activities_and_skills",
+      "entity_name": "User programming",
+      "entity_type": "skill",
+      "raw_entity_type": "programming activity",
+      "value": "advanced degree",
+      "originating_chat": "I have an advanced degree."
+    },
+    {
+      "candidate": "tire_type",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "winter",
+      "originating_chat": "My vehicle has winter tires."
+    },
+    {
+      "candidate": "body_material",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "entity_type": "vehicle",
+      "raw_entity_type": "car",
+      "value": "aluminum",
+      "originating_chat": "My car body is aluminum."
+    }
+  ],
+  "entity_candidates": [
+    {
+      "candidate": "vehicle",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y",
+      "raw_types": [
+        "car",
+        "automobile",
+        "sedan"
+      ],
+      "hard_negatives": [
+        "vehicle_model",
+        "vehicle_registration",
+        "transport_route"
+      ]
+    },
+    {
+      "candidate": "employment",
+      "domain": "activities_and_skills",
+      "entity_name": "User career",
+      "raw_types": [
+        "software engineer role",
+        "job",
+        "manager position"
+      ],
+      "hard_negatives": [
+        "employer",
+        "profession",
+        "skill"
+      ]
+    },
+    {
+      "candidate": "residence",
+      "domain": "assets_and_possessions",
+      "entity_name": "123 Example Street",
+      "raw_types": [
+        "house",
+        "home",
+        "apartment"
+      ],
+      "hard_negatives": [
+        "hometown",
+        "building_material",
+        "person"
+      ]
+    },
+    {
+      "candidate": "skill",
+      "domain": "activities_and_skills",
+      "entity_name": "Python",
+      "raw_types": [
+        "Python skill",
+        "coding activity",
+        "programming ability"
+      ],
+      "hard_negatives": [
+        "programming_language",
+        "employment",
+        "project"
+      ]
+    },
+    {
+      "candidate": "person",
+      "domain": "relationships",
+      "entity_name": "Casey Example",
+      "raw_types": [
+        "individual",
+        "friend",
+        "human"
+      ],
+      "hard_negatives": [
+        "organization",
+        "pet",
+        "legal_name"
+      ]
+    },
+    {
+      "candidate": "organization",
+      "domain": "relationships",
+      "entity_name": "Example Systems",
+      "raw_types": [
+        "company",
+        "business",
+        "firm"
+      ],
+      "hard_negatives": [
+        "employment",
+        "person",
+        "profession"
+      ]
+    },
+    {
+      "candidate": "pet",
+      "domain": "relationships",
+      "entity_name": "Milo",
+      "raw_types": [
+        "dog",
+        "cat",
+        "animal companion"
+      ],
+      "hard_negatives": [
+        "person",
+        "vehicle",
+        "animal_species"
+      ]
+    },
+    {
+      "candidate": "project",
+      "domain": "activities_and_skills",
+      "entity_name": "Example website",
+      "raw_types": [
+        "website project",
+        "software initiative",
+        "development effort"
+      ],
+      "hard_negatives": [
+        "skill",
+        "organization",
+        "programming_language"
+      ]
+    },
+    {
+      "candidate": "vehicle_model",
+      "domain": "assets_and_possessions",
+      "entity_name": "Tesla Model Y model",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "vehicle_registration",
+      "domain": "assets_and_possessions",
+      "entity_name": "Vehicle registry entry",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "transport_route",
+      "domain": "events_and_logistics",
+      "entity_name": "Route A",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "employer",
+      "domain": "relationships",
+      "entity_name": "Example Systems employer",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "profession",
+      "domain": "activities_and_skills",
+      "entity_name": "Software engineering profession",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "hometown",
+      "domain": "identity_and_demographics",
+      "entity_name": "Exampleville",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "building_material",
+      "domain": "assets_and_possessions",
+      "entity_name": "Brick",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "programming_language",
+      "domain": "activities_and_skills",
+      "entity_name": "Python language",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "legal_name",
+      "domain": "identity_and_demographics",
+      "entity_name": "Casey Example legal name",
+      "raw_types": [],
+      "hard_negatives": []
+    },
+    {
+      "candidate": "animal_species",
+      "domain": "relationships",
+      "entity_name": "Dog species",
+      "raw_types": [],
+      "hard_negatives": []
+    }
+  ]
+}

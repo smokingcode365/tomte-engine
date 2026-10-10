@@ -1,0 +1,875 @@
+{
+  "description": "60 synthetic gold target cases; 20 repeated three times; no expected labels are sent to models. One scored target per case; empty-candidate companion targets also validated.",
+  "cases": [
+    {
+      "id": "S01",
+      "expected": "REUSE",
+      "kind": "ENTITY",
+      "raw_term": "automobile",
+      "candidate": "car",
+      "distractors": [
+        "vehicle",
+        "employer"
+      ],
+      "source": "I own an ordinary automobile, a Tesla.",
+      "domain": "assets_and_possessions",
+      "entity_type": "automobile",
+      "value": "I own an ordinary automobile, a Tesla.",
+      "high_risk": true
+    },
+    {
+      "id": "S02",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "exterior_vehicle_colour",
+      "candidate": "paint_color",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "I painted the exterior of my Tesla dark blue.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "dark blue",
+      "high_risk": true
+    },
+    {
+      "id": "S03",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "position",
+      "candidate": "job_title",
+      "distractors": [
+        "ownership_status",
+        "paint_color"
+      ],
+      "source": "My current job title is Engineering Manager.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "Engineering Manager",
+      "high_risk": true
+    },
+    {
+      "id": "S04",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "residential_address",
+      "candidate": "current_home_address",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "My current residential home address is 123 Example Street.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "123 Example Street",
+      "high_risk": true
+    },
+    {
+      "id": "S05",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "coding_language",
+      "candidate": "programming_language",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The programming language I use for coding is Rust.",
+      "domain": "activities_and_skills",
+      "entity_type": "programming_activity",
+      "value": "Rust",
+      "high_risk": true
+    },
+    {
+      "id": "S06",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "exterior_paint_colour",
+      "candidate": "paint_color",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The exterior paint of my car is navy blue.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "navy blue",
+      "high_risk": true
+    },
+    {
+      "id": "S07",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "colour",
+      "candidate": "paint_color",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The colour of the paint on the outside of my car is red.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "red",
+      "high_risk": true
+    },
+    {
+      "id": "S08",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "role",
+      "candidate": "job_title",
+      "distractors": [
+        "ownership_status",
+        "paint_color"
+      ],
+      "source": "My official job title at work is Senior Software Engineer.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "Senior Software Engineer",
+      "high_risk": true
+    },
+    {
+      "id": "S09",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "location",
+      "candidate": "current_home_address",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "My full current home address is 456 Sample Avenue.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "456 Sample Avenue",
+      "high_risk": true
+    },
+    {
+      "id": "S10",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "status",
+      "candidate": "ownership_status",
+      "distractors": [
+        "job_title",
+        "paint_color"
+      ],
+      "source": "I currently own my Tesla outright; its ownership status is owned.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "owned",
+      "high_risk": true
+    },
+    {
+      "id": "S11",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "type",
+      "candidate": "vehicle_body_style",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The body style of my car is a sedan.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "sedan",
+      "high_risk": false
+    },
+    {
+      "id": "S12",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "level",
+      "candidate": "programming_skill_level",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "My programming skill level in Python is advanced.",
+      "domain": "activities_and_skills",
+      "entity_type": "programming_activity",
+      "value": "advanced",
+      "high_risk": false
+    },
+    {
+      "id": "S13",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "programming_language_name",
+      "candidate": "programming_language",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "I use Python as my programming language.",
+      "domain": "activities_and_skills",
+      "entity_type": "programming_activity",
+      "value": "Python",
+      "high_risk": false
+    },
+    {
+      "id": "S14",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "job_designation",
+      "candidate": "job_title",
+      "distractors": [
+        "ownership_status",
+        "paint_color"
+      ],
+      "source": "My official job designation is Staff Software Engineer.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "Staff Software Engineer",
+      "high_risk": false
+    },
+    {
+      "id": "S15",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "street_address",
+      "candidate": "current_home_address",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "My current residential street address is 789 Example Road.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "789 Example Road",
+      "high_risk": false
+    },
+    {
+      "id": "S16",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "home_address",
+      "candidate": "current_home_address",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "I currently live at 901 Sample Street; that is my home address.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "901 Sample Street",
+      "high_risk": false
+    },
+    {
+      "id": "S17",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "home_location",
+      "candidate": "current_home_address",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "My complete current residential address is 234 Example Lane.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "234 Example Lane",
+      "high_risk": false
+    },
+    {
+      "id": "S18",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "moniker",
+      "candidate": "nickname",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The nickname I gave my Tesla is Little Dog.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "Little Dog",
+      "high_risk": false
+    },
+    {
+      "id": "S19",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "vehicle_model_name",
+      "candidate": "model_name",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The model name of my Tesla is Model Y.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "Model Y",
+      "high_risk": false
+    },
+    {
+      "id": "S20",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "automotive_colour",
+      "candidate": "paint_color",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The exterior paint colour of my car is dark green.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "dark green",
+      "high_risk": false
+    },
+    {
+      "id": "S21",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "work_position",
+      "candidate": "job_title",
+      "distractors": [
+        "ownership_status",
+        "paint_color"
+      ],
+      "source": "My current official job title is Software Engineer.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "Software Engineer",
+      "high_risk": false
+    },
+    {
+      "id": "S22",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "organisation_name",
+      "candidate": "organization_name",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The organization is named Example Company.",
+      "domain": "relationships",
+      "entity_type": "organization",
+      "value": "Example Company",
+      "high_risk": false
+    },
+    {
+      "id": "S23",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "colour_temperature",
+      "candidate": "color_temperature",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "The colour temperature of my lamp is 3000 kelvin.",
+      "domain": "assets_and_possessions",
+      "entity_type": "lamp",
+      "value": "3000 kelvin",
+      "high_risk": false
+    },
+    {
+      "id": "S24",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "favourite_colour",
+      "candidate": "favorite_color",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "My favourite colour is navy blue.",
+      "domain": "preferences_and_traits",
+      "entity_type": "person",
+      "value": "navy blue",
+      "high_risk": false
+    },
+    {
+      "id": "S25",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "birth_date",
+      "candidate": "date_of_birth",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "My date of birth is 1990-01-02.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "1990-01-02",
+      "high_risk": false
+    },
+    {
+      "id": "S26",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "surname",
+      "candidate": "family_name",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "Example is my surname, my family name.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "Example",
+      "high_risk": false
+    },
+    {
+      "id": "S27",
+      "expected": "REUSE",
+      "kind": "ATTRIBUTE",
+      "raw_term": "cellphone_number",
+      "candidate": "mobile_phone_number",
+      "distractors": [
+        "ownership_status",
+        "job_title"
+      ],
+      "source": "My mobile cellphone number is 555-0100.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "555-0100",
+      "high_risk": false
+    },
+    {
+      "id": "S28",
+      "expected": "REUSE",
+      "kind": "ENTITY",
+      "raw_term": "motorcar",
+      "candidate": "car",
+      "distractors": [
+        "vehicle",
+        "employer"
+      ],
+      "source": "I own a motorcar, an ordinary car.",
+      "domain": "assets_and_possessions",
+      "entity_type": "motorcar",
+      "value": "I own a motorcar, an ordinary car.",
+      "high_risk": false
+    },
+    {
+      "id": "S29",
+      "expected": "REUSE",
+      "kind": "ENTITY",
+      "raw_term": "organisation",
+      "candidate": "organization",
+      "distractors": [
+        "employer",
+        "person"
+      ],
+      "source": "The Example Association is an organisation.",
+      "domain": "relationships",
+      "entity_type": "organisation",
+      "value": "The Example Association is an organisation.",
+      "high_risk": false
+    },
+    {
+      "id": "S30",
+      "expected": "REUSE",
+      "kind": "ENTITY",
+      "raw_term": "aeroplane",
+      "candidate": "airplane",
+      "distractors": [
+        "vehicle",
+        "employer"
+      ],
+      "source": "I own an aeroplane, an ordinary fixed-wing airplane.",
+      "domain": "assets_and_possessions",
+      "entity_type": "aeroplane",
+      "value": "I own an aeroplane, an ordinary fixed-wing airplane.",
+      "high_risk": false
+    },
+    {
+      "id": "K01",
+      "expected": "KEEP_RAW",
+      "kind": "ENTITY",
+      "raw_term": "car",
+      "candidate": "vehicle",
+      "distractors": [],
+      "source": "I own a car, a Tesla.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "I own a car, a Tesla.",
+      "high_risk": true
+    },
+    {
+      "id": "K02",
+      "expected": "KEEP_RAW",
+      "kind": "ENTITY",
+      "raw_term": "sedan",
+      "candidate": "car",
+      "distractors": [],
+      "source": "My car is specifically a sedan.",
+      "domain": "assets_and_possessions",
+      "entity_type": "sedan",
+      "value": "My car is specifically a sedan.",
+      "high_risk": true
+    },
+    {
+      "id": "K03",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "interior_color",
+      "candidate": "paint_color",
+      "distractors": [],
+      "source": "The seats and interior of my Tesla are black.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "black",
+      "high_risk": true
+    },
+    {
+      "id": "K04",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "sale_status",
+      "candidate": "ownership_status",
+      "distractors": [],
+      "source": "The paperwork for the sale was completed.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "completed",
+      "high_risk": true
+    },
+    {
+      "id": "K05",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "current_location",
+      "candidate": "current_home_address",
+      "distractors": [],
+      "source": "I am temporarily visiting Vancouver this week.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "Vancouver",
+      "high_risk": true
+    },
+    {
+      "id": "K06",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "professional_field",
+      "candidate": "job_title",
+      "distractors": [],
+      "source": "I work in the software engineering field.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "software engineering",
+      "high_risk": true
+    },
+    {
+      "id": "K07",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "programming_skill_level",
+      "candidate": "programming_language",
+      "distractors": [],
+      "source": "My programming skill level is advanced.",
+      "domain": "activities_and_skills",
+      "entity_type": "programming_activity",
+      "value": "advanced",
+      "high_risk": true
+    },
+    {
+      "id": "K08",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "employer",
+      "candidate": "job_title",
+      "distractors": [],
+      "source": "Example Company is the company that employs me.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "Example Company",
+      "high_risk": true
+    },
+    {
+      "id": "K09",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "nickname",
+      "candidate": "model_name",
+      "distractors": [],
+      "source": "Little Dog is the nickname of my Tesla, not its manufacturer model.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "Little Dog",
+      "high_risk": true
+    },
+    {
+      "id": "K10",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "mailing_address",
+      "candidate": "current_home_address",
+      "distractors": [],
+      "source": "I receive mail at PO Box 42; I do not live there.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "PO Box 42",
+      "high_risk": true
+    },
+    {
+      "id": "K11",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "color",
+      "candidate": "paint_color",
+      "distractors": [],
+      "source": "The seats are black.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "black",
+      "high_risk": false
+    },
+    {
+      "id": "K12",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "status",
+      "candidate": "ownership_status",
+      "distractors": [],
+      "source": "The sale paperwork is complete.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "complete",
+      "high_risk": false
+    },
+    {
+      "id": "K13",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "role",
+      "candidate": "job_title",
+      "distractors": [],
+      "source": "I work in the software engineering field.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "software engineering",
+      "high_risk": false
+    },
+    {
+      "id": "K14",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "type",
+      "candidate": "vehicle_body_style",
+      "distractors": [],
+      "source": "The powertrain type of my car is electric.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "electric",
+      "high_risk": false
+    },
+    {
+      "id": "K15",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "level",
+      "candidate": "programming_language",
+      "distractors": [],
+      "source": "My coding ability level is beginner.",
+      "domain": "activities_and_skills",
+      "entity_type": "programming_activity",
+      "value": "beginner",
+      "high_risk": false
+    },
+    {
+      "id": "K16",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "location",
+      "candidate": "current_home_address",
+      "distractors": [],
+      "source": "Right now I am at the airport; it is not my home.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "airport",
+      "high_risk": false
+    },
+    {
+      "id": "K17",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "colour",
+      "candidate": "paint_color",
+      "distractors": [],
+      "source": "My favourite colour is green; I have not painted the car.",
+      "domain": "preferences_and_traits",
+      "entity_type": "person",
+      "value": "green",
+      "high_risk": false
+    },
+    {
+      "id": "K18",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "status",
+      "candidate": "job_title",
+      "distractors": [],
+      "source": "My employment contract status is part-time.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "part-time",
+      "high_risk": false
+    },
+    {
+      "id": "K19",
+      "expected": "KEEP_RAW",
+      "kind": "ENTITY",
+      "raw_term": "sports_car",
+      "candidate": "car",
+      "distractors": [],
+      "source": "I own a sports car; its performance category matters.",
+      "domain": "assets_and_possessions",
+      "entity_type": "sports_car",
+      "value": "I own a sports car; its performance category matters.",
+      "high_risk": false
+    },
+    {
+      "id": "K20",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "role",
+      "candidate": "job_title",
+      "distractors": [],
+      "source": "Example Company is my employer.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "Example Company",
+      "high_risk": false
+    },
+    {
+      "id": "K21",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "paint_color",
+      "candidate": "interior_color",
+      "distractors": [],
+      "source": "The paint on the exterior of my car is silver.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "silver",
+      "high_risk": false
+    },
+    {
+      "id": "K22",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "ownership_status",
+      "candidate": "sale_status",
+      "distractors": [],
+      "source": "I jointly own the car with my spouse.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "jointly owned",
+      "high_risk": false
+    },
+    {
+      "id": "K23",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "current_home_address",
+      "candidate": "mailing_address",
+      "distractors": [],
+      "source": "I live at 333 Example Street, but my mail goes to a PO box.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "333 Example Street",
+      "high_risk": false
+    },
+    {
+      "id": "K24",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "job_title",
+      "candidate": "professional_field",
+      "distractors": [],
+      "source": "My formal job title is Principal Software Engineer.",
+      "domain": "activities_and_skills",
+      "entity_type": "career",
+      "value": "Principal Software Engineer",
+      "high_risk": false
+    },
+    {
+      "id": "K25",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "programming_language",
+      "candidate": "programming_skill_level",
+      "distractors": [],
+      "source": "The programming language I use is JavaScript.",
+      "domain": "activities_and_skills",
+      "entity_type": "programming_activity",
+      "value": "JavaScript",
+      "high_risk": false
+    },
+    {
+      "id": "K26",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "legal_name",
+      "candidate": "nickname",
+      "distractors": [],
+      "source": "Jamie Example is my legal name, not a nickname.",
+      "domain": "identity_and_demographics",
+      "entity_type": "person",
+      "value": "Jamie Example",
+      "high_risk": false
+    },
+    {
+      "id": "K27",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "vehicle_model_name",
+      "candidate": "vehicle_make",
+      "distractors": [],
+      "source": "Model Y is the model; Tesla is the manufacturer.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "Model Y",
+      "high_risk": false
+    },
+    {
+      "id": "K28",
+      "expected": "KEEP_RAW",
+      "kind": "ATTRIBUTE",
+      "raw_term": "model_name",
+      "candidate": "nickname",
+      "distractors": [],
+      "source": "Model Y is my car model, not a nickname.",
+      "domain": "assets_and_possessions",
+      "entity_type": "car",
+      "value": "Model Y",
+      "high_risk": false
+    },
+    {
+      "id": "K29",
+      "expected": "KEEP_RAW",
+      "kind": "ENTITY",
+      "raw_term": "automobile",
+      "candidate": "transportation",
+      "distractors": [],
+      "source": "I own an automobile; transportation is a broader category.",
+      "domain": "assets_and_possessions",
+      "entity_type": "automobile",
+      "value": "I own an automobile; transportation is a broader category.",
+      "high_risk": false
+    },
+    {
+      "id": "K30",
+      "expected": "KEEP_RAW",
+      "kind": "ENTITY",
+      "raw_term": "organisation",
+      "candidate": "employer",
+      "distractors": [],
+      "source": "Example Charity is an organisation I support, not my employer.",
+      "domain": "relationships",
+      "entity_type": "organisation",
+      "value": "Example Charity is an organisation I support, not my employer.",
+      "high_risk": false
+    }
+  ]
+}

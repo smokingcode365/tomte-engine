@@ -35,9 +35,27 @@ def get_semantic_keywords(
     conn: psycopg.Connection, 
     vector: List[float], 
     threshold: float, 
-    id_limit: int
+    id_limit: int,
+    keyword_type: Optional[str] = None,
+    keyword_limit: int = 5,
 ) -> List[Dict[str, Any]]:
-    """Phase 1: Retrieves ALL keywords for the Top K unique semantic IDs."""
+    """Typed lookup filters before ranking/limiting; legacy anchor lookup remains."""
+    if keyword_type is not None:
+        if keyword_type not in ("ENTITY", "ATTRIBUTE") or keyword_limit < 1:
+            raise ValueError("Invalid dictionary candidate type or limit")
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT r.keyword, r.keyword_type, r.hits, a.dictionary_id,
+                       (1 - (a.embedding <=> %(vec)s::vector)) AS score
+                FROM tomte_semantic_anchors a
+                JOIN tomte_keyword_registry r USING (dictionary_id)
+                WHERE r.keyword_type = %(kind)s
+                  AND (1 - (a.embedding <=> %(vec)s::vector)) > %(thresh)s
+                ORDER BY score DESC, r.hits DESC, a.dictionary_id, r.keyword
+                LIMIT %(limit)s
+            """, {"vec": vector, "thresh": threshold, "kind": keyword_type,
+                  "limit": keyword_limit})
+            return cur.fetchall()
     sql = """
         -- CRITICAL FIX: Added a.score to the SELECT statement
         SELECT r.keyword, r.keyword_type, r.hits, a.dictionary_id, a.score

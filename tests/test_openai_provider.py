@@ -15,6 +15,10 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from tomte.engine.core.config import OpenAISettings
 from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.core.extraction import ExtractionMemorySchema
+from tomte.engine.core.assertions import MutationPlanResponse
+from tomte.engine.core.contextual import ContextualActionResponse
+from tomte.engine.core.resolution import ResolutionResponse
+from tomte.engine.dictionary.alignment import TerminologyAlignmentResponse
 from tomte.engine.providers import openai_provider
 
 
@@ -63,6 +67,25 @@ def test_generic_reconciliation_returns_typed_output(provider, monkeypatch):
     construct.assert_called_once_with(output_type=Reconciliation, system_prompt="Synthetic reconciliation instructions")
     agent.run_sync.assert_called_once_with("Synthetic input", model=provider.strong_model,
                                           model_settings={"openai_reasoning_effort": "low"})
+
+
+@pytest.mark.parametrize("expected, use_cheap", [
+    (TerminologyAlignmentResponse(), True),
+    (ResolutionResponse(resolutions=[]), False),
+    (MutationPlanResponse(plans=[]), False),
+    (ContextualActionResponse(), False),
+])
+def test_only_terminology_uses_configured_fast_model(provider, monkeypatch, expected, use_cheap):
+    # Distinct configured routes ensure this does not depend on default model IDs.
+    provider.cheap_model = "openai-responses:configured-fast-model"
+    provider.strong_model = "openai-responses:configured-strong-model"
+    agent = Mock()
+    agent.run_sync.return_value = SimpleNamespace(output=expected)
+    monkeypatch.setattr(openai_provider, "Agent", Mock(return_value=agent))
+    assert provider.parse_structured("Synthetic instructions", "Synthetic input", type(expected)) is expected
+    agent.run_sync.assert_called_once_with(
+        "Synthetic input", model=provider.cheap_model if use_cheap else provider.strong_model,
+        model_settings={"openai_reasoning_effort": "low"})
 
 
 @pytest.mark.parametrize("role, expected_model", [

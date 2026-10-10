@@ -266,15 +266,16 @@ def test_dictionary_feedback_failure_rolls_back_consolidation_memory(local_db, m
         anchor_ids.append(anchor)
         return anchor
     monkeypatch.setattr(db, "create_dictionary_anchor", recording_create)
-    # Guarantee fixture feedback uses a new anchor, without altering existing ones.
-    monkeypatch.setattr(db, "find_dictionary_matches_above_threshold", lambda *args: [])
     def failed_keyword(*args):
         raise RuntimeError("forced feedback failure")
     monkeypatch.setattr(db, "upsert_dictionary_keyword", failed_keyword)
     workflow = ConsolidationWorkflow.__new__(ConsolidationWorkflow)
     workflow.db, workflow.dict_service = db, service
+    operation = memory_update(tenant, user)
+    operation["_dictionary_evidence"] = [{"keyword": operation["entity_type"],
+        "keyword_type": "ENTITY", "vector": operation["embedding"], "dictionary_id": None}]
     with pytest.raises(RuntimeError, match="forced feedback failure"):
-        workflow._commit_refined_operations([memory_update(tenant, user)], tenant, user, "synthetic-failure-batch")
+        workflow._commit_refined_operations([operation], tenant, user, "synthetic-failure-batch")
     assert anchor_ids
     assert db.get_recent_entities(tenant, user) == []
     assert all(db.get_dictionary_anchor_details(a) is None for a in anchor_ids)
