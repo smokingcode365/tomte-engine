@@ -1,5 +1,6 @@
 """Offline junk-input/gating contracts. Model decisions are prescribed, not AI-quality claims."""
 from types import SimpleNamespace
+from contextlib import nullcontext
 from unittest.mock import Mock
 import json
 import pytest
@@ -42,19 +43,23 @@ def test_frozen_context_reaches_provider_and_classification_gates_extraction(mon
     provider.parse_structured=Mock(side_effect=ExtractionReached)
     workflow=object.__new__(ConsolidationWorkflow)
     workflow.db=Mock();workflow.db.is_consolidation_processed.return_value=False
+    workflow.db.transaction.return_value=nullcontext()
     workflow.llm=provider;workflow.dict_service=Mock()
     workflow.dict_service.bootstrap.return_value={DictionaryKeywordType.ENTITY:[],DictionaryKeywordType.ATTRIBUTE:[]}
     batch=[{'item_id':'current-message','tenant_id':'tenant','user_id':'user','session_id':'session',
         'timestamp':1791547200,'role':'user','content':message,'vector':[1.0],
         'recent_context':[] if reference is None else [{'role':'assistant','content':reference}]}]
     if junk:
-        assert workflow.run_consolidation_cycle('tenant','user',batch) is False
+        assert workflow.run_consolidation_cycle('tenant','user',batch) is True
         provider.parse_structured.assert_not_called();workflow.dict_service.bootstrap.assert_not_called()
+        workflow.db.claim_consolidation_batch.assert_called_once()
+        workflow.db.commit_graph_updates.assert_called_once_with([])
+        workflow.dict_service.apply_feedback.assert_called_once_with([])
     else:
         with pytest.raises(ExtractionReached):workflow.run_consolidation_cycle('tenant','user',batch)
         provider.parse_structured.assert_called_once()
         assert json.loads(provider.parse_structured.call_args.kwargs['user_text'])==received[0]
-    workflow.db.claim_consolidation_batch.assert_not_called()
+        workflow.db.claim_consolidation_batch.assert_not_called()
 
 
 def test_real_frozen_junk_input_is_bounded_isolated_and_retry_stable(mechanics,monkeypatch):
@@ -74,16 +79,16 @@ def test_real_frozen_junk_input_is_bounded_isolated_and_retry_stable(mechanics,m
         def classify(text):
             seen.append(text)
             assert json.loads(text)['RECENT_CONTEXT_REFERENCE_ONLY']==history[-RECENT_CONTEXT_TURNS:]
-            return True  # Keep this input-boundary test free of model/persistence work.
+            return True  # Only the processed marker may persist; no extraction/model work.
         monkeypatch.setattr(case.llm,'is_junk',classify)
         workflow=ConsolidationWorkflow()
-        assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen) is False
+        assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen) is True
         case.cache.append_chat_history(case.tenant,case.session,'Later history','assistant',case.user)
         case.cache.enqueue_for_consolidation(case.tenant,case.user,case.session,'Future message','user',case.llm.vector(),[{'role':'assistant','content':'new claim'}])
         retry=case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)
         assert retry==frozen
         monkeypatch.setattr(case.cache,'get_chat_history',Mock(side_effect=AssertionError('Must not read live history on retry')))
-        assert workflow.run_consolidation_cycle(case.tenant,case.user,retry) is False
-        assert seen[0]==seen[1]
+        assert workflow.run_consolidation_cycle(case.tenant,case.user,retry) is True
+        assert len(seen)==1  # Processed replay does not repeat classification.
     finally:
         case.cache.client.delete(*keys)

@@ -44,16 +44,20 @@ class ConsolidationWorkflow:
 
         extraction_input = build_extraction_input(chat_items)
 
-        # 1. Preparation: Extract text and vectors [cite: 139-140]
-        chat_vectors = [m['vector'] for m in chat_items if m.get('vector')]
-
-        if not chat_vectors:
-            tomtelog.warn(f"No vectors found for consolidation session: {user_id}")
+        # Assistant context is not user evidence and needs no embedding.
+        user_items = [m for m in chat_items if m["role"] == "user"]
+        if not user_items:
+            self._commit_refined_operations([], tenant_id, user_id, batch_id)
+            return True
+        if any(not m.get("vector") for m in user_items):
+            tomtelog.warn(f"Missing user vectors for consolidation session: {user_id}")
             return False
+        chat_vectors = [m["vector"] for m in user_items]
         # CRITICAL FIX: Inject the Junk Filter here
         if self.llm.is_junk(extraction_input):
-            tomtelog.info(f"Consolidation aborted: Chat log is junk/small-talk for {user_id}.")
-            return False
+            tomtelog.info(f"Consolidation no-op: Chat log is junk/small-talk for {user_id}.")
+            self._commit_refined_operations([], tenant_id, user_id, batch_id)
+            return True
         # Raw extraction is authoritative; dictionary alignment happens only after
         # deterministic current-batch provenance validation.
         tomtelog.debug(f"Phase 2: Executing primary extraction")
@@ -103,8 +107,6 @@ class ConsolidationWorkflow:
 
         else:
             refined_ops = self._resolve_contextual_actions(tenant_id, user_id, input_data, vector, correction_context)
-            if refined_ops is None:
-                return False  # Action unresolved: retain frozen batch, no processed claim.
 
         refined_ops = self._plan_fact_mutations(refined_ops, input_data, batch_id, correction_context)
         validate_operation_provenance(refined_ops)
@@ -150,14 +152,12 @@ class ConsolidationWorkflow:
         self.last_contextual_route = response.model_dump(mode="json")
         sources = {item["item_id"] for item in current}
         operations = {}
-        unresolved = False
         for action in response.actions:
             if not set(action.source_chat_ids) <= sources:
                 raise ValueError("Contextual evidence must reference current frozen batch sources")
             if action.replacement_text is not None and not any(action.replacement_text in item["content"] for item in current):
                 raise ValueError("Contextual replacement text must quote current evidence")
             if action.target is None:
-                unresolved = True
                 continue
             key = str(action.target.db_id)
             if key not in offered or action.target_fact_id not in offered[key][1]:
@@ -167,7 +167,6 @@ class ConsolidationWorkflow:
             mentioned = any(len(name.strip()) > 2 and re.search(r"\b" + re.escape(name.lower().strip()) + r"\b", context.lower()) for name in anchors)
             if (action.target.resolution_confidence < MIN_RESOLUTION_CONFIDENCE or
                     action.target.evidence not in STRONG_EVIDENCE or not mentioned):
-                unresolved = True
                 continue
             if key not in operations:
                 # Reference preparation asserts no new facts or aliases; stable metadata remains authoritative.
@@ -177,7 +176,7 @@ class ConsolidationWorkflow:
                 operations[key]["_contextual_actions"] = []
             operations[key]["_contextual_fact_ids"].append(action.target_fact_id)
             operations[key]["_contextual_actions"].append(action.model_dump(mode="json"))
-        return None if unresolved else list(operations.values())
+        return list(operations.values())
 
     def _plan_fact_mutations(self, operations, input_data, batch_id, correction_context=()):
         """One bounded semantic call after identity acceptance, before any SQL writes."""
@@ -218,10 +217,11 @@ class ConsolidationWorkflow:
                 raise ValueError("Mutation plans must name unique offered targets")
             plans[plan.target_key] = plan.operations
         self.last_mutation_plan = response.model_dump(mode="json")
+        accepted = []
         for key, (operation, scope, ids) in offered.items():
             mutations = plans.get(key, [])  # Omitted targets abstain; never fall back to ADD.
-            if "_contextual_fact_ids" in operation and not mutations:
-                raise ValueError("Resolved contextual action has no mutation; retain frozen batch")
+            if not mutations:
+                continue  # No authorization for aliases, row metadata or dictionary feedback.
             try:
                 validate_corrections(mutations, operation, [*prepared, *correction_context],
                     input_data["CURRENT_BATCH"], input_data["RECENT_CONTEXT_REFERENCE_ONLY"])
@@ -242,8 +242,9 @@ class ConsolidationWorkflow:
             accepted_attributes = {f["attribute_name"] for f in operation["extracted_facts"]}
             operation["_dictionary_evidence"] = [e for e in operation.get("_dictionary_evidence", [])
                 if e["keyword_type"] == "ENTITY" or e["keyword"] in accepted_attributes]
+            accepted.append(operation)
         # A NEW target with no accepted facts/aliases must not create an empty guessed memory.
-        return [op for op in prepared if op.get("db_id") or op["payload"]["facts"]]
+        return [op for op in accepted if op.get("db_id") or op["payload"]["facts"]]
 
     @staticmethod
     def _batch_id(tenant_id: str, user_id: str, chat_items: List[Dict[str, Any]]) -> str:

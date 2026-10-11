@@ -22,7 +22,8 @@ The normal resolver requires extracted object IDs. Rather than manufacture an
 extraction, this fallback resolves only offered database/assertion IDs. The existing
 normal identity resolver is not changed. Confidence and lexical name/alias evidence
 must support the contextual referent; similarity is candidate evidence only.
-Ambiguity is represented by an action without a target and retained for retry.
+Ambiguity is represented by an action without a target and skipped as semantic
+abstention. Targets below the existing acceptance policy are likewise skipped.
 
 ## Mutation and acknowledgement
 Resolved targets go through existing matched payload preparation, mutation planning,
@@ -30,17 +31,22 @@ assertion application, scoped snapshot validation, transactions and batch replay
 Only the resolved assertion IDs are offered to mutation planning on this route.
 There is no separate correction persistence API. Identity metadata remains protected.
 
-A missing mutation for a resolved contextual action is an error, not successful
-acknowledgement. Invalid target/source references fail before writes. Unresolved
-contextual actions return False before claiming the batch. A validated empty action
-list may finish as a no-op. Success still commits the batch marker, memory updates
-and dictionary feedback atomically; the existing worker acknowledges only success.
+The mutation planner may abstain even after contextual resolution selects an
+assertion. An empty plan drops that target entirely: no alias, fact, embedding,
+row mention-count/recency or dictionary write. Other targets with accepted mutations
+remain eligible. Invalid target/source references and operational failures still
+fail before acknowledgement. Semantic abstention, including an empty action list,
+junk or an assistant-only batch, completes successfully with only a processed-batch
+marker. USER messages still require their own embeddings. Success commits the batch
+marker and any accepted memory/dictionary writes atomically; the worker acknowledges
+only the exact frozen snapshot, leaving later queued messages untouched.
 
 ## Limits
 This adds one model call only after empty extraction. Interpretation remains model
-judgment; schema validation cannot prove semantic correctness. Unresolved batches
-remain pending under the existing retry mechanism; no unresolved-memory database
-or terminal retry policy is introduced. Models, confidence thresholds, embeddings,
+judgment; schema validation cannot prove semantic correctness. Semantic uncertainty
+is a completed no-op, while operational failures and structural violations remain
+retryable. No unresolved-memory database or new public result API is introduced.
+Models, confidence thresholds, embeddings,
 assertion lifecycle and dictionary semantics are unchanged.
 
 ## Correction source safety
@@ -58,7 +64,8 @@ CORRECT. Invalidations without replacement also require the old assertion value
 in the corrective clause or prior named target context; vague complaints about
 wrong paperwork alone do not establish that the stored assertion was wrong.
 
-UnsupportedCorrection fails the whole prepared batch before its processed claim,
+Until the next correction-safety step, UnsupportedCorrection still fails the whole
+prepared batch before its processed claim,
 memory writes or dictionary feedback. Existing truth and the Redis frozen batch
 remain unchanged. There is no new persistence state, automatic downgrade to ADD,
 additional model call or confidence threshold. ADD/REINFORCE and existing

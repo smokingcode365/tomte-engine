@@ -83,13 +83,14 @@ def test_contextual_action_reuses_mutation_and_replay(contextual_case,action,ope
  ('CLARIFICATION','I meant the other car.','Your blue Tesla...'),
  ('CORRECTION',"No, that's wrong.",'Your Tesla is sold and its paint is red.'),
 ])
-def test_unresolved_context_retains_batch_without_mutating(contextual_case,action,current,reference):
+def test_unresolved_context_completes_without_mutating(contextual_case,action,current,reference):
     case=contextual_case;case.action_type=action;case.unresolved=True
     seed(case,extra=[('paint_color','red')] if action=='CORRECTION' else []);before=memory_rows(case);frozen=queue(case,current,reference)
-    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant,case.user,frozen) is False
-    assert memory_rows(case)==before and processed_count(case)==0
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant,case.user,frozen) is True
+    assert memory_rows(case)==before and processed_count(case)==1
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)==frozen
     assert not any(name=='MutationPlanResponse' for name,_ in case.calls)
+    assert case.cache.clear_session_4_consolidation(case.tenant,case.user,case.session,frozen)
 
 def test_no_contextual_action_can_finish_empty_batch(contextual_case):
     case=contextual_case;case.no_action=True
@@ -98,7 +99,7 @@ def test_no_contextual_action_can_finish_empty_batch(contextual_case):
     assert memory_rows(case)==before and processed_count(case)==1
     assert case.cache.clear_session_4_consolidation(case.tenant,case.user,case.session,frozen)
 
-@pytest.mark.parametrize('defect',['invalid_source','invalid_target','no_mutation'])
+@pytest.mark.parametrize('defect',['invalid_source','invalid_target'])
 def test_invalid_contextual_plan_cannot_claim_or_acknowledge(contextual_case,defect):
     case=contextual_case;setattr(case,defect,True);seed(case);before=memory_rows(case)
     frozen=queue(case,"No, that's wrong.",'Your Tesla is sold.')

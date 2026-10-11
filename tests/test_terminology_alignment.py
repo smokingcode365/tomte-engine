@@ -268,7 +268,8 @@ def test_each_fact_receives_only_its_own_validated_source_text():
     assert result.entities == raw and result.metrics["embedding_texts"] == 3
 
 
-def test_feedback_is_filtered_during_preparation_before_any_write_scope():
+@pytest.mark.parametrize("accept_mutation", [False, True])
+def test_feedback_is_filtered_during_preparation_before_any_write_scope(accept_mutation):
     from tomte.engine.core.assertions import MutationPlanResponse
     from tomte.engine.workflows.consolidation import ConsolidationWorkflow
     raw, batch = example()
@@ -278,14 +279,27 @@ def test_feedback_is_filtered_during_preparation_before_any_write_scope():
                  "extracted_facts": deepcopy(entity["facts"]), "mode": "MUTATE",
                  "_dictionary_evidence": [
                      {"keyword": entity["entity_type"], "keyword_type": "ENTITY", "vector": [1., 0.], "dictionary_id": None},
-                     {"keyword": entity["facts"][0]["attribute_name"], "keyword_type": "ATTRIBUTE", "vector": [0., 1.], "dictionary_id": None}]}
+                     {"keyword": entity["facts"][0]["attribute_name"], "keyword_type": "ATTRIBUTE", "vector": [0., 1.], "dictionary_id": None},
+                     {"keyword": "unaccepted_attribute", "keyword_type": "ATTRIBUTE", "vector": [1., 1.], "dictionary_id": None}]}
     workflow = ConsolidationWorkflow.__new__(ConsolidationWorkflow)
     # No DB exists on this preparation object, so opening a write scope fails.
-    workflow.llm = SimpleNamespace(parse_structured=Mock(return_value=MutationPlanResponse(plans=[])))
+    def plan(system_prompt, user_text, schema):
+        if not accept_mutation:
+            return MutationPlanResponse(plans=[])
+        data = json.loads(user_text)
+        target = data["TARGETS"][0]
+        return schema.model_validate({"plans": [{"target_key": target["target_key"],
+            "operations": [{"operation": "REINFORCE", "target_fact_id": target["assertions"][0]["fact_id"],
+                "source_chat_ids": [data["CURRENT_BATCH"][0]["item_id"]],
+                "interpretation_confidence": 1, "evidence_type": "USER_EXPLICIT"}]}]})
+    workflow.llm = SimpleNamespace(parse_structured=Mock(side_effect=plan))
     prepared = workflow._plan_fact_mutations([operation],
         {"CURRENT_BATCH": batch, "RECENT_CONTEXT_REFERENCE_ONLY": []}, "synthetic-batch")
-    assert prepared[0]["_dictionary_evidence"] == [operation["_dictionary_evidence"][0]]
-    assert len(operation["_dictionary_evidence"]) == 2  # Preparation preserves its input.
+    if accept_mutation:
+        assert prepared[0]["_dictionary_evidence"] == operation["_dictionary_evidence"][:2]
+    else:
+        assert prepared == []  # Abstention drops entity-type evidence as well as attributes.
+    assert len(operation["_dictionary_evidence"]) == 3  # Preparation preserves its input.
 
 
 def test_real_typed_sql_filters_before_limit_and_rollback_restores_dictionary(local_db):
