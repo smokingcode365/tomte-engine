@@ -13,6 +13,7 @@ from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.llm.prompts.contextual_action import CONTEXTUAL_ACTION_PROMPT
 from tomte.engine.core.assertions import MutationPlanResponse, adapt_assertions, apply_mutations, fact_values, project_facts
+from tomte.engine.core.correction_safety import validate_corrections, UnsupportedCorrection
 from tomte.engine.llm.prompts.fact_mutation import MUTATION_SYSTEM_PROMPT
 from tomte.engine.core.resolution import ResolutionResponse, CANDIDATE_LIMIT, MIN_RESOLUTION_CONFIDENCE, STRONG_EVIDENCE
 from tomte.engine.dictionary.terminology import canonical_attribute, ATTRIBUTE_ALIASES
@@ -79,6 +80,7 @@ class ConsolidationWorkflow:
         reference = input_data["RECENT_CONTEXT_REFERENCE_ONLY"]
         search_context = "\n".join(item["content"] for item in input_data["CURRENT_BATCH"] + reference)
         vector = [sum(values) / len(chat_vectors) for values in zip(*chat_vectors)]
+        correction_context = []
         if raw_entities:
             candidate_sets = {}
             for entity in raw_entities:
@@ -87,6 +89,7 @@ class ConsolidationWorkflow:
                 candidate_sets[entity["entity_id"]] = self.db.get_resolution_candidates(
                     tenant_id, user_id, names, entity["entity_domain"], vector, search_context, CANDIDATE_LIMIT)
             skeleton = list({str(row["id"]): row for rows in candidate_sets.values() for row in rows}.values())
+            correction_context = skeleton
         
             # This helper determines if we INSERT, MUTATE, or REINFORCE [cite: 164-169]
             refined_ops = self._reconcile_with_golden_records(
@@ -99,11 +102,11 @@ class ConsolidationWorkflow:
             )
 
         else:
-            refined_ops = self._resolve_contextual_actions(tenant_id, user_id, input_data, vector)
+            refined_ops = self._resolve_contextual_actions(tenant_id, user_id, input_data, vector, correction_context)
             if refined_ops is None:
                 return False  # Action unresolved: retain frozen batch, no processed claim.
 
-        refined_ops = self._plan_fact_mutations(refined_ops, input_data, batch_id)
+        refined_ops = self._plan_fact_mutations(refined_ops, input_data, batch_id, correction_context)
         validate_operation_provenance(refined_ops)
 
         # Before committing, we must generate vectors for any new or changed entities.
@@ -121,13 +124,15 @@ class ConsolidationWorkflow:
         tomtelog.info(f"Consolidation cycle complete for {user_id}")
         return True
 
-    def _resolve_contextual_actions(self, tenant_id, user_id, input_data, vector):
+    def _resolve_contextual_actions(self, tenant_id, user_id, input_data, vector, correction_context=None):
         """Narrow reference resolver for empty extraction; never creates new entities."""
         current = input_data["CURRENT_BATCH"]
         reference = input_data["RECENT_CONTEXT_REFERENCE_ONLY"]
         context = "\n".join(item["content"] for item in current + reference)
         candidates = self.db.get_resolution_candidates(
             tenant_id, user_id, [], "", vector, context, CANDIDATE_LIMIT)
+        if correction_context is not None:
+            correction_context.extend(candidates[:CANDIDATE_LIMIT])
         offered = {}
         view = []
         for row in candidates[:CANDIDATE_LIMIT]:
@@ -174,7 +179,7 @@ class ConsolidationWorkflow:
             operations[key]["_contextual_actions"].append(action.model_dump(mode="json"))
         return None if unresolved else list(operations.values())
 
-    def _plan_fact_mutations(self, operations, input_data, batch_id):
+    def _plan_fact_mutations(self, operations, input_data, batch_id, correction_context=()):
         """One bounded semantic call after identity acceptance, before any SQL writes."""
         if not operations:
             return []
@@ -217,6 +222,12 @@ class ConsolidationWorkflow:
             mutations = plans.get(key, [])  # Omitted targets abstain; never fall back to ADD.
             if "_contextual_fact_ids" in operation and not mutations:
                 raise ValueError("Resolved contextual action has no mutation; retain frozen batch")
+            try:
+                validate_corrections(mutations, operation, [*prepared, *correction_context],
+                    input_data["CURRENT_BATCH"], input_data["RECENT_CONTEXT_REFERENCE_ONLY"])
+            except UnsupportedCorrection:
+                tomtelog.warn("Unsupported correction rejected before persistence; retain frozen batch")
+                raise
             operation["payload"]["facts"] = apply_mutations(operation["payload"]["facts"], mutations,
                 input_data["CURRENT_BATCH"], scope, batch_id, operation["extracted_facts"], ids)
             operation["importance"] = max((f.get("importance",3) for f in project_facts(operation["payload"]["facts"])), default=3)

@@ -42,3 +42,32 @@ judgment; schema validation cannot prove semantic correctness. Unresolved batche
 remain pending under the existing retry mechanism; no unresolved-memory database
 or terminal retry policy is introduced. Models, confidence thresholds, embeddings,
 assertion lifecycle and dictionary semantics are unchanged.
+
+## Correction source safety
+
+Normal extraction and contextual actions share one deterministic CORRECT gate
+after mutation planning, before assertion application or PostgreSQL writes.
+Valid source IDs prove provenance, not semantic support. A correction must cite
+current user text with corrective intent and a replacement value bound to the
+resolved identity. Stored names/aliases and the already retrieved scoped candidate
+identities provide binding context; proposed new aliases do not authorize it.
+Pronoun-only corrections use the most recent named preceding turn, with competing
+identities causing rejection. Reference context may identify a referent but cannot
+supply replacement evidence. Questions and hypothetical wording cannot authorize
+CORRECT. Invalidations without replacement also require the old assertion value
+in the corrective clause or prior named target context; vague complaints about
+wrong paperwork alone do not establish that the stored assertion was wrong.
+
+UnsupportedCorrection fails the whole prepared batch before its processed claim,
+memory writes or dictionary feedback. Existing truth and the Redis frozen batch
+remain unchanged. There is no new persistence state, automatic downgrade to ADD,
+additional model call or confidence threshold. ADD/REINFORCE and existing
+SUPERSEDE/RETRACT mechanics are unchanged. Destructive invalidation merits stronger
+evidence than additive learning; this focused gate currently enforces that for
+CORRECT only, not every destructive operation.
+
+This conservative English lexical policy is not a semantic proof: multiword
+paraphrases, multilingual corrections, complex negation and reference chains may
+be rejected or misinterpreted. Rejection defers a whole batch, including other
+useful updates. Pending-batch retry/backoff remains a separate worker concern.
+Do not describe bounded evaluation success as universal correction safety.

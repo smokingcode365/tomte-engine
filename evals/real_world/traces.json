@@ -1,0 +1,4634 @@
+[
+  {
+    "trace_id": "long-01",
+    "trace_class": "manual",
+    "tenant_id": "group-0",
+    "user_id": "user-0",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "The Tesla Model Y I bought in 2024 is red. The Honda Civic is my other car; I bought that one in 2022.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "The red one makes a clicking sound when I charge it at home.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "Maybe it's nothing. I hate making appointments for this stuff.",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "I named the Tesla Little Dog. Don't ask why, the kids started it.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Actually wait, I bought the Honda in 2021, not 2022. I'm sure now.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "Terry is my older son. He plays basketball. Bryan is the younger one and swims.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "He has basketball practice Thursday, and getting him there clashes with work.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "Luna, my beagle, keeps scratching at night. She's four.",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "The dog, not Little Dog. That name really was a bad idea.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "I'm building Tomte, a memory project using PostgreSQL and Redis.",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "I think I said this already, but Terry still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "Anyway, what is the weather tomorrow?",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "not sure",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "The workshop called back about the Tesla. Still waiting for a date.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "I had the Tesla wrapped blue yesterday. It used to be red; now the exterior is blue.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "The blue one looks nicer, although the price hurt.",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "oh, one more thing: the Honda paperwork has the wrong purchase year.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "No, not that one. I mean the Honda Civic, not the Tesla.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "How does a database index work?",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "I see",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "Back to what I was saying, can we talk about the car I bought in 2024?",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic today. I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Actually, retract the idea that Terry practices every day. I never said that was true.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What about Little Dog in winter?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "Terry's basketball practice is still Thursday.",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-02",
+    "trace_class": "manual",
+    "tenant_id": "group-1",
+    "user_id": "user-1",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "I have a Tesla Model Y, bought in 2024, and a Honda Civic bought in 2022. The Tesla's exterior is red.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "I'm trying to fit a service appointment around the kids.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "Terry, my older son, plays basketball; Bryan is younger and does swimming.",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "Terry's basketball practice is on Thursday. He says I keep forgetting.",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "What about that?",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "No, the older son. Terry.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "My four-year-old beagle is Luna. Her scratching woke me again.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "I call my Tesla Little Dog, which confuses everyone.",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "I use PostgreSQL and Redis for Tomte, the memory software project I'm building.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "The project has nothing to do with the dog.",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "Actually the Honda was bought in 2021, not 2022. I found the receipt.",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "Can you explain quantum mechanics?",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "The Tesla used to be red. I wrapped it blue this week, so blue is the current exterior color.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "Back to Terry, he still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "I'm not sure how to fit Thursday practice around things.",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "My car needs attention.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "The other one. Sorry, I mean the Honda Civic.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "What time is sunset?",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "I don't know",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "Oh, one more thing, the car I bought in 2024 needs service again.",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic, but I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "The claim that Terry practices every day was wrong; retract that, please.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What about Little Dog?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "Tell me about Bryan's swimming.",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-03",
+    "trace_class": "manual",
+    "tenant_id": "group-2",
+    "user_id": "user-2",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "Tomte is my memory software project, using PostgreSQL and Redis. It's been a long day.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "The backend is what I'm working on, not the website.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "I see",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "I own a red Tesla Model Y bought in 2024 and a Honda Civic bought in 2022.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "The Tesla's nickname is Little Dog. The Honda has no nickname.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "The car keeps needing appointments.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "My older son Terry plays basketball, and my younger son Bryan swims.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "Terry has basketball practice Thursday.",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "My beagle Luna is four. She scratches at night.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "Anyway, what is 12 times 17?",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "I don't know",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "I said 2022 for the Honda, but I checked: it was 2021. That is a correction, not another car.",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "The Tesla was red, but I wrapped it blue. Its exterior is blue now.",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "Dark blue is what my neighbor chose. Mine is just blue.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "Terry still plays basketball, like I said.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "The other one?",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "No, I meant Bryan and swimming that time.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "Explain how a database index works.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "Anyway...",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "Back to the one I charge at home, the Tesla needs service.",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic today and still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Terry practicing every day isn't true. Retract that claim.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What about Little Dog in winter?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "What project was using PostgreSQL?",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-04",
+    "trace_class": "manual",
+    "tenant_id": "group-0",
+    "user_id": "user-3",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "My beagle Luna is four and scratching again. I'm half asleep.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "I have a Tesla Model Y bought in 2024, exterior red, and a Honda Civic bought in 2022.",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "Little Dog is my nickname for the Tesla. Luna is the actual dog.",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "Maybe I should have picked another name.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Terry is my older son and plays basketball. Younger Bryan swims.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "He has Thursday basketball practice. I mean Terry.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "The Honda purchase year I said was wrong. It was 2021, not 2022.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "What is the weather tomorrow?",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "I wrapped the Tesla blue. It had been red, but the exterior is blue now.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "The blue car needs service too.",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "Tomte is the memory software project I'm building with PostgreSQL and Redis.",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "That project keeps me busy.",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "not sure",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "Terry still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "I think I said this already.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "What about the other one?",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "No, Bryan. The younger son swims.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "Explain quantum mechanics.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "I see",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "oh, one more thing",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "Back to the car I bought in 2024, how about winter service?",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic. I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Retract the unsupported claim that Terry practices every day.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What do you remember about Little Dog?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "What sport does Terry play?",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-05",
+    "trace_class": "manual",
+    "tenant_id": "group-1",
+    "user_id": "user-4",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "The Honda Civic was bought in 2022. My Tesla Model Y was bought in 2024; its exterior is red.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "I call the Tesla Little Dog.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "The Honda needs paperwork, and the Tesla needs a service appointment.",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "Actually wait, the Honda was bought in 2021, not 2022.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Terry, my older son, plays basketball. Younger Bryan does swimming.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "Terry's basketball practice is Thursday.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "Luna is my four-year-old beagle. She scratches at night.",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "Not Little Dog, the real dog Luna.",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "My project Tomte uses PostgreSQL and Redis for memory software.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "What time is sunset?",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "I wrapped the Tesla blue last week. It was red before; its exterior is blue now.",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "The color changed, not the car.",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "Terry still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "I don't know",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "The other son?",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "Bryan swims. I don't mean Terry.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "How does a database index work?",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "I see",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "Anyway...",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "The car I bought in 2024 needs service. Back to that.",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic today, but I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Terry practicing every day was never established. Retract that claim.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What about Little Dog?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "What project did I build with PostgreSQL?",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-06",
+    "trace_class": "generated_noisy",
+    "tenant_id": "group-2",
+    "user_id": "user-5",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "The Tesla Model Y I bought in 2024 is red. The Honda Civic is my other car; I bought that one in 2022.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "Honestly, The red one makes a clicking sound when I charge it at home.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "Honestly, Maybe it's nothing. I hate making appointments for this stuff.",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "Well, I named the Tesla Little Dog. Don't ask why, the kids started it.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Well, Actually wait, I bought the Honda in 2021, not 2022. I'm sure now.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "Honestly, Terry is my older son. He plays basketball. Bryan is the younger one and swims.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "Honestly, He has basketball practice Thursday, and getting him there clashes with work.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "Honestly, Luna, my beagle, keeps scratching at night. She's four.",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "Oh, The dog, not Little Dog. That name really was a bad idea.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "Honestly, I'm building Tomte, a memory project using PostgreSQL and Redis.",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "Oh, I think I said this already, but Terry still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "Well, Anyway, what is the weather tomorrow?",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "not sure",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "Well, The workshop called back about the Tesla. Still waiting for a date.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "Oh, I had the Tesla wrapped blue yesterday. It used to be red; now the exterior is blue.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "Oh, The blue one looks nicer, although the price hurt.",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "Oh, oh, one more thing: the Honda paperwork has the wrong purchase year.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "Oh, No, not that one. I mean the Honda Civic, not the Tesla.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "Oh, How does a database index work?",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "I see",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "Oh, Back to what I was saying, can we talk about the car I bought in 2024?",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "Well, I sold the Honda Civic today. I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Honestly, Actually, retract the idea that Terry practices every day. I never said that was true.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "Well, What about Little Dog in winter?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "Oh, Terry's basketball practice is still Thursday.",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-07",
+    "trace_class": "generated_noisy",
+    "tenant_id": "group-0",
+    "user_id": "user-0",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "I have a Tesla Model Y, bought in 2024, and a Honda Civic bought in 2022. The Tesla's exterior is red.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "Honestly, I'm trying to fit a service appointment around the kids.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "Oh, Terry, my older son, plays basketball; Bryan is younger and does swimming.",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "Oh, Terry's basketball practice is on Thursday. He says I keep forgetting.",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Oh, What about that?",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "Oh, No, the older son. Terry.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "Oh, My four-year-old beagle is Luna. Her scratching woke me again.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "Well, I call my Tesla Little Dog, which confuses everyone.",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "Oh, I use PostgreSQL and Redis for Tomte, the memory software project I'm building.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "Well, The project has nothing to do with the dog.",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "Well, Actually the Honda was bought in 2021, not 2022. I found the receipt.",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "Honestly, Can you explain quantum mechanics?",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "Honestly, The Tesla used to be red. I wrapped it blue this week, so blue is the current exterior color.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "Oh, Back to Terry, he still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "Oh, I'm not sure how to fit Thursday practice around things.",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "Oh, My car needs attention.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "Honestly, The other one. Sorry, I mean the Honda Civic.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "Oh, What time is sunset?",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "I don't know",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "Well, Oh, one more thing, the car I bought in 2024 needs service again.",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "Honestly, I sold the Honda Civic, but I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Honestly, The claim that Terry practices every day was wrong; retract that, please.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "Oh, What about Little Dog?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "Oh, Tell me about Bryan's swimming.",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-08",
+    "trace_class": "generated_noisy",
+    "tenant_id": "group-1",
+    "user_id": "user-1",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "Tomte is my memory software project, using PostgreSQL and Redis. It's been a long day.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "Well, The backend is what I'm working on, not the website.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "I see",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "Honestly, I own a red Tesla Model Y bought in 2024 and a Honda Civic bought in 2022.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Well, The Tesla's nickname is Little Dog. The Honda has no nickname.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "Honestly, The car keeps needing appointments.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "Oh, My older son Terry plays basketball, and my younger son Bryan swims.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "Honestly, Terry has basketball practice Thursday.",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "Well, My beagle Luna is four. She scratches at night.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "Oh, Anyway, what is 12 times 17?",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "I don't know",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "Oh, I said 2022 for the Honda, but I checked: it was 2021. That is a correction, not another car.",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "Oh, The Tesla was red, but I wrapped it blue. Its exterior is blue now.",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "Oh, Dark blue is what my neighbor chose. Mine is just blue.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "Oh, Terry still plays basketball, like I said.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "Well, The other one?",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "Oh, No, I meant Bryan and swimming that time.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "Honestly, Explain how a database index works.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "Anyway...",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "Well, Back to the one I charge at home, the Tesla needs service.",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "Oh, I sold the Honda Civic today and still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Well, Terry practicing every day isn't true. Retract that claim.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "Oh, What about Little Dog in winter?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "Oh, What project was using PostgreSQL?",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-09",
+    "trace_class": "adversarial",
+    "tenant_id": "group-2",
+    "user_id": "user-2",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "My beagle Luna is four and scratching again. I'm half asleep.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "I have a Tesla Model Y bought in 2024, exterior red, and a Honda Civic bought in 2022.",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "Little Dog is my nickname for the Tesla. Luna is the actual dog.",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "Maybe I should have picked another name.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Terry is my older son and plays basketball. Younger Bryan swims.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "He has Thursday basketball practice. I mean Terry.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "The Honda purchase year I said was wrong. It was 2021, not 2022.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "What is the weather tomorrow?",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "I wrapped the Tesla blue. It had been red, but the exterior is blue now.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "The blue car needs service too.",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "Tomte is the memory software project I'm building with PostgreSQL and Redis.",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "That project keeps me busy.",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "not sure",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "Terry still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "I think I said this already.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "What about the other one?",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "The other one. I am not saying which car or which son; leave it unresolved.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "Explain quantum mechanics.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "Explain quantum mechanics. We can leave the family and cars aside for a moment.",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic. I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Retract the unsupported claim that Terry practices every day.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What do you remember about Little Dog?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "What sport does Terry play?",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-10",
+    "trace_class": "adversarial",
+    "tenant_id": "group-0",
+    "user_id": "user-3",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "The Honda Civic was bought in 2022. My Tesla Model Y was bought in 2024; its exterior is red.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "I call the Tesla Little Dog.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "The Honda needs paperwork, and the Tesla needs a service appointment.",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "Actually wait, the Honda was bought in 2021, not 2022.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Terry, my older son, plays basketball. Younger Bryan does swimming.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "Terry's basketball practice is Thursday.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "Luna is my four-year-old beagle. She scratches at night.",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "Not Little Dog, the real dog Luna.",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "My project Tomte uses PostgreSQL and Redis for memory software.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "What time is sunset?",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "I wrapped the Tesla blue last week. It was red before; its exterior is blue now.",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "The color changed, not the car.",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "Terry still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "I don't know",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "The other son?",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "The other one. I am not saying which car or which son; leave it unresolved.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "How does a database index work?",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "Explain quantum mechanics. We can leave the family and cars aside for a moment.",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic today, but I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Terry practicing every day was never established. Retract that claim.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What about Little Dog?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "What project did I build with PostgreSQL?",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-11",
+    "trace_class": "adversarial",
+    "tenant_id": "group-1",
+    "user_id": "user-4",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "The Tesla Model Y I bought in 2024 is red. The Honda Civic is my other car; I bought that one in 2022.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "The red one makes a clicking sound when I charge it at home.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "Maybe it's nothing. I hate making appointments for this stuff.",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "I named the Tesla Little Dog. Don't ask why, the kids started it.",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "Actually wait, I bought the Honda in 2021, not 2022. I'm sure now.",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "Terry is my older son. He plays basketball. Bryan is the younger one and swims.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "He has basketball practice Thursday, and getting him there clashes with work.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "Luna, my beagle, keeps scratching at night. She's four.",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "The dog, not Little Dog. That name really was a bad idea.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "I'm building Tomte, a memory project using PostgreSQL and Redis.",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "I think I said this already, but Terry still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "Anyway, what is the weather tomorrow?",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "not sure",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "The workshop called back about the Tesla. Still waiting for a date.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "I had the Tesla wrapped blue yesterday. It used to be red; now the exterior is blue.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "The blue one looks nicer, although the price hurt.",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "The other one. I am not saying which car or which son; leave it unresolved.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "No, not that one. I mean the Honda Civic, not the Tesla.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "Explain quantum mechanics. We can leave the family and cars aside for a moment.",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic today. I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "Actually, retract the idea that Terry practices every day. I never said that was true.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What about Little Dog in winter?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "Terry's basketball practice is still Thursday.",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  },
+  {
+    "trace_id": "long-12",
+    "trace_class": "adversarial",
+    "tenant_id": "group-2",
+    "user_id": "user-5",
+    "turns": [
+      {
+        "turn_id": "u01",
+        "role": "user",
+        "content": "I have a Tesla Model Y, bought in 2024, and a Honda Civic bought in 2022. The Tesla's exterior is red.",
+        "session_id": "a",
+        "relative_seconds": 0
+      },
+      {
+        "turn_id": "a01",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 12
+      },
+      {
+        "turn_id": "u02",
+        "role": "user",
+        "content": "I'm trying to fit a service appointment around the kids.",
+        "session_id": "a",
+        "relative_seconds": 43
+      },
+      {
+        "turn_id": "a02",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 55
+      },
+      {
+        "turn_id": "u03",
+        "role": "user",
+        "content": "Terry, my older son, plays basketball; Bryan is younger and does swimming.",
+        "session_id": "a",
+        "relative_seconds": 86
+      },
+      {
+        "turn_id": "a03",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 98
+      },
+      {
+        "turn_id": "u04",
+        "role": "user",
+        "content": "Terry's basketball practice is on Thursday. He says I keep forgetting.",
+        "session_id": "a",
+        "relative_seconds": 129
+      },
+      {
+        "turn_id": "a04",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 141
+      },
+      {
+        "turn_id": "u05",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "a",
+        "relative_seconds": 172
+      },
+      {
+        "turn_id": "a05",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 184
+      },
+      {
+        "turn_id": "u06",
+        "role": "user",
+        "content": "What about that?",
+        "session_id": "a",
+        "relative_seconds": 215
+      },
+      {
+        "turn_id": "a06",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 227
+      },
+      {
+        "turn_id": "u07",
+        "role": "user",
+        "content": "No, the older son. Terry.",
+        "session_id": "a",
+        "relative_seconds": 258
+      },
+      {
+        "turn_id": "a07",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 270
+      },
+      {
+        "turn_id": "u08",
+        "role": "user",
+        "content": "My four-year-old beagle is Luna. Her scratching woke me again.",
+        "session_id": "a",
+        "relative_seconds": 301
+      },
+      {
+        "turn_id": "a08",
+        "role": "assistant",
+        "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+        "session_id": "a",
+        "relative_seconds": 313
+      },
+      {
+        "turn_id": "u09",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "a",
+        "relative_seconds": 344
+      },
+      {
+        "turn_id": "a09",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 356
+      },
+      {
+        "turn_id": "u10",
+        "role": "user",
+        "content": "I call my Tesla Little Dog, which confuses everyone.",
+        "session_id": "a",
+        "relative_seconds": 387
+      },
+      {
+        "turn_id": "a10",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 399
+      },
+      {
+        "turn_id": "u11",
+        "role": "user",
+        "content": "I use PostgreSQL and Redis for Tomte, the memory software project I'm building.",
+        "session_id": "a",
+        "relative_seconds": 430
+      },
+      {
+        "turn_id": "a11",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "a",
+        "relative_seconds": 442
+      },
+      {
+        "turn_id": "u12",
+        "role": "user",
+        "content": "The project has nothing to do with the dog.",
+        "session_id": "a",
+        "relative_seconds": 473
+      },
+      {
+        "turn_id": "a12",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "a",
+        "relative_seconds": 485
+      },
+      {
+        "turn_id": "u13",
+        "role": "user",
+        "content": "Actually the Honda was bought in 2021, not 2022. I found the receipt.",
+        "session_id": "a",
+        "relative_seconds": 516
+      },
+      {
+        "turn_id": "a13",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "a",
+        "relative_seconds": 528
+      },
+      {
+        "turn_id": "u14",
+        "role": "user",
+        "content": "Can you explain quantum mechanics?",
+        "session_id": "a",
+        "relative_seconds": 559
+      },
+      {
+        "turn_id": "a14",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "a",
+        "relative_seconds": 571
+      },
+      {
+        "turn_id": "u15",
+        "role": "user",
+        "content": "okay",
+        "session_id": "a",
+        "relative_seconds": 602
+      },
+      {
+        "turn_id": "a15",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "a",
+        "relative_seconds": 614
+      },
+      {
+        "turn_id": "u16",
+        "role": "user",
+        "content": "The Tesla used to be red. I wrapped it blue this week, so blue is the current exterior color.",
+        "session_id": "a",
+        "relative_seconds": 645
+      },
+      {
+        "turn_id": "a16",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "a",
+        "relative_seconds": 657
+      },
+      {
+        "turn_id": "u17",
+        "role": "user",
+        "content": "Back to Terry, he still plays basketball.",
+        "session_id": "a",
+        "relative_seconds": 688
+      },
+      {
+        "turn_id": "a17",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "a",
+        "relative_seconds": 700
+      },
+      {
+        "turn_id": "u18",
+        "role": "user",
+        "content": "I'm not sure how to fit Thursday practice around things.",
+        "session_id": "a",
+        "relative_seconds": 731
+      },
+      {
+        "turn_id": "a18",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "a",
+        "relative_seconds": 743
+      },
+      {
+        "turn_id": "u19",
+        "role": "user",
+        "content": "The other one. I am not saying which car or which son; leave it unresolved.",
+        "session_id": "b",
+        "relative_seconds": 173574
+      },
+      {
+        "turn_id": "a19",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173586
+      },
+      {
+        "turn_id": "u20",
+        "role": "user",
+        "content": "The other one. Sorry, I mean the Honda Civic.",
+        "session_id": "b",
+        "relative_seconds": 173617
+      },
+      {
+        "turn_id": "a20",
+        "role": "assistant",
+        "content": "That makes sense.",
+        "session_id": "b",
+        "relative_seconds": 173629
+      },
+      {
+        "turn_id": "u21",
+        "role": "user",
+        "content": "Explain quantum mechanics. We can leave the family and cars aside for a moment.",
+        "session_id": "b",
+        "relative_seconds": 173660
+      },
+      {
+        "turn_id": "a21",
+        "role": "assistant",
+        "content": "Let us separate those two things.",
+        "session_id": "b",
+        "relative_seconds": 173672
+      },
+      {
+        "turn_id": "u22",
+        "role": "user",
+        "content": "yeah",
+        "session_id": "b",
+        "relative_seconds": 173703
+      },
+      {
+        "turn_id": "a22",
+        "role": "assistant",
+        "content": "Got it.",
+        "session_id": "b",
+        "relative_seconds": 173715
+      },
+      {
+        "turn_id": "u23",
+        "role": "user",
+        "content": "maybe",
+        "session_id": "b",
+        "relative_seconds": 173746
+      },
+      {
+        "turn_id": "a23",
+        "role": "assistant",
+        "content": "That sounds inconvenient.",
+        "session_id": "b",
+        "relative_seconds": 173758
+      },
+      {
+        "turn_id": "u24",
+        "role": "user",
+        "content": "I sold the Honda Civic, but I still own the Tesla Model Y.",
+        "session_id": "b",
+        "relative_seconds": 173789
+      },
+      {
+        "turn_id": "a24",
+        "role": "assistant",
+        "content": "Which part worries you most?",
+        "session_id": "b",
+        "relative_seconds": 173801
+      },
+      {
+        "turn_id": "u25",
+        "role": "user",
+        "content": "The claim that Terry practices every day was wrong; retract that, please.",
+        "session_id": "b",
+        "relative_seconds": 173832
+      },
+      {
+        "turn_id": "a25",
+        "role": "assistant",
+        "content": "We can come back to that.",
+        "session_id": "b",
+        "relative_seconds": 173844
+      },
+      {
+        "turn_id": "u26",
+        "role": "user",
+        "content": "What about Little Dog?",
+        "session_id": "b",
+        "relative_seconds": 173875
+      },
+      {
+        "turn_id": "a26",
+        "role": "assistant",
+        "content": "Okay, keep going.",
+        "session_id": "b",
+        "relative_seconds": 173887
+      },
+      {
+        "turn_id": "u27",
+        "role": "user",
+        "content": "Tell me about Bryan's swimming.",
+        "session_id": "b",
+        "relative_seconds": 173918
+      },
+      {
+        "turn_id": "a27",
+        "role": "assistant",
+        "content": "I would check the paperwork before deciding.",
+        "session_id": "b",
+        "relative_seconds": 173930
+      }
+    ]
+  }
+]
