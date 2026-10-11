@@ -10,6 +10,8 @@ from tomte.engine.core.config import settings
 from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine import tomtelog
+from tomte.engine.exceptions import TomteSessionStateUnavailable
+from tomte.engine.utils.keys import generate_session_entity_key
 from tomte.engine.utils.keys import generate_common_key, generate_persona_key, get_section_key_active_sessions
 from tomte.engine.utils.keys import generate_consolidation_key, generate_consolidation_batch_key, generate_session_ref, parse_session_ref
 from tomte.engine.utils.security import get_security_guard
@@ -21,6 +23,48 @@ class RedisCacheProvider(CacheProvider):
         kwargs can be used to pass passwords, SSL certs, etc.
         """
         self.client = redis.Redis.from_url(url, decode_responses=True, **kwargs)
+
+    def promote_session_entities(self, tenant_id, user_id, session_id, entity_ids,
+                                 retention, ttl):
+        key = generate_session_entity_key(tenant_id, user_id, session_id)
+        if (type(retention) is not int or type(ttl) is not int or retention < 1 or ttl < 1
+                or any(not isinstance(eid, str) or not eid for eid in entity_ids)):
+            raise ValueError("Invalid session entity update")
+        # First input ID has highest priority. Reverse insertion preserves that order.
+        ids = list(dict.fromkeys(entity_ids))
+        lua = """
+        for i = #ARGV, 3, -1 do
+            redis.call('lrem', KEYS[1], 0, ARGV[i])
+            redis.call('lpush', KEYS[1], ARGV[i])
+        end
+        if redis.call('exists', KEYS[1]) == 1 then
+            redis.call('ltrim', KEYS[1], 0, tonumber(ARGV[1]) - 1)
+            redis.call('expire', KEYS[1], tonumber(ARGV[2]))
+        end
+        return 1
+        """
+        try:
+            self.client.eval(lua, 1, key, retention, ttl, *ids)
+        except (redis.ConnectionError, redis.TimeoutError):
+            raise TomteSessionStateUnavailable("Session entity update unavailable") from None
+
+    def get_session_entity_ids(self, tenant_id, user_id, session_id, limit):
+        key = generate_session_entity_key(tenant_id, user_id, session_id)
+        if type(limit) is not int or limit < 1:
+            raise ValueError("Session entity limit must be positive")
+        try:
+            return self.client.lrange(key, 0, limit - 1)
+        except (redis.ConnectionError, redis.TimeoutError):
+            raise TomteSessionStateUnavailable("Session entity read unavailable") from None
+
+    def touch_session_entities(self, tenant_id, user_id, session_id, ttl):
+        key = generate_session_entity_key(tenant_id, user_id, session_id)
+        if type(ttl) is not int or ttl < 1:
+            raise ValueError("Session entity TTL must be positive")
+        try:
+            self.client.expire(key, ttl)  # EXPIRE never creates a missing key.
+        except (redis.ConnectionError, redis.TimeoutError):
+            raise TomteSessionStateUnavailable("Session entity touch unavailable") from None
 
     # ==========================================
     # YOUR ORIGINAL UTILITY METHODS (UNTOUCHED)

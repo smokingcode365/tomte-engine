@@ -1,5 +1,8 @@
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+import psycopg
+from tomte.engine.exceptions import TomteSessionStateUnavailable
+from tomte.engine.utils.keys import validate_id
 
 from tomte.engine.core.config import settings
 from tomte.engine.core.assertions import adapt_assertions
@@ -86,6 +89,34 @@ class PostgresProvider(DatabaseProvider):
     def get_recent_entities(self, tenant_id: str, user_id: str, limit: int|None = None) -> List[Dict[str, Any]]:
         with self.transaction():
             return self._normalize_memory_rows(operations.get_recent_entities(self.conn, tenant_id, user_id, limit))
+
+    def _session_retrieval(self, operation, tenant_id, user_id, *args):
+        if not validate_id(tenant_id) or not validate_id(user_id):
+            raise ValueError("Invalid session entity namespace")
+        try:
+            with self.transaction():
+                return self._normalize_memory_rows(operation(self.conn, tenant_id, user_id, *args))
+        except (psycopg.OperationalError, psycopg.InterfaceError):
+            # No private query parameters or connection details in the fallback log.
+            raise TomteSessionStateUnavailable("Session entity retrieval unavailable") from None
+
+    def discover_session_entities(self, tenant_id, user_id, query_vector, threshold, limit):
+        if limit < 1 or not -1 <= threshold <= 1:
+            raise ValueError("Invalid session discovery bounds")
+        return self._session_retrieval(operations.discover_session_entities, tenant_id, user_id,
+                                       query_vector, threshold, limit)
+
+    def find_session_entity_mentions(self, tenant_id, user_id, message, query_vector, limit):
+        if limit < 1:
+            raise ValueError("Session discovery limit must be positive")
+        return self._session_retrieval(operations.find_session_entity_mentions, tenant_id, user_id,
+                                       message, query_vector, limit)
+
+    def get_entities_by_ids(self, tenant_id, user_id, entity_ids):
+        if not entity_ids:
+            return []
+        return self._session_retrieval(operations.get_entities_by_ids, tenant_id, user_id,
+                                       list(dict.fromkeys(entity_ids)))
 
     # --- Workflow 2: Dictionary Builder ---
     def get_ontology_dictionaries(self, tenant_id: str, query_vector: List[float]) -> Dict[str, Dict[str, List[str]]]:

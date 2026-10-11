@@ -92,3 +92,51 @@ from an older Redis backup remains outside this guarantee.
 Run local integration checks with `TOMTE_RUN_POSTGRES_TESTS=1` and
 `TOMTE_RUN_REDIS_TESTS=1` before `uv run pytest`. They use unique synthetic
 fixtures, local deterministic model stubs, and no background daemon.
+
+## Session entity continuity
+
+For registered users, discovery finds memories from the **current user message**;
+session continuity keeps them available for later short followups. Existing
+persona, recent, frequent, and weighted semantic retrieval remain active. Session
+entities are an additional stream, deduplicated with those existing results.
+Identity-domain persona records stay outside session activation/retention caps.
+Freshly fetched session copies take precedence over older copies of the same
+entity from the other streams; their existing relative precedence is unchanged.
+
+Redis stores only canonical entity IDs in
+`Tomte:session:entities:<tenant>:<user>:<session>`. PostgreSQL remains the source
+of truth: each turn fetches the current payloads in MRU order with tenant/user
+constraints, ignoring deleted IDs. Use one `session_id` per conversation.
+
+Activation uses exact case-normalized full canonical-name/alias phrases (no fuzzy
+or prefix matching), or raw cosine of at least **0.25**. That floor is empirical
+for `text-embedding-3-small` and Tomte's current-message/entity-summary pairing;
+it is not a universal embedding threshold. Session activation does not use
+mention counts or age decay and does not update those statistics. Exact matches
+take priority, then cosine descending, then stable entity ID. At most **5** IDs
+are promoted per user turn, with the highest priority first in the MRU.
+
+An atomic Redis operation deduplicates, promotes, retains **10** IDs, and refreshes
+a **24-hour sliding inactivity TTL**. The session stream returns only the first
+**5** IDs; other retrieval streams may add more context. Assistant messages only
+refresh existing TTL and never discover or promote. A user turn with no new
+activation also refreshes existing state. Missing state is not created by a
+touch, and inactive conversations expire automatically without a close API.
+
+The corresponding settings are `session_entity_cosine_floor`,
+`session_entity_activation_cap`, `session_entity_retention_cap`,
+`session_entity_return_cap`, and `session_entity_ttl_seconds`.
+Temporary session-storage failures retain existing retrieval where possible;
+invalid rows and namespace mismatches still raise. Existing persona/history/queue
+failure behavior is unchanged. Redis and PostgreSQL do not share a transaction.
+When a caller owns an explicit DB transaction, a failed DB child still aborts
+that transaction, even when the optional workflow fallback handles its exception.
+
+Known limitations: negated names can activate ("Not the Tesla, I mean the Honda"),
+generic messages can activate marginal matches, and lexical matching scans the
+scoped user's rows/aliases in SQL. No negation parser or new index is introduced.
+The existing activation/session corpus can be replayed against the real services
+with `uv run python scripts/evaluate_session_implementation.py` after populating
+the ignored embedding cache using the earlier evaluation harnesses. This replay
+uses cached real embeddings, synthetic rollback fixtures, and scoped Redis
+cleanup; it makes no model calls and starts no worker.

@@ -53,6 +53,25 @@ class CacheProvider(ABC):
         """Returns all members of a set and instantly clears it."""
         pass
 
+    def promote_session_entities(self, tenant_id: str, user_id: str, session_id: str,
+                                 entity_ids: List[str], retention: int, ttl: int) -> None:
+        """Atomically promote priority-ordered IDs (first is most recent), trim, expire.
+
+        No IDs: touch existing state only. Temporary outages raise
+        TomteSessionStateUnavailable; unsupported providers raise NotImplementedError.
+        """
+        raise NotImplementedError("Session entity state is not supported")
+
+    def get_session_entity_ids(self, tenant_id: str, user_id: str, session_id: str,
+                               limit: int) -> List[str]:
+        """Read newest IDs first; store IDs only, never entity snapshots."""
+        raise NotImplementedError("Session entity state is not supported")
+
+    def touch_session_entities(self, tenant_id: str, user_id: str, session_id: str,
+                               ttl: int) -> None:
+        """Refresh existing state without creating it or changing ordering."""
+        raise NotImplementedError("Session entity state is not supported")
+
     # ==========================================
     # CHAT HOOK & DUAL-WRITE METHODS
     # ==========================================

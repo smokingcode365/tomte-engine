@@ -25,6 +25,13 @@ def generate_consolidation_batch_key(tenant_id: str, user_id: str, session_id: s
 def generate_session_ref(tenant_id: str, session_id: str, user_id:str) -> str:
     return f"{tenant_id}:{user_id}:{session_id}"
 
+def generate_session_entity_key(tenant_id: str, user_id: str, session_id: str) -> str:
+    """Always session isolated, independently of chat-history configuration."""
+    if not all(validate_id(value) for value in (tenant_id, user_id, session_id)):
+        raise ValueError("Invalid session entity namespace")
+    return f"Tomte:session:entities:{tenant_id}:{user_id}:{session_id}"
+
+
 def generate_persona_key(tenant_id: str, user_id: str) -> str:
     return f"Tomte:persona:{tenant_id}:{user_id}"
 

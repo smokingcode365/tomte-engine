@@ -31,7 +31,7 @@ from tomte.engine.llm.embedder import get_entity_summary
 from tomte.engine.providers.postgres_provider import PostgresProvider
 from tomte.engine.providers.redis_provider import RedisCacheProvider
 from tomte.engine.utils.keys import (
-    generate_common_key, generate_consolidation_key, generate_consolidation_batch_key, generate_persona_key,
+    generate_session_entity_key, generate_common_key, generate_consolidation_key, generate_consolidation_batch_key, generate_persona_key,
     generate_session_ref, get_section_key_active_sessions,
 )
 from tomte.engine.workflows.chat_hook import ChatHookWorkflow
@@ -147,7 +147,7 @@ def mechanics(monkeypatch):
     tag = uuid4().hex
     tenant, user, session = ("mechanics-test-" + kind + "-" + tag for kind in ("tenant", "user", "session"))
     created_anchors = []
-    keys = [generate_common_key(tenant, session, user), generate_persona_key(tenant, user), generate_consolidation_key(tenant, user, session), generate_consolidation_batch_key(tenant, user, session)]
+    keys = [generate_session_entity_key(tenant, user, session), generate_common_key(tenant, session, user), generate_persona_key(tenant, user), generate_consolidation_key(tenant, user, session), generate_consolidation_batch_key(tenant, user, session)]
     def forbidden_start(*args):
         raise AssertionError("Background workers are forbidden in this check")
     monkeypatch.setattr("threading.Thread.start", forbidden_start)

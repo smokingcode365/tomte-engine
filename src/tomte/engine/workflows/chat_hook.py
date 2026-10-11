@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any, List
 from tomte.engine.core.config import settings
 from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS
 from tomte.engine.core.enums import ChatSenderRole, MemoryDomain, ProviderDictionaryKeys
-from tomte.engine.exceptions import TomteInvalidIdError, TomteInvalidInputError, TomteSecurityViolationError
+from tomte.engine.exceptions import TomteInvalidIdError, TomteInvalidInputError, TomteSecurityViolationError, TomteSessionStateUnavailable
 from tomte.engine import tomtelog, Tomte
 from tomte.engine.core.schema import ChatHookPayload
 from tomte.engine.database.db_interface import DatabaseProvider
@@ -73,6 +73,8 @@ class ChatHookWorkflow:
         recent_context = self.cache.get_chat_history(tenant_id, session_id, user_id=user_id, limit=RECENT_CONTEXT_TURNS) if user_id else []
         self.cache.append_chat_history(tenant_id, session_id, message, role=ChatSenderRole.ASSISTANT.value, user_id=user_id)
         if user_id:
+            self._session_call(self.cache, "touch_session_entities", tenant_id, user_id, session_id,
+                               settings.session_entity_ttl_seconds)
             self.cache.enqueue_for_consolidation(tenant_id, user_id, session_id, message, role=ChatSenderRole.ASSISTANT.value, recent_context=recent_context)
         return self._build_payload(user_id=user_id,clean_message=message)
 
@@ -101,7 +103,8 @@ class ChatHookWorkflow:
         persona = self._get_or_refresh_persona(tenant_id, user_id)
         recent, frequent, semantic = self._fetch_live_pulse(tenant_id, user_id, query_vector)
         
-        context_text = self._build_knowledge_context(persona, frequent, recent, semantic)
+        session_entities = self._get_session_entities(tenant_id, user_id, session_id, message, query_vector)
+        context_text = self._build_knowledge_context(persona, frequent, recent, semantic, session_entities)
 
         # 3. History Handshake (Append Last Rule)
         chat_history = self.cache.get_chat_history(tenant_id, session_id, user_id=user_id,limit=settings.history_chat_number)
@@ -135,9 +138,52 @@ class ChatHookWorkflow:
         semantic = self.db.semantic_retrieval(tenant_id, user_id, query_vector)
         return recent, frequent, semantic
 
-    def _build_knowledge_context(self, persona: List[Dict], frequent: List[Dict], recent: List[Dict], semantic: List[Dict]) -> str:
-        """Deduplicates the 4 streams of knowledge and formats them for the LLM."""
-        merged_entities = self.cog.merge_entities(persona, frequent, recent, semantic)
+    @staticmethod
+    def _session_call(provider, operation_name, *args):
+        # Older injected providers may not implement this additive capability yet.
+        operation = getattr(provider, operation_name, None)
+        if operation is None:
+            tomtelog.warn("Session entity operation unsupported; retaining existing retrieval")
+            return None
+        try:
+            return operation(*args)
+        except (TomteSessionStateUnavailable, NotImplementedError):
+            # Optional continuity may degrade; malformed data and security errors propagate.
+            tomtelog.warn("Session entity operation unavailable; retaining existing retrieval")
+            return None
+
+    @staticmethod
+    def _check_session_scope(entities, tenant_id, user_id):
+        for entity in entities:
+            if entity.get("tenant_id") != tenant_id or entity.get("user_id") != user_id:
+                raise TomteSecurityViolationError("Session entity namespace mismatch")
+
+    def _get_session_entities(self, tenant_id, user_id, session_id, message, query_vector):
+        cap = settings.session_entity_activation_cap
+        lexical = self._session_call(self.db, "find_session_entity_mentions",
+                                     tenant_id, user_id, message, query_vector, cap) or []
+        cosine = self._session_call(self.db, "discover_session_entities", tenant_id, user_id,
+                                    query_vector, settings.session_entity_cosine_floor, cap) or []
+        self._check_session_scope(lexical + cosine, tenant_id, user_id)
+        # SQL already ranks each source deterministically. Lexical wins across sources.
+        activated = list(dict.fromkeys(entity["entity_id"] for entity in lexical + cosine))[:cap]
+        self._session_call(self.cache, "promote_session_entities", tenant_id, user_id, session_id,
+                           activated, settings.session_entity_retention_cap,
+                           settings.session_entity_ttl_seconds)
+        ids = self._session_call(self.cache, "get_session_entity_ids", tenant_id, user_id, session_id,
+                                 settings.session_entity_return_cap) or []
+        if not ids:
+            return []
+        entities = self._session_call(self.db, "get_entities_by_ids", tenant_id, user_id, ids) or []
+        self._check_session_scope(entities, tenant_id, user_id)
+        if any(entity["entity_id"] not in ids for entity in entities):
+            raise TomteSecurityViolationError("Unexpected session entity identity")
+        return entities
+
+    def _build_knowledge_context(self, persona: List[Dict], frequent: List[Dict], recent: List[Dict], semantic: List[Dict], session_entities: Optional[List[Dict]] = None) -> str:
+        """Add session continuity without replacing the existing retrieval streams."""
+        # Session rows were fetched last: earlier reads/cache must not replace them.
+        merged_entities = self.cog.merge_entities(persona, frequent, recent, semantic, session_entities or [])
         return self.cog.format_entities(merged_entities)
 
 

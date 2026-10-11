@@ -45,6 +45,22 @@ class DatabaseProvider(Protocol):
         """Performs RAG via vector similarity + synaptic time decay."""
         ...
 
+    def discover_session_entities(self, tenant_id: str, user_id: str,
+                                  query_vector: List[float], threshold: float,
+                                  limit: int) -> List[Dict[str, Any]]:
+        """Non-persona flat entities ranked by raw cosine, stable entity-ID tie-breaker."""
+        raise NotImplementedError("Session discovery is not supported")
+
+    def find_session_entity_mentions(self, tenant_id: str, user_id: str,
+                                     message: str, query_vector: List[float], limit: int) -> List[Dict[str, Any]]:
+        """Exact normalized non-persona name/alias phrases; scoped and bounded."""
+        raise NotImplementedError("Session discovery is not supported")
+
+    def get_entities_by_ids(self, tenant_id: str, user_id: str,
+                            entity_ids: List[str]) -> List[Dict[str, Any]]:
+        """Fetch current flat entities in requested order; skip missing scoped IDs."""
+        raise NotImplementedError("Session fetch is not supported")
+
     def get_recent_entities(self, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
         """Temporal Context: Fetches the last N updated entities."""
         ...

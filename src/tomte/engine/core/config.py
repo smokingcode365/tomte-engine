@@ -29,6 +29,12 @@ class TomteSettings(BaseSettings):
     isolate_chat_sessions: bool = Field(default=True)
     query_entities_limit: int = Field(default=3) # Limit for the number of entities to query from the database
     semantic_retrieval_limit: int = Field(default=5) # Limit for the number of entities to retrieve from the semantic retrieval
+    # Empirical for current-message -> Tomte summaries with text-embedding-3-small.
+    session_entity_cosine_floor: float = Field(default=0.25, ge=-1, le=1)
+    session_entity_activation_cap: int = Field(default=5, ge=1)
+    session_entity_retention_cap: int = Field(default=10, ge=1)
+    session_entity_return_cap: int = Field(default=5, ge=1)
+    session_entity_ttl_seconds: int = Field(default=86400, ge=1)
     llm_threshold_high: float = Field(default=0.85)
     llm_threshold_mid: float = Field(default=0.80)
     llm_threshold_low: float = Field(default=0.75)

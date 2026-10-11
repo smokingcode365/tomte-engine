@@ -33,6 +33,10 @@ class TomteNamespaceError(TomteError):
 class TomteDatabaseConnectionError(TomteError):
     pass
 
+class TomteSessionStateUnavailable(TomteError):
+    """A transient storage failure in optional session continuity/discovery."""
+    pass
+
 class TomteInvalidInputError(TomteError):
     """Raised when the input is invalid."""
     pass

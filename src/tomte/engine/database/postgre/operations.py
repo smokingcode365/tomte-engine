@@ -82,6 +82,65 @@ def get_semantic_context(conn: psycopg.Connection, tenant_id: str, user_id: str,
         cur.execute(sql, (vector, tenant_id, user_id, limit))
         return cur.fetchall()
 
+@transactional
+def discover_session_entities(conn, tenant_id, user_id, vector, threshold, limit):
+    """Separate raw-cosine activation; never update frequency/recency statistics."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT id, tenant_id, user_id, entity_id, payload,
+                   1 - (embedding <=> %s::vector) AS raw_cosine
+            FROM tomte_memory_engine
+            WHERE tenant_id = %s AND user_id = %s
+              AND entity_domain <> %s
+              AND 1 - (embedding <=> %s::vector) >= %s
+            ORDER BY raw_cosine DESC, entity_id ASC, id ASC LIMIT %s
+        """, (vector, tenant_id, user_id, MemoryDomain.IDENTITY.value, vector, threshold, limit))
+        return cur.fetchall()
+
+
+@transactional
+def find_session_entity_mentions(conn, tenant_id, user_id, message, vector, limit):
+    """Scoped SQL phrase lookup: no full catalog transfer/deserialization."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT m.id, m.tenant_id, m.user_id, m.entity_id, m.payload,
+                   1 - (m.embedding <=> %s::vector) AS raw_cosine
+            FROM tomte_memory_engine m
+            WHERE m.tenant_id = %s AND m.user_id = %s
+              AND m.entity_domain <> %s AND EXISTS (
+                SELECT 1 FROM (
+                    SELECT m.entity_name AS term
+                    UNION ALL
+                    SELECT alias #>> '{}' FROM jsonb_array_elements(
+                        CASE WHEN jsonb_typeof(m.payload->'aliases') = 'array'
+                             THEN m.payload->'aliases' ELSE '[]'::jsonb END
+                    ) alias WHERE jsonb_typeof(alias) = 'string'
+                ) terms
+                CROSS JOIN LATERAL (
+                    SELECT trim(regexp_replace(lower(term), '[^[:alnum:]_]+', ' ', 'g')) AS phrase
+                ) normalized
+                WHERE phrase <> '' AND strpos(
+                    ' ' || trim(regexp_replace(lower(%s), '[^[:alnum:]_]+', ' ', 'g')) || ' ',
+                    ' ' || phrase || ' ') > 0
+            )
+            ORDER BY raw_cosine DESC NULLS LAST, m.entity_id ASC, m.id ASC LIMIT %s
+        """, (vector, tenant_id, user_id, MemoryDomain.IDENTITY.value, message, limit))
+        return cur.fetchall()
+
+
+@transactional
+def get_entities_by_ids(conn, tenant_id, user_id, entity_ids):
+    """One scoped query, current payloads, input order, absent IDs ignored."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT id, tenant_id, user_id, entity_id, payload
+            FROM tomte_memory_engine
+            WHERE tenant_id = %s AND user_id = %s AND entity_id = ANY(%s::text[])
+            ORDER BY array_position(%s::text[], entity_id), id ASC
+        """, (tenant_id, user_id, entity_ids, entity_ids))
+        return cur.fetchall()
+
+
 # --- Workflow 2: Dictionary Builder (Semantic Relative) ---
 
 @transactional

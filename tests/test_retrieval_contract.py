@@ -88,6 +88,8 @@ def test_row_metadata_precedence_and_empty_results(monkeypatch, provider, entity
 
 
 def test_registered_chat_context_equivalent_for_flat_and_postgres_rows(monkeypatch, provider, entity):
+    monkeypatch.setattr(provider, "find_session_entity_mentions", Mock(return_value=[]))
+    monkeypatch.setattr(provider, "discover_session_entities", Mock(return_value=[]))
     heartbeat = Mock()
     monkeypatch.setattr(provider, "upsert_user_activity", heartbeat)
     security = SimpleNamespace(sanitize_input=lambda text: text, check_for_injection=lambda text: True)
@@ -100,6 +102,8 @@ def test_registered_chat_context_equivalent_for_flat_and_postgres_rows(monkeypat
                 row["relevance_score"] = 0.9
             monkeypatch.setattr(postgres_provider.operations, operation, Mock(return_value=[row]))
         cache = SimpleNamespace(
+            promote_session_entities=Mock(),
+            get_session_entity_ids=Mock(return_value=[]),
             get_persona_entities=Mock(return_value=[]),
             set_persona_entities=Mock(),
             get_chat_history=Mock(return_value=[]),
