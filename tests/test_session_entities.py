@@ -197,7 +197,7 @@ def test_fresh_session_payload_wins_over_earlier_live_retrieval(session_workflow
     workflow, db, _, tenant, _ = session_workflow
     insert_entity(db, tenant, "u", "tesla", "Old Tesla", ["Tesla"],
                   facts=[dict(attribute_name="paint", value="blue", importance=4)])
-    semantic = db.semantic_retrieval
+    semantic = db.get_raw_semantic_context
     def update_after_old_reads(*args, **kwargs):
         old = semantic(*args, **kwargs)
         fresh = deepcopy({k: v for k, v in old[0].items() if k not in ("id", "tenant_id", "user_id", "relevance_score")})
@@ -207,7 +207,7 @@ def test_fresh_session_payload_wins_over_earlier_live_retrieval(session_workflow
             cur.execute("UPDATE tomte_memory_engine SET payload=%s::jsonb WHERE tenant_id=%s AND user_id=%s AND entity_id='tesla'",
                         (json.dumps(fresh), tenant, "u"))
         return old
-    monkeypatch.setattr(db, "semantic_retrieval", update_after_old_reads)
+    monkeypatch.setattr(db, "get_raw_semantic_context", update_after_old_reads)
     result = workflow.on_chat(tenant, "s", "My Tesla needs an oil change.", ChatSenderRole.USER, "u")["context_text"]
     assert "Fresh Tesla" in result and "paint: red" in result
     assert "Old Tesla" not in result and "paint: blue" not in result
@@ -240,7 +240,7 @@ def test_workflow_continuity_topic_switch_assistant_and_fresh_values(session_wor
     insert_entity(db, tenant, "u", "tesla", "Tesla Model Y", ["Tesla"])
     insert_entity(db, tenant, "u", "dog", "Milo", ["my dog"], vector=[0.0, 1.0] + [0.0] * 1534)
     # Isolate continuity evidence from the still-preserved old retrieval streams.
-    for name in ("get_recent_entities", "get_frequent_entities", "semantic_retrieval", "get_important_entities"):
+    for name in ("get_recent_entities", "get_raw_semantic_context", "get_important_entities"):
         monkeypatch.setattr(db, name, lambda *args, **kwargs: [])
     def send(text, role=ChatSenderRole.USER, session="s", user="u", t=tenant):
         return workflow.on_chat(t, session, text, role, user)["context_text"]
@@ -299,7 +299,7 @@ def test_optional_failures_preserve_existing_context_and_scope_errors_propagate(
     from tomte.engine.core.enums import ChatSenderRole
     entity = dict(entity_id="a", entity_name="Tesla", tenant_id="t", user_id="u", aliases=[], facts=[])
     db = SimpleNamespace(upsert_user_activity=Mock(), get_recent_entities=Mock(return_value=[entity]),
-        get_frequent_entities=Mock(return_value=[]), semantic_retrieval=Mock(return_value=[]),
+        get_raw_semantic_context=Mock(return_value=[]),
         find_session_entity_mentions=Mock(side_effect=TomteSessionStateUnavailable()),
         discover_session_entities=Mock(return_value=[entity]), get_entities_by_ids=Mock(return_value=[entity]))
     cache = SimpleNamespace(get_persona_entities=Mock(return_value=[entity]), get_chat_history=Mock(return_value=[]),

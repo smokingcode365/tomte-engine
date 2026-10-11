@@ -83,6 +83,20 @@ def get_semantic_context(conn: psycopg.Connection, tenant_id: str, user_id: str,
         return cur.fetchall()
 
 @transactional
+def get_raw_semantic_context(conn, tenant_id, user_id, vector, limit):
+    """Ungated long-term context; unlike activation, includes persona memories."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT id, tenant_id, user_id, entity_id, payload,
+                   NULLIF(1 - (embedding <=> %s::vector), 'NaN'::double precision) AS raw_cosine
+            FROM tomte_memory_engine
+            WHERE tenant_id = %s AND user_id = %s
+            ORDER BY raw_cosine DESC NULLS LAST, entity_id ASC, id ASC LIMIT %s
+        """, (vector, tenant_id, user_id, limit))
+        return cur.fetchall()
+
+
+@transactional
 def discover_session_entities(conn, tenant_id, user_id, vector, threshold, limit):
     """Separate raw-cosine activation; never update frequency/recency statistics."""
     with conn.cursor() as cur:

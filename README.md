@@ -97,8 +97,8 @@ fixtures, local deterministic model stubs, and no background daemon.
 
 For registered users, discovery finds memories from the **current user message**;
 session continuity keeps them available for later short followups. Existing
-persona, recent, frequent, and weighted semantic retrieval remain active. Session
-entities are an additional stream, deduplicated with those existing results.
+persona and recent retrieval remain active alongside ungated raw-cosine semantic
+retrieval. Session entities are deduplicated with those existing results.
 Identity-domain persona records stay outside session activation/retention caps.
 Freshly fetched session copies take precedence over older copies of the same
 entity from the other streams; their existing relative precedence is unchanged.
@@ -140,3 +140,23 @@ with `uv run python scripts/evaluate_session_implementation.py` after populating
 the ignored embedding cache using the earlier evaluation harnesses. This replay
 uses cached real embeddings, synthetic rollback fixtures, and scoped Redis
 cleanup; it makes no model calls and starts no worker.
+
+## Live retrieval roles
+
+Registered-user context combines persona (stable identity), recent memories
+(continuity across nearby conversations), raw semantic memories (long-term
+meaning-based retrieval), and session entities (continuity within a conversation).
+Merge order is persona, recent, raw semantic, then session; fresh session payloads
+win on duplicates without moving an entity's original position in context.
+
+Live semantic retrieval returns the closest five memories with no similarity
+cutoff and deterministic entity-ID/DB-ID ties. Age and mention frequency do not
+affect this ranking. Session activation remains separate: exact name/alias or
+cosine at least 0.25, with the existing caps and TTL. Frequent retrieval and
+weighted semantic APIs remain available for comparisons and other callers; their
+statistics and formulas are unchanged. Raw cosine is not universally superior,
+and ungated retrieval still adds irrelevant context on unrelated questions.
+
+Transient raw-semantic unavailability can fall back to the other streams.
+Recent retrieval retains its existing strict failure behavior. Malformed rows,
+programming/security errors, and failed outer transactions still raise.

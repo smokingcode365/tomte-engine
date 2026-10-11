@@ -86,6 +86,18 @@ class PostgresProvider(DatabaseProvider):
         with self.transaction():
             return self._normalize_memory_rows(operations.get_semantic_context(self.conn, tenant_id, user_id, query_vector, limit))
 
+    def get_raw_semantic_context(self, tenant_id: str, user_id: str, query_vector: List[float], limit: int | None = None) -> List[Dict[str, Any]]:
+        limit = settings.semantic_retrieval_limit if limit is None else limit
+        if type(limit) is not int or limit < 1:
+            raise ValueError("Raw semantic limit must be a positive integer")
+        if not validate_id(tenant_id) or not validate_id(user_id):
+            raise ValueError("Invalid raw semantic namespace")
+        try:
+            with self.transaction():
+                return self._normalize_memory_rows(operations.get_raw_semantic_context(self.conn, tenant_id, user_id, query_vector, limit))
+        except (psycopg.OperationalError, psycopg.InterfaceError):
+            raise TomteSessionStateUnavailable("Raw semantic context unavailable") from None
+
     def get_recent_entities(self, tenant_id: str, user_id: str, limit: int|None = None) -> List[Dict[str, Any]]:
         with self.transaction():
             return self._normalize_memory_rows(operations.get_recent_entities(self.conn, tenant_id, user_id, limit))

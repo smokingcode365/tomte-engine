@@ -101,10 +101,10 @@ class ChatHookWorkflow:
 
         # 2. RAG Assembly
         persona = self._get_or_refresh_persona(tenant_id, user_id)
-        recent, frequent, semantic = self._fetch_live_pulse(tenant_id, user_id, query_vector)
+        recent, semantic = self._fetch_live_pulse(tenant_id, user_id, query_vector)
         
         session_entities = self._get_session_entities(tenant_id, user_id, session_id, message, query_vector)
-        context_text = self._build_knowledge_context(persona, frequent, recent, semantic, session_entities)
+        context_text = self._build_knowledge_context(persona, recent, semantic, session_entities)
 
         # 3. History Handshake (Append Last Rule)
         chat_history = self.cache.get_chat_history(tenant_id, session_id, user_id=user_id,limit=settings.history_chat_number)
@@ -132,11 +132,18 @@ class ChatHookWorkflow:
         return entities
 
     def _fetch_live_pulse(self, tenant_id: str, user_id: str, query_vector: List[float]) -> tuple:
-        """Embeds the prompt and fetches the semantic, recent, and frequent memory layers."""        
+        """Fetch recent continuity and ungated long-term semantic context."""
         recent = self.db.get_recent_entities(tenant_id, user_id)
-        frequent = self.db.get_frequent_entities(tenant_id, user_id)
-        semantic = self.db.semantic_retrieval(tenant_id, user_id, query_vector)
-        return recent, frequent, semantic
+        try:
+            raw_retrieval = getattr(self.db, "get_raw_semantic_context", None)
+            if raw_retrieval is None:
+                raise NotImplementedError("Raw semantic context is not supported")
+            semantic = raw_retrieval(tenant_id, user_id, query_vector,
+                                     limit=settings.semantic_retrieval_limit)
+        except (TomteSessionStateUnavailable, NotImplementedError):
+            tomtelog.warn("Raw semantic context unavailable; retaining other retrieval")
+            semantic = []
+        return recent, semantic
 
     @staticmethod
     def _session_call(provider, operation_name, *args):
@@ -180,10 +187,10 @@ class ChatHookWorkflow:
             raise TomteSecurityViolationError("Unexpected session entity identity")
         return entities
 
-    def _build_knowledge_context(self, persona: List[Dict], frequent: List[Dict], recent: List[Dict], semantic: List[Dict], session_entities: Optional[List[Dict]] = None) -> str:
+    def _build_knowledge_context(self, persona: List[Dict], recent: List[Dict], semantic: List[Dict], session_entities: Optional[List[Dict]] = None) -> str:
         """Add session continuity without replacing the existing retrieval streams."""
         # Session rows were fetched last: earlier reads/cache must not replace them.
-        merged_entities = self.cog.merge_entities(persona, frequent, recent, semantic, session_entities or [])
+        merged_entities = self.cog.merge_entities(persona, recent, semantic, session_entities or [])
         return self.cog.format_entities(merged_entities)
 
 

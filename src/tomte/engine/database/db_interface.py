@@ -28,7 +28,7 @@ class DatabaseProvider(Protocol):
         ...
 
     # --- Workflow 1: Chat Hook (Read Ops) ---
-    # The four entity retrieval methods return flat entity dictionaries with
+    # Entity retrieval methods return flat entity dictionaries with
     # entity_id, facts, aliases, and any available retrieval metadata (e.g. scores).
     # Storage payload wrappers are normalized by the provider; invalid rows raise.
     def upsert_user_activity(self, tenant_id: str, user_id: str) -> None:
@@ -44,6 +44,12 @@ class DatabaseProvider(Protocol):
     ) -> List[Dict[str, Any]]:
         """Performs RAG via vector similarity + synaptic time decay."""
         ...
+
+    def get_raw_semantic_context(
+        self, tenant_id: str, user_id: str, query_vector: List[float], limit: int | None = None
+    ) -> List[Dict[str, Any]]:
+        """Flat scoped entities ranked by ungated cosine, independent of age/frequency."""
+        raise NotImplementedError("Raw semantic context is not supported")
 
     def discover_session_entities(self, tenant_id: str, user_id: str,
                                   query_vector: List[float], threshold: float,

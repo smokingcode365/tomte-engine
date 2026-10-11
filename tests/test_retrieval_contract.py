@@ -41,6 +41,7 @@ RETRIEVALS = [
     ("get_recent_entities", "get_recent_entities", (3,)),
     ("get_frequent_entities", "get_frequent_entities", (3,)),
     ("semantic_retrieval", "get_semantic_context", ([1.0, 0.0], 3)),
+    ("get_raw_semantic_context", "get_raw_semantic_context", ([1.0, 0.0], 3)),
 ]
 
 
