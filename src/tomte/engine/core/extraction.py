@@ -78,6 +78,7 @@ def build_extraction_input(chat_items):
 def resolve_extraction(extracted, chat_items):
     """Validate model-selected source IDs and supply all deterministic metadata."""
     sources = source_timestamps(chat_items)
+    user_sources = {item["item_id"] for item in chat_items if item["role"] == "user"}
     data = ExtractionMemorySchema.model_validate(extracted.model_dump(mode="json")).model_dump(mode="json")
     def resolve(source):
         if source is None and len(sources) == 1:
@@ -87,10 +88,18 @@ def resolve_extraction(extracted, chat_items):
         return source, sources[source]
     for entities in data.values():
         for entity in entities:
+            user_facts = []
             for fact in entity["facts"]:
                 fact["source_chat_id"], fact["last_mentioned_at"] = resolve(fact["source_chat_id"])
+                user_timeline = []
                 for event in fact["timeline"]:
                     event["source_chat_id"], event["timestamp"] = resolve(event["source_chat_id"])
+                    if event["source_chat_id"] in user_sources:
+                        user_timeline.append(event)
+                fact["timeline"] = user_timeline
+                if fact["source_chat_id"] in user_sources:
+                    user_facts.append(fact)
+            entity["facts"] = user_facts
     return TomteMemorySchema.model_validate(data)
 
 

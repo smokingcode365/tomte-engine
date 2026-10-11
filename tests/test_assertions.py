@@ -40,6 +40,18 @@ def test_add_stable_identity_evidence_and_provenance():
     assert apply([], [op()],scope="entity-two")[0]["fact_id"]!=fact["fact_id"]
 
 
+@pytest.mark.parametrize("source_ids", [["source-2"], ["source-1", "source-2"]])
+def test_direct_mutation_rejects_assistant_evidence_without_changing_input(source_ids):
+    """Direct core callers must not bypass the workflow's USER-source boundary."""
+    facts = seed()
+    before = deepcopy(facts)
+    messages = [SOURCES[0], {**SOURCES[1], "role": "assistant"}]
+    mutation = op("REINFORCE", facts[0]["fact_id"], None, source_chat_ids=source_ids)
+    with pytest.raises(ValueError, match="CURRENT USER"):
+        apply_mutations(facts, [mutation], messages, "entity-one", "assistant-batch")
+    assert facts == before
+
+
 def test_reinforce_keeps_id_adds_evidence_once_and_counts():
     before=seed();old=deepcopy(before)
     reinforced=apply(before,[op("REINFORCE",before[0]["fact_id"],None,source="source-2")],"batch-2")

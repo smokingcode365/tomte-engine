@@ -81,6 +81,33 @@ def test_multi_source_resolves_fact_and_event_timestamps_independently():
     assert fact.timeline[0].timestamp == source_timestamps(batch)["current-1"]
 
 
+def test_resolve_extraction_keeps_user_fact_and_drops_assistant_fact():
+    """Source ownership filters facts without interpreting the quoted language."""
+    batch = [item("user-source"), {**item("assistant-source", 1791547210), "role": "assistant"}]
+    response = extracted("user-source")
+    fact = response.assets_and_possessions[0].facts[0]
+    response.assets_and_possessions[0].facts.append(fact.model_copy(update={
+        "attribute_name": "paint_color", "value": "blue", "source_chat_id": "assistant-source"}))
+    original = response.model_dump(mode="json")
+    resolved = resolve_extraction(response, batch).assets_and_possessions[0]
+    assert [(f.attribute_name, f.value) for f in resolved.facts] == [("nickname", "Little Dog")]
+    assert response.model_dump(mode="json") == original
+
+
+@pytest.mark.parametrize("event_source", ["assistant-source", "invented-not-in-batch"])
+def test_extracted_timeline_filters_assistant_but_rejects_foreign_source(event_source):
+    """User facts survive unsupported timeline events; fabricated IDs still fail."""
+    batch = [item("user-source"), {**item("assistant-source", 1791547210), "role": "assistant"}]
+    response = extracted("user-source", timeline=True)
+    response.assets_and_possessions[0].facts[0].timeline[0].source_chat_id = event_source
+    if event_source == "invented-not-in-batch":
+        with pytest.raises(ValueError, match="CURRENT_BATCH"):
+            resolve_extraction(response, batch)
+    else:
+        resolved = resolve_extraction(response, batch).assets_and_possessions[0]
+        assert len(resolved.facts) == 1 and resolved.facts[0].timeline == []
+
+
 @pytest.mark.parametrize("stamp", [None, 0, float("nan"), True])
 def test_invalid_queue_timestamp_fails_before_extraction(stamp):
     with pytest.raises(ValueError, match="timestamps"):

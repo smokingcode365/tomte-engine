@@ -66,7 +66,9 @@ def contract(mechanics, monkeypatch):
                     "targets": [{"db_id": candidate["id"], "resolution_confidence": 1,
                                  "evidence": "EXPLICIT"}] if candidate else [],
                     "explicitly_new": candidate is None,
-                    "new_entity_evidence": case.new_evidence or data["CURRENT_BATCH"][0]["content"],
+                    "new_entity_evidence": (case.new_evidence.get(entity["id"])
+                        if isinstance(case.new_evidence, dict) else
+                        case.new_evidence or data["CURRENT_BATCH"][0]["content"]),
                     "reasoning": "Deterministic contract fixture",
                 })
             return schema.model_validate({"resolutions": resolutions})
@@ -259,26 +261,17 @@ def test_different_extracted_name_is_not_automatic_alias_contract(contract):
     assert project_facts(stored["facts"])[0]["mention_count"] == 2
 
 
-@known_gap
-def test_assistant_message_cannot_be_fact_evidence_contract(contract):
-    """Assistant-only fact provenance is malformed and leaves no durable claim."""
+def test_assistant_message_cannot_authorize_fact_persistence_contract(contract):
+    """A real assistant source is omitted, permitting a completed empty batch."""
     case = contract
     batch = freeze(case, ("assistant", "Your bicycle is blue."), ("user", "I bought a new bicycle."))
     case.extracted = [proposal("Bicycle", attribute="paint_color", value="blue", source=batch[0]["item_id"])]
     case.new_evidence = batch[1]["content"]
     case.plan = None
-    before, vocabulary = rows(case), dictionary(case)
-    rejected = False
-    try:
-        ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
-    except ValueError:
-        rejected = True
-    assert rows(case) == before and dictionary(case) == vocabulary
-    assert processed_count(case) == 0
-    assert rejected, "Assistant fact source must be rejected at the structural boundary"
+    complete_noop(case, batch)
+    assert case.cache.clear_session_4_consolidation(case.tenant, case.user, case.session, batch)
 
 
-@known_gap
 def test_assistant_text_cannot_authorize_new_entity_contract(contract):
     """Only user evidence may satisfy an explicitly NEW entity introduction."""
     case = contract
@@ -468,3 +461,117 @@ def test_mixed_batch_requires_only_user_embeddings(contract):
     fact = project_facts(payloads(case)["Bicycle"]["facts"])[0]
     assert fact["value"] == "owned" and fact["source_chat_id"] == batch[1]["item_id"]
     assert processed_count(case) == 1
+
+
+@pytest.mark.parametrize("same_target", [False, True])
+@pytest.mark.parametrize("mixed_sources", [False, True])
+def test_assistant_sourced_mutation_is_dropped_without_canceling_user_mutation(contract, same_target, mixed_sources):
+    """Evidence filtering drops individual mutations, preserving independent USER work."""
+    case = contract
+    seed(case)
+    seed(case, "Honda Civic", "honda", "2021", ("Honda",))
+    original_honda = case.observer.execute(
+        "SELECT * FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",
+        (case.tenant, case.user, "honda"),
+    ).fetchone()
+    batch = freeze(case, ("assistant", "Your Honda was bought in 2021."),
+                   ("user", "My Tesla Model Y is blue. Let's discuss the Honda."))
+    case.extracted = [proposal(attribute="paint_color", value="blue", source=batch[1]["item_id"])]
+    case.matches = {"temporary": "Tesla Model Y"}
+    if not same_target:
+        case.extracted.append(proposal("Honda Civic", "other", value="2021", source=batch[1]["item_id"]))
+        case.matches["other"] = "Honda Civic"
+
+    def plan(target, data):
+        supported = target["identity"]["entity_name"] == "Tesla Model Y"
+        operations = []
+        if supported:
+            operations.append({"operation": "ADD", "attribute_name": "paint_color", "new_value": "blue",
+                "source_chat_ids": [batch[1]["item_id"]], "interpretation_confidence": 1,
+                "evidence_type": "USER_EXPLICIT"})
+        if same_target or not supported:
+            operations.append({"operation": "REINFORCE", "target_fact_id": target["assertions"][0]["fact_id"],
+                "source_chat_ids": [batch[0]["item_id"]] + ([batch[1]["item_id"]] if mixed_sources else []),
+                "interpretation_confidence": 1, "evidence_type": "RESOLVED_REFERENCE"})
+        return operations
+
+    case.plan = plan
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
+    tesla = payloads(case)["Tesla Model Y"]
+    assert any(f["attribute_name"] == "paint_color" and f["value"] == "blue" for f in project_facts(tesla["facts"]))
+    assert next(f for f in tesla["facts"] if f["attribute_name"] == "purchase_year")["mention_count"] == 1
+    assert case.observer.execute(
+        "SELECT * FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",
+        (case.tenant, case.user, "honda"),
+    ).fetchone() == original_honda
+    assert all(e["source_chat_id"] != batch[0]["item_id"] for f in tesla["facts"] for e in f["evidence"])
+    assert processed_count(case) == 1
+
+
+@pytest.mark.parametrize("stage", ["extraction", "timeline", "mutation", "contextual"])
+def test_foreign_source_id_remains_structural_failure_control(contract, stage):
+    """Foreign provenance fails even alongside unsupported real assistant evidence."""
+    case = contract
+    seed(case, "Honda Civic", "honda", "2021", ("Honda",))
+    batch = freeze(case, ("assistant", "Your Honda is blue."), ("user", "Let's discuss Honda Civic."))
+    if stage == "contextual":
+        contextual_action(case)
+        original_action = case.contextual
+        def foreign_action(data):
+            actions = original_action(data)
+            actions[0]["source_chat_ids"] = [batch[0]["item_id"], "invented-not-in-batch"]
+            return actions
+        case.contextual = foreign_action
+    else:
+        source = "invented-not-in-batch" if stage == "extraction" else batch[1]["item_id"]
+        case.extracted = [proposal("Honda Civic", value="2021", source=source)]
+        case.matches = {"temporary": "Honda Civic"}
+        if stage == "timeline":
+            # Validate foreign event IDs even when the whole fact will be omitted.
+            case.extracted[0]["facts"][0]["source_chat_id"] = batch[0]["item_id"]
+            case.extracted[0]["facts"][0]["timeline"] = [{"event_description": "Synthetic event",
+                "source_chat_id": "invented-not-in-batch"}]
+        if stage == "mutation":
+            case.plan = lambda target, data: [{"operation": "REINFORCE",
+                "target_fact_id": target["assertions"][0]["fact_id"],
+                "source_chat_ids": [batch[0]["item_id"], "invented-not-in-batch"],
+                "interpretation_confidence": 1, "evidence_type": "USER_EXPLICIT"}]
+    before, vocabulary = rows(case), dictionary(case)
+    with pytest.raises(ValueError):
+        ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
+    assert rows(case) == before and dictionary(case) == vocabulary
+    assert processed_count(case) == 0
+    assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == batch
+
+
+def test_assistant_new_evidence_does_not_cancel_user_new_entity(contract):
+    """NEW quote ownership is checked per entity without judging its semantics."""
+    case = contract
+    batch = freeze(case, ("assistant", "You bought a new boat."), ("user", "I bought a new bicycle."))
+    case.extracted = [proposal("Bicycle", "bicycle", attribute="ownership_status", value="owned", source=batch[1]["item_id"]),
+                      proposal("Boat", "boat", attribute="ownership_status", value="owned", source=batch[1]["item_id"])]
+    case.new_evidence = {"bicycle": batch[1]["content"], "boat": batch[0]["content"]}
+    case.plan = None
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
+    assert set(payloads(case)) == {"Bicycle"}
+    assert project_facts(payloads(case)["Bicycle"]["facts"])[0]["value"] == "owned"
+    assert processed_count(case) == 1
+
+
+@pytest.mark.parametrize("unsupported", ["assistant_source", "mixed_sources", "assistant_replacement"])
+def test_contextual_assistant_evidence_is_successful_noop(contract, unsupported):
+    """Assistant-owned action sources or replacement quotes cannot authorize writes."""
+    case = contract
+    seed(case, "Honda Civic", "honda", "2021", ("Honda",))
+    batch = freeze(case, ("assistant", "The Honda year is 2024."), ("user", "Let's discuss Honda Civic."))
+    contextual_action(case)
+    original_action = case.contextual
+    def unsupported_action(data):
+        actions = original_action(data)
+        if unsupported == "assistant_replacement":
+            actions[0]["replacement_text"] = "2024"
+        else:
+            actions[0]["source_chat_ids"] = [batch[0]["item_id"]] + ([batch[1]["item_id"]] if unsupported == "mixed_sources" else [])
+        return actions
+    case.contextual = unsupported_action
+    complete_noop(case, batch)

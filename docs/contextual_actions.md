@@ -31,6 +31,13 @@ assertion application, scoped snapshot validation, transactions and batch replay
 Only the resolved assertion IDs are offered to mutation planning on this route.
 There is no separate correction persistence API. Identity metadata remains protected.
 
+Current USER messages own durable fact, timeline and mutation evidence. Real
+assistant-source proposals are omitted per item; foreign source IDs still fail
+structurally. NEW introduction quotes and contextual replacement quotes must occur
+in current USER text. Assistant/reference text may supply interpretation context:
+a USER "Yes" can confirm an assistant question without repeating the fact value.
+Direct assertion-core callers receive ValueError for non-USER mutation evidence.
+
 The mutation planner may abstain even after contextual resolution selects an
 assertion. An empty plan drops that target entirely: no alias, fact, embedding,
 row mention-count/recency or dictionary write. Other targets with accepted mutations

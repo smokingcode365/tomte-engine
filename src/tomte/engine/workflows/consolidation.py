@@ -151,6 +151,8 @@ class ConsolidationWorkflow:
                 "CANDIDATES":view}, ensure_ascii=False), schema=ContextualActionResponse)
         self.last_contextual_route = response.model_dump(mode="json")
         sources = {item["item_id"] for item in current}
+        user_sources = {item["item_id"] for item in current if item["role"] == "user"}
+        user_texts = [item["content"] for item in current if item["role"] == "user"]
         operations = {}
         for action in response.actions:
             if not set(action.source_chat_ids) <= sources:
@@ -162,6 +164,10 @@ class ConsolidationWorkflow:
             key = str(action.target.db_id)
             if key not in offered or action.target_fact_id not in offered[key][1]:
                 raise ValueError("Contextual target must name an offered scoped entity/assertion")
+            if not set(action.source_chat_ids) <= user_sources:
+                continue
+            if action.replacement_text is not None and not any(action.replacement_text in text for text in user_texts):
+                continue
             record = offered[key][0]
             anchors = [record["entity_name"], *record["payload"].get("aliases", [])]
             mentioned = any(len(name.strip()) > 2 and re.search(r"\b" + re.escape(name.lower().strip()) + r"\b", context.lower()) for name in anchors)
@@ -217,9 +223,17 @@ class ConsolidationWorkflow:
                 raise ValueError("Mutation plans must name unique offered targets")
             plans[plan.target_key] = plan.operations
         self.last_mutation_plan = response.model_dump(mode="json")
+        sources = {item["item_id"] for item in input_data["CURRENT_BATCH"]}
+        user_sources = {item["item_id"] for item in input_data["CURRENT_BATCH"] if item["role"] == "user"}
         accepted = []
         for key, (operation, scope, ids) in offered.items():
-            mutations = plans.get(key, [])  # Omitted targets abstain; never fall back to ADD.
+            proposals = plans.get(key, [])  # Omitted targets abstain; never fall back to ADD.
+            for mutation in proposals:
+                if not set(mutation.source_chat_ids) <= sources:
+                    raise ValueError("Mutation evidence must reference current frozen batch sources")
+                if mutation.target_fact_id is not None and mutation.target_fact_id not in ids:
+                    raise ValueError("Target fact does not belong to offered entity assertions")
+            mutations = [mutation for mutation in proposals if set(mutation.source_chat_ids) <= user_sources]
             if not mutations:
                 continue  # No authorization for aliases, row metadata or dictionary feedback.
             try:
@@ -356,7 +370,8 @@ class ConsolidationWorkflow:
                 continue
             if result.kind == "NEW":
                 quote = result.new_entity_evidence
-                if not result.explicitly_new or not quote or not any(quote in item["content"] for item in current):
+                if not result.explicitly_new or not quote or not any(
+                        quote in item["content"] for item in current if item["role"] == "user"):
                     tomtelog.info("New identity lacks current introduction evidence: no permanent operation")
                     continue
                 operations.append(self._prepare_operation(tenant_id, user_id, entity, None))

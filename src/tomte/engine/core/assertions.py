@@ -155,6 +155,7 @@ def apply_mutations(facts, operations, chat_items, entity_scope, batch_id, templ
     """Validate and apply a whole entity plan on copies; failure never mutates inputs."""
     from tomte.engine.core.extraction import source_timestamps
     sources = source_timestamps(chat_items)
+    user_sources = {item["item_id"] for item in chat_items if item["role"] == "user"}
     result = adapt_assertions(facts, entity_scope)
     by_id = {f["fact_id"]: f for f in result}
     offered = set(by_id) if offered_fact_ids is None else set(offered_fact_ids)
@@ -162,6 +163,8 @@ def apply_mutations(facts, operations, chat_items, entity_scope, batch_id, templ
         op = FactMutation.model_validate(raw)
         if any(source not in sources for source in op.source_chat_ids):
             raise ValueError("Mutation evidence must reference current frozen batch sources")
+        if any(source not in user_sources for source in op.source_chat_ids):
+            raise ValueError("Mutation evidence must reference CURRENT USER sources")
         target = None
         if op.target_fact_id is not None:
             if op.target_fact_id not in offered or op.target_fact_id not in by_id:
