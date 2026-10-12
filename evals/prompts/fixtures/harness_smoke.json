@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "smoke_only": true,
+  "purpose": "Artificial loader/dispatch/scorer/reporting fixtures only. Not a semantic benchmark.",
+  "cases": [
+    {
+      "case_id": "harness-smoke-junk",
+      "schema_version": 1,
+      "stage": "junk",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "expected_junk": true
+      }
+    },
+    {
+      "case_id": "harness-smoke-extraction",
+      "schema_version": 1,
+      "stage": "extraction",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "required_entities": [],
+        "forbidden_entities": [],
+        "required_facts": [],
+        "forbidden_facts": [],
+        "exact_entity_count": 0,
+        "exact_fact_count": 0
+      }
+    },
+    {
+      "case_id": "harness-smoke-terminology",
+      "schema_version": 1,
+      "stage": "terminology",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "entities": []
+      },
+      "expected": {
+        "decisions": []
+      }
+    },
+    {
+      "case_id": "harness-smoke-identity_resolution",
+      "schema_version": 1,
+      "stage": "identity_resolution",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "EXTRACTED_SEMANTIC_INFORMATION": [],
+        "CANDIDATES_BY_OBJECT": {}
+      },
+      "expected": {
+        "resolutions": []
+      }
+    },
+    {
+      "case_id": "harness-smoke-contextual_action",
+      "schema_version": 1,
+      "stage": "contextual_action",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANDIDATES": []
+      },
+      "expected": {
+        "expected_action_count": 0,
+        "require_no_action": true
+      }
+    },
+    {
+      "case_id": "harness-smoke-fact_mutation",
+      "schema_version": 1,
+      "stage": "fact_mutation",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANONICAL_ATTRIBUTE_GUIDANCE": {},
+        "TARGETS": []
+      },
+      "expected": {
+        "required_operations": [],
+        "forbidden_operations": [],
+        "allow_noop": true
+      }
+    },
+    {
+      "case_id": "harness-smoke-cross_anchor_merge",
+      "schema_version": 1,
+      "stage": "cross_anchor_merge",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": "Group A: []\nGroup B: []\nAre these exact synonyms?",
+      "expected": {
+        "expected_merge": false
+      }
+    },
+    {
+      "case_id": "harness-smoke-internal_keyword_merge",
+      "schema_version": 1,
+      "stage": "internal_keyword_merge",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": "Keywords: ['token_a', 'token_b']",
+      "expected": {
+        "required_pairs": [],
+        "forbidden_pairs": []
+      }
+    }
+  ],
+  "offline_outputs": {
+    "harness-smoke-junk": true,
+    "harness-smoke-extraction": {},
+    "harness-smoke-terminology": {},
+    "harness-smoke-identity_resolution": {
+      "resolutions": []
+    },
+    "harness-smoke-contextual_action": {
+      "actions": []
+    },
+    "harness-smoke-fact_mutation": {
+      "plans": []
+    },
+    "harness-smoke-cross_anchor_merge": false,
+    "harness-smoke-internal_keyword_merge": {
+      "groups": []
+    }
+  }
+}
