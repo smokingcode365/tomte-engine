@@ -217,6 +217,7 @@ class ExtractionExpected(Strict):
 class InternalExpected(Strict):
     required_pairs: list[list[str]]
     forbidden_pairs: list[list[str]]
+    allow_additional_pairs: bool = False
 
     @model_validator(mode="after")
     def pairs(self):
@@ -270,6 +271,24 @@ def terminology_targets(data):
     return offered
 
 
+def source_ids(data):
+    items = data["CURRENT_BATCH"]
+    if any(not isinstance(item, dict) or not isinstance(item.get("item_id"), str)
+           or not item["item_id"] for item in items):
+        raise ValueError("Current batch requires identifiable item_id values")
+    return {item["item_id"] for item in items}
+
+
+def validate_references(target, fact, required_sources, forbidden_sources, offered, sources):
+    if target is not None and target not in offered:
+        raise ValueError("Expectation target was not offered")
+    facts = offered.get(target, set()) if target is not None else set().union(*offered.values())
+    if fact is not None and fact not in facts:
+        raise ValueError("Expectation fact was not offered for its target")
+    if (set(required_sources) | set(forbidden_sources)) - sources:
+        raise ValueError("Expectation source was not offered in CURRENT_BATCH")
+
+
 class Case(Strict):
     case_id: str = Field(min_length=1)
     schema_version: Literal[1]
@@ -305,16 +324,28 @@ class Case(Strict):
             keys = [(r.entity_handle, r.fact_handle) for r in expectation.decisions]
             if len(set(keys)) != len(keys):
                 raise ValueError("Duplicate expected terminology target")
+            if set(keys) != set(offered):
+                raise ValueError("Terminology expectations must cover every offered target")
             for rule, key in zip(expectation.decisions, keys):
                 if key not in offered or (rule.expected_decision == "REUSE" and rule.expected_candidate_handle not in offered[key]):
                     raise ValueError("Expectation must reference offered target/candidate")
         if self.stage == "identity_resolution":
+            extracted = self.input["EXTRACTED_SEMANTIC_INFORMATION"]
+            if any(not isinstance(e, dict) or not isinstance(e.get("id"), str) or not e["id"] for e in extracted):
+                raise ValueError("Extracted objects require identifiable id values")
+            ids = [e["id"] for e in extracted]
+            if len(set(ids)) != len(ids) or set(self.input["CANDIDATES_BY_OBJECT"]) != set(ids):
+                raise ValueError("Candidate map must cover exactly the extracted objects")
             keys = [r.extracted_entity_id for r in expectation.resolutions]
-            if len(set(keys)) != len(keys) or any(k not in self.input["CANDIDATES_BY_OBJECT"] for k in keys):
-                raise ValueError("Duplicate or unknown expected resolution object")
+            if len(set(keys)) != len(keys) or set(keys) != set(ids):
+                raise ValueError("Identity expectations must cover exactly the extracted objects")
             if any(not isinstance(v, list) or any(not isinstance(c, dict) or not isinstance(c.get("id"), str) for c in v)
                    for v in self.input["CANDIDATES_BY_OBJECT"].values()):
                 raise ValueError("Invalid identity candidates")
+            for rule in expectation.resolutions:
+                offered = {c["id"] for c in self.input["CANDIDATES_BY_OBJECT"][rule.extracted_entity_id]}
+                if (set(rule.required_target_ids) | set(rule.forbidden_target_ids)) - offered:
+                    raise ValueError("Identity expectation candidate was not offered for its object")
         if self.stage == "fact_mutation":
             targets = self.input["TARGETS"]
             if any(not isinstance(t, dict) or not isinstance(t.get("target_key"), str)
@@ -323,16 +354,47 @@ class Case(Strict):
                 raise ValueError("Invalid mutation targets")
             if len({t["target_key"] for t in targets}) != len(targets):
                 raise ValueError("Duplicate input target")
+            offered = {t["target_key"]: {f["fact_id"] for f in t["assertions"]} for t in targets}
+            sources = source_ids(self.input)
+            for rule in expectation.required_operations + expectation.forbidden_operations:
+                validate_references(rule.target_key, rule.target_fact_id, rule.required_source_ids,
+                                    rule.forbidden_source_ids, offered, sources)
         if self.stage == "contextual_action":
             candidates = self.input["CANDIDATES"]
             if any(not isinstance(c, dict) or not isinstance(c.get("db_id"), str)
                    or not isinstance(c.get("assertions"), list) or any(not isinstance(f, dict) or not isinstance(f.get("fact_id"), str)
                    for f in c["assertions"]) for c in candidates):
                 raise ValueError("Invalid contextual candidates")
+            offered = {c["db_id"]: {f["fact_id"] for f in c["assertions"]} for c in candidates}
+            sources = source_ids(self.input)
+            for rule in expectation.required_actions:
+                validate_references(rule.required_target_db_id, rule.required_target_fact_id,
+                                    rule.required_source_ids, rule.forbidden_source_ids, offered, sources)
+        if self.stage == "extraction":
+            sources = source_ids(self.input)
+            for rule in expectation.required_facts + expectation.forbidden_facts:
+                if "required_source_chat_id" in rule.model_fields_set and rule.required_source_chat_id not in sources:
+                    raise ValueError("Extraction expectation source was not offered in CURRENT_BATCH")
         return self
 
     def expectation(self):
         return EXPECTATIONS[self.stage].model_validate(self.expected)
+
+
+def case_json_schema():
+    """Single-source export; cross-field input references remain runtime checks."""
+    schema = Case.model_json_schema()
+    schema["title"] = "Tomte prompt evaluation case v1"
+    schema["$id"] = "tomte-prompt-case-v1"
+    schema["allOf"] = []
+    definitions = {}
+    for stage, expected in EXPECTATIONS.items():
+        contract = expected.model_json_schema()
+        definitions.update(contract.pop("$defs", {}))
+        schema["allOf"].append({"if": {"properties": {"stage": {"const": stage}}},
+                               "then": {"properties": {"expected": contract}}})
+    schema["$defs"] = definitions
+    return schema
 
 
 def canonical(value):
@@ -592,6 +654,9 @@ def score(case, output):
             check("required_pair", tuple(sorted(pair)) in pairs, "MISSING_SYNONYM_GROUP")
         for pair in exp.forbidden_pairs:
             check("forbidden_pair", tuple(sorted(pair)) not in pairs, "FALSE_SYNONYM_GROUP")
+        required = {tuple(sorted(pair)) for pair in exp.required_pairs}
+        for pair in sorted(pairs - required):
+            check("extra_pair", exp.allow_additional_pairs, "EXTRA_SYNONYM_GROUP")
     return finish(checks)
 
 
@@ -615,7 +680,7 @@ def summarize(records):
     for name, reasons in {
         "forbidden_mutation_count": ["FORBIDDEN_MUTATION"], "missed_required_mutation_count": ["MISSING_REQUIRED_MUTATION"],
         "false_new_count": ["FALSE_NEW"],
-        "false_merge_count": ["FALSE_ANCHOR_MERGE", "FALSE_SYNONYM_GROUP"],
+        "false_merge_count": ["FALSE_ANCHOR_MERGE", "FALSE_SYNONYM_GROUP", "EXTRA_SYNONYM_GROUP"],
         "forbidden_fact_count": ["FORBIDDEN_FACT"], "missed_required_fact_count": ["MISSING_FACT"],
     }.items():
         summary[name] = sum(codes[c] for c in reasons)

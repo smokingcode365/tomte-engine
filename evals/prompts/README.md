@@ -59,7 +59,10 @@ dev/validation; severity is CRITICAL/HIGH/MEDIUM/LOW. Unknown stages, fields, me
 duplicate IDs and malformed expectations fail validation; none are silently skipped.
 
 `case_schema.json` describes an individual case, including conditional stage-specific
-expectations. Runtime validation is authoritative. `input` is the frozen, exact
+expectations, exported by `scripts.prompt_eval_support.case_json_schema()` and
+checked for drift by an offline test. Cross-field coverage/reference checks are
+runtime validations; JSON Schema does not express those input-dependent sets.
+Runtime validation is authoritative. `input` is the frozen, exact
 logical payload supplied to the stage, not a query from which the harness retrieves
 or constructs candidates. JSON objects are serialized with Unicode preserved; exact
 maintenance text stays unchanged. Input envelopes/consumed handles are validated;
@@ -83,7 +86,9 @@ reasoning. Production output-schema validation still applies to model results.
   frozen by case authors, never inferred from language by the scorer.
 - **terminology:** `decisions` with `entity_handle`, optional `fact_handle`,
   `expected_decision` KEEP_RAW/REUSE and, only for REUSE,
-  `expected_candidate_handle`. Omitted decisions count as KEEP_RAW. Unknown or
+  `expected_candidate_handle`. Case expectations must cover every offered entity
+  and fact target, explicitly including KEEP_RAW. Omitted **model output** decisions
+  count as KEEP_RAW. Unknown or
   borrowed candidate handles and duplicate target decisions fail.
 - **identity_resolution:** `resolutions`, each with `extracted_entity_id`,
   `expected_kind`, `required_target_ids`, `forbidden_target_ids`; optional
@@ -91,7 +96,10 @@ reasoning. Production output-schema validation still applies to model results.
   `explicitly_new`, `evidence_quote_contains`, `exact_evidence_quote`. Target IDs
   use the production UUID string form. MATCH_ONE requires one expected target;
   MATCH_MANY requires at least two and an equal-distribution output. UNRESOLVED
-  has no targets. Aliases are not scored: the current schema cannot authorize them.
+  has no targets. The extracted objects must have unique production `id` values;
+  both the candidate map and expected resolutions must cover exactly those IDs.
+  Expected required/forbidden targets must be offered for that specific object.
+  Aliases are not scored: the current schema cannot authorize them.
 - **contextual_action:** `expected_action_count` integer or `{minimum, maximum}`,
   optional `require_no_action`, `required_actions`. Matchers constrain `action_type`,
   `required_target_db_id`, `required_target_fact_id`, `require_unresolved`,
@@ -107,8 +115,16 @@ reasoning. Production output-schema validation still applies to model results.
 - **cross_anchor_merge:** `expected_merge` boolean; false/missed merge distinguished.
 - **internal_keyword_merge:** `required_pairs`, `forbidden_pairs`, each exactly two
   distinct words. Returned groups become unordered pairwise relationships. Keyword
-  text/case stays exact; invented words fail. Input is the exact production
+  text/case stays exact; invented words fail. Unlisted pairs fail by default with
+  EXTRA_SYNONYM_GROUP (counted as false merges); `allow_additional_pairs: true`
+  explicitly permits partial scoring but still checks forbidden pairs. Input is the exact production
   `Keywords: [...]` Python-list representation; it is parsed safely with literal_eval.
+
+Expectation target/fact IDs must reference the frozen offered input, including
+fact ownership when a target is specified. Required/forbidden source IDs must
+exist in CURRENT_BATCH.item_id for mutation/contextual rules and extraction
+FactRule source constraints. This structural check allows assistant sources;
+it does not enforce persistence authorization or judge attribute/value text.
 
 Each score contains `passed`, named `checks`, and machine-readable `failures`.
 Schemas/expectations are versioned so future schema additions are explicit migrations.

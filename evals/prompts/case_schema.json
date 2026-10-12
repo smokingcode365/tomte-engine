@@ -420,6 +420,11 @@
                 },
                 "title": "Forbidden Pairs",
                 "type": "array"
+              },
+              "allow_additional_pairs": {
+                "default": false,
+                "title": "Allow Additional Pairs",
+                "type": "boolean"
               }
             },
             "required": [

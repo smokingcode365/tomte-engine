@@ -107,7 +107,7 @@ def test_omitted_keep_raw_is_success_but_omitted_reuse_fails():
 def test_identity_target_contract_ignores_reasoning_and_confidence():
     c = case("identity_resolution", {"resolutions": [{"extracted_entity_id": "e", "expected_kind": "MATCH_ONE",
         "required_target_ids": [UUID], "allowed_evidence_labels": ["EXPLICIT"]}]},
-        {**SMOKE["identity_resolution"]["input"], "CANDIDATES_BY_OBJECT": {"e": [{"id": UUID}]}})
+        {**SMOKE["identity_resolution"]["input"], "CANDIDATES_BY_OBJECT": {"e": [{"id": UUID}]}, "EXTRACTED_SEMANTIC_INFORMATION": [{"id": "e"}]})
     for confidence in (.01, 1.):
         result = support.score(c, {"resolutions": [{"extracted_entity_id": "e", "kind": "MATCH_ONE",
             "reasoning": "Arbitrary wording", "targets": [{"db_id": UUID, "resolution_confidence": confidence, "evidence": "EXPLICIT"}]}]})
@@ -116,7 +116,8 @@ def test_identity_target_contract_ignores_reasoning_and_confidence():
 
 def mutation_case(required=None, forbidden=None, **extra):
     return case("fact_mutation", {"required_operations": required or [], "forbidden_operations": forbidden or [],
-        "allow_noop": True, **extra}, {**SMOKE["fact_mutation"]["input"], "TARGETS": [{"target_key": "t", "assertions": []}]})
+        "allow_noop": True, **extra}, {**SMOKE["fact_mutation"]["input"], "TARGETS": [{"target_key": "t", "assertions": []}],
+        "CURRENT_BATCH": [{"item_id": "s", "role": "USER"}, {"item_id": "bad", "role": "ASSISTANT"}]})
 
 
 def mutation_output(value="a", sources=None):
@@ -149,13 +150,13 @@ def extracted_output(source="s", entity_id="arbitrary"):
 def test_extraction_required_forbidden_and_source_constraints():
     rule = {"entity_name": "Token", "attribute_name": "token", "value": "a", "required_source_chat_id": "s"}
     expected = {**SMOKE["extraction"]["expected"], "required_facts": [rule], "exact_entity_count": 1, "exact_fact_count": 1}
-    c = case("extraction", expected)
+    c = case("extraction", expected, {**SMOKE["extraction"]["input"], "CURRENT_BATCH": [{"item_id": "s"}]})
     assert support.score(c, extracted_output())["passed"]
     assert support.score(c, extracted_output(entity_id="different-temporary-id"))["passed"]
     assert "MISSING_FACT" in support.score(c, {})["failures"]
     assert "WRONG_FACT_SOURCE" in support.score(c, extracted_output("other"))["failures"]
     expected["forbidden_facts"] = [rule]
-    assert "FORBIDDEN_FACT" in support.score(case("extraction", expected), extracted_output())["failures"]
+    assert "FORBIDDEN_FACT" in support.score(case("extraction", expected, c.input), extracted_output())["failures"]
 
 
 def test_internal_merge_pairs_order_text_and_invented_words():
@@ -259,7 +260,8 @@ def test_override_agent_and_logging_restored_even_on_exception():
 
 
 def test_contextual_count_target_source_and_unresolved_matching():
-    payload = {**SMOKE["contextual_action"]["input"], "CANDIDATES": [{"db_id": UUID, "assertions": [{"fact_id": "f"}]}]}
+    payload = {**SMOKE["contextual_action"]["input"], "CANDIDATES": [{"db_id": UUID, "assertions": [{"fact_id": "f"}]}],
+        "CURRENT_BATCH": [{"item_id": "s", "role": "USER"}, {"item_id": "bad", "role": "ASSISTANT"}]}
     output = {"actions": [{"action_type": "CONFIRMATION", "reference_hint": "Arbitrary wording",
         "source_chat_ids": ["s"], "interpretation_confidence": .01,
         "target": {"db_id": UUID, "resolution_confidence": .01, "evidence": "EXPLICIT"}, "target_fact_id": "f"}]}
@@ -308,3 +310,200 @@ def test_maximum_matching_does_not_greedily_steal_specific_result():
     rules = [support.MutationRule(operation="ADD"), support.MutationRule(operation="ADD", new_value="a")]
     outputs = [{"operation": "ADD", "new_value": "a"}, {"operation": "ADD", "new_value": "b"}]
     assert support.assignment(rules, outputs, support.matches) == ({0, 1}, {0, 1})
+
+
+def identity_data():
+    data = deepcopy(SMOKE["identity_resolution"])
+    data["input"]["EXTRACTED_SEMANTIC_INFORMATION"] = [{"id": "e1"}, {"id": "e2"}]
+    data["input"]["CANDIDATES_BY_OBJECT"] = {"e1": [{"id": UUID}], "e2": []}
+    data["expected"]["resolutions"] = [
+        {"extracted_entity_id": "e1", "expected_kind": "MATCH_ONE", "required_target_ids": [UUID]},
+        {"extracted_entity_id": "e2", "expected_kind": "UNRESOLVED"}]
+    return data
+
+
+@pytest.mark.parametrize("fault", ["missing_expectation", "missing_candidate_object", "extra_candidate_object",
+                                  "required_target", "forbidden_target", "missing_id", "duplicate_id"])
+def test_identity_incomplete_or_unoffered_contract_rejected(fault):
+    data = identity_data()
+    if fault == "missing_expectation":
+        data["expected"]["resolutions"].pop()
+    elif fault == "missing_candidate_object":
+        del data["input"]["CANDIDATES_BY_OBJECT"]["e2"]
+    elif fault == "extra_candidate_object":
+        data["input"]["CANDIDATES_BY_OBJECT"]["extra"] = []
+    elif fault in {"required_target", "forbidden_target"}:
+        data["expected"]["resolutions"][0][fault + "_ids"] = ["not-offered"]
+    elif fault == "missing_id":
+        data["input"]["EXTRACTED_SEMANTIC_INFORMATION"][1] = {"entity_id": "e2"}
+    else:
+        data["input"]["EXTRACTED_SEMANTIC_INFORMATION"][1]["id"] = "e1"
+    with pytest.raises(ValueError):
+        support.Case.model_validate(data)
+
+
+def test_identity_full_multi_object_contract_scores_every_object():
+    c = support.Case.model_validate(identity_data())
+    output = {"resolutions": [{"extracted_entity_id": "e1", "kind": "MATCH_ONE", "reasoning": "fixture",
+        "targets": [{"db_id": UUID, "resolution_confidence": .5, "evidence": "EXPLICIT"}]},
+        {"extracted_entity_id": "e2", "kind": "UNRESOLVED", "reasoning": "fixture"}]}
+    assert support.score(c, output)["passed"]
+    output["resolutions"].pop()
+    assert "MISSING_RESOLUTION" in support.score(c, output)["failures"]
+    data = identity_data()
+    data["expected"]["resolutions"][1]["forbidden_target_ids"] = [UUID]
+    with pytest.raises(ValueError):  # Offered for e1 is not offered for e2.
+        support.Case.model_validate(data)
+
+
+def terminology_data():
+    data = deepcopy(SMOKE["terminology"])
+    data["input"]["entities"] = [{"entity_handle": "e", "candidates": [{"candidate_handle": "ec"}],
+                                  "facts": [{"fact_handle": "f", "candidates": [{"candidate_handle": "fc"}]}]}]
+    data["expected"]["decisions"] = [{"entity_handle": "e", "expected_decision": "KEEP_RAW"},
+        {"entity_handle": "e", "fact_handle": "f", "expected_decision": "KEEP_RAW"}]
+    return data
+
+
+@pytest.mark.parametrize("fault", ["missing", "extra", "wrong_candidate", "duplicate"])
+def test_terminology_exact_expectation_coverage_rejected(fault):
+    data = terminology_data()
+    rules = data["expected"]["decisions"]
+    if fault == "missing":
+        rules.pop()
+    elif fault == "extra":
+        rules.append({"entity_handle": "extra", "expected_decision": "KEEP_RAW"})
+    elif fault == "duplicate":
+        rules.append(deepcopy(rules[0]))
+    else:
+        rules[1].update(expected_decision="REUSE", expected_candidate_handle="ec")
+    with pytest.raises(ValueError):
+        support.Case.model_validate(data)
+
+
+def test_terminology_full_coverage_scores_unexpected_fact_reuse():
+    c = support.Case.model_validate(terminology_data())
+    assert support.score(c, {})["passed"]  # Model omission still means KEEP_RAW.
+    result = support.score(c, {"attribute_decisions": [{"entity_handle": "e", "fact_handle": "f",
+        "decision": "REUSE", "candidate_handle": "fc"}]})
+    assert "FALSE_REUSE" in result["failures"]
+
+
+def reference_data(stage):
+    data = deepcopy(SMOKE[stage])
+    data["input"]["CURRENT_BATCH"] = [{"item_id": "s", "role": "ASSISTANT"}, {"item_id": "other-source", "role": "USER"}]
+    if stage == "fact_mutation":
+        data["input"]["TARGETS"] = [{"target_key": "t", "assertions": [{"fact_id": "f"}]},
+                                   {"target_key": "other", "assertions": [{"fact_id": "other-f"}]}]
+    elif stage == "contextual_action":
+        data["input"]["CANDIDATES"] = [{"db_id": UUID, "assertions": [{"fact_id": "f"}]},
+                                       {"db_id": "other", "assertions": [{"fact_id": "other-f"}]}]
+        data["expected"] = {"expected_action_count": 1, "required_actions": []}
+    return data
+
+
+@pytest.mark.parametrize("collection", ["required_operations", "forbidden_operations"])
+@pytest.mark.parametrize("rule", [{"target_key": "unknown"}, {"target_fact_id": "unknown"},
+    {"target_key": "t", "target_fact_id": "other-f"}, {"required_source_ids": ["unknown"]},
+    {"forbidden_source_ids": ["unknown"]}])
+def test_mutation_expectation_unoffered_reference_rejected(collection, rule):
+    data = reference_data("fact_mutation")
+    data["expected"][collection] = [rule]
+    with pytest.raises(ValueError):
+        support.Case.model_validate(data)
+
+
+@pytest.mark.parametrize("collection", ["required_operations", "forbidden_operations"])
+@pytest.mark.parametrize("target", [None, "t"])
+def test_mutation_valid_references_accept_assistant_sources(collection, target):
+    data = reference_data("fact_mutation")
+    data["expected"][collection] = [{"target_key": target, "target_fact_id": "f",
+                                     "required_source_ids": ["s"], "forbidden_source_ids": ["other-source"]}]
+    support.Case.model_validate(data)  # Structural validation does not apply persistence policy.
+
+
+@pytest.mark.parametrize("rule", [{"required_target_db_id": "unknown"}, {"required_target_fact_id": "unknown"},
+    {"required_target_db_id": UUID, "required_target_fact_id": "other-f"},
+    {"required_source_ids": ["unknown"]}, {"forbidden_source_ids": ["unknown"]}])
+def test_contextual_expectation_unoffered_reference_rejected(rule):
+    data = reference_data("contextual_action")
+    data["expected"]["required_actions"] = [rule]
+    with pytest.raises(ValueError):
+        support.Case.model_validate(data)
+
+
+@pytest.mark.parametrize("target", [None, UUID])
+def test_contextual_valid_references_accept_assistant_sources(target):
+    data = reference_data("contextual_action")
+    data["expected"]["required_actions"] = [{"required_target_db_id": target, "required_target_fact_id": "f",
+        "required_source_ids": ["s"], "forbidden_source_ids": ["other-source"]}]
+    support.Case.model_validate(data)
+
+
+@pytest.mark.parametrize("collection", ["required_facts", "forbidden_facts"])
+@pytest.mark.parametrize("source", ["unknown", None])
+def test_extraction_expectation_unoffered_source_rejected(collection, source):
+    data = reference_data("extraction")
+    data["expected"][collection] = [{"required_source_chat_id": source}]
+    with pytest.raises(ValueError):
+        support.Case.model_validate(data)
+
+
+@pytest.mark.parametrize("collection", ["required_facts", "forbidden_facts"])
+def test_extraction_valid_assistant_source_reference_accepted(collection):
+    data = reference_data("extraction")
+    data["expected"][collection] = [{"required_source_chat_id": "s"}]
+    support.Case.model_validate(data)
+
+
+def test_internal_extra_pairs_fail_closed_with_explicit_opt_out():
+    expected = {"required_pairs": [["a", "b"]], "forbidden_pairs": []}
+    c = case("internal_keyword_merge", expected, "Keywords: ['a', 'b', 'c']")
+    required_only = {"groups": [{"words": ["a", "b"], "confidence_score": .5}]}
+    assert support.score(c, required_only)["passed"]
+    extra = {"groups": [{"words": ["a", "b", "c"], "confidence_score": .5}]}
+    result = support.score(c, extra)
+    assert result["failures"] == ["EXTRA_SYNONYM_GROUP", "EXTRA_SYNONYM_GROUP"]
+    record = dict(case_id=c.case_id, stage=c.stage, partition=c.partition, severity=c.severity, **result)
+    assert support.summarize([record])["false_merge_count"] == 2
+    expected["allow_additional_pairs"] = True
+    assert support.score(case(c.stage, expected, c.input), extra)["passed"]
+    expected["forbidden_pairs"] = [["b", "c"]]
+    assert "FALSE_SYNONYM_GROUP" in support.score(case(c.stage, expected, c.input), extra)["failures"]
+    extra["groups"][0]["words"].append("invented")
+    assert "INVENTED_KEYWORD" in support.score(case(c.stage, expected, c.input), extra)["failures"]
+
+
+def test_generic_override_is_passed_to_execution():
+    provider = Mock()
+    support.execute(provider, case("fact_mutation"), {"fact_mutation": "ALT_PROMPT"})
+    assert provider.parse_structured.call_args.kwargs["system_prompt"] == "ALT_PROMPT"
+
+
+@pytest.mark.parametrize("stage,name", [("junk", "junk_filter_agent"), ("extraction", "tomte_extractor_agent")])
+@pytest.mark.parametrize("fail", [False, True])
+def test_special_override_is_bound_during_execution_and_restored(monkeypatch, stage, name, fail):
+    import pydantic_ai
+    from tomte.engine.providers import openai_provider
+    original = getattr(openai_provider, name)
+    replacement = object()
+    constructor = Mock(return_value=replacement)
+    monkeypatch.setattr(pydantic_ai, "Agent", constructor)
+    def observe(*args, **kwargs):
+        assert getattr(openai_provider, name) is replacement
+        if fail:
+            raise RuntimeError("synthetic failure")
+        return "synthetic result"
+    provider = SimpleNamespace(is_junk=observe, parse_structured=observe)
+    if fail:
+        with pytest.raises(RuntimeError, match="synthetic failure"):
+            support.execute(provider, case(stage), {stage: "ALT_PROMPT"})
+    else:
+        assert support.execute(provider, case(stage), {stage: "ALT_PROMPT"}) == "synthetic result"
+    constructor.assert_called_once_with(output_type=support.STAGES[stage][1], system_prompt="ALT_PROMPT")
+    assert getattr(openai_provider, name) is original
+
+
+def test_checked_in_case_schema_matches_runtime_export():
+    schema = json.loads((support.ROOT / "evals/prompts/case_schema.json").read_text(encoding="utf-8"))
+    assert schema == support.case_json_schema()
