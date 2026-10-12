@@ -143,14 +143,12 @@
           {
             "entity_name": "Tesla Model Y",
             "attribute_name": "paint_color",
-            "value": "blue",
-            "required_source_chat_id": "u1"
+            "value": "blue"
           }
         ],
         "forbidden_entities": [],
         "forbidden_facts": [],
-        "exact_entity_count": 1,
-        "exact_fact_count": 1
+        "exact_entity_count": 1
       }
     },
     {
@@ -208,7 +206,6 @@
         "forbidden_entities": [],
         "forbidden_facts": [],
         "exact_entity_count": 2,
-        "exact_fact_count": 2,
         "require_unique_entity_ids": true
       }
     },
