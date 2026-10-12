@@ -1,0 +1,1423 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "junk-dev-direct-persistent-fact",
+      "schema_version": 1,
+      "stage": "junk",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "direct-fact"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "My Tesla Model Y is blue.",
+            "timestamp": 1791750000
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "expected_junk": false
+      }
+    },
+    {
+      "case_id": "junk-dev-contextual-correction",
+      "schema_version": 1,
+      "stage": "junk",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "contextual-correction"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "No, that year is wrong. It was 2021.",
+            "timestamp": 1791750000
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": [
+          {
+            "role": "assistant",
+            "content": "Your Honda Civic was bought in 2024."
+          }
+        ]
+      },
+      "expected": {
+        "expected_junk": false
+      }
+    },
+    {
+      "case_id": "junk-dev-durable-instruction",
+      "schema_version": 1,
+      "stage": "junk",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "durable-instruction"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "From now on, when you explain code, always include the trade-offs.",
+            "timestamp": 1791750000
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "expected_junk": false
+      }
+    },
+    {
+      "case_id": "junk-dev-thanks-only",
+      "schema_version": 1,
+      "stage": "junk",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "benchmark-v1",
+        "acknowledgement"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "Thanks, that makes sense.",
+            "timestamp": 1791750000
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": [
+          {
+            "role": "user",
+            "content": "My Tesla Model Y is blue."
+          }
+        ]
+      },
+      "expected": {
+        "expected_junk": true
+      }
+    },
+    {
+      "case_id": "extraction-dev-direct-vehicle-color",
+      "schema_version": 1,
+      "stage": "extraction",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "direct-user-fact"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "My Tesla Model Y is blue.",
+            "timestamp": 1791750000
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "required_entities": [
+          {
+            "entity_name": "Tesla Model Y",
+            "entity_domain": "assets_and_possessions"
+          }
+        ],
+        "required_facts": [
+          {
+            "entity_name": "Tesla Model Y",
+            "attribute_name": "paint_color",
+            "value": "blue",
+            "required_source_chat_id": "u1"
+          }
+        ],
+        "forbidden_entities": [],
+        "forbidden_facts": [],
+        "exact_entity_count": 1,
+        "exact_fact_count": 1
+      }
+    },
+    {
+      "case_id": "extraction-dev-multi-message-provenance",
+      "schema_version": 1,
+      "stage": "extraction",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "source-provenance"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "My Honda Civic is red.",
+            "timestamp": 1791750000
+          },
+          {
+            "item_id": "u2",
+            "role": "user",
+            "content": "My Tesla Model Y is blue.",
+            "timestamp": 1791750001
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "required_entities": [
+          {
+            "entity_name": "Honda Civic",
+            "entity_domain": "assets_and_possessions"
+          },
+          {
+            "entity_name": "Tesla Model Y",
+            "entity_domain": "assets_and_possessions"
+          }
+        ],
+        "required_facts": [
+          {
+            "entity_name": "Honda Civic",
+            "attribute_name": "paint_color",
+            "value": "red",
+            "required_source_chat_id": "u1"
+          },
+          {
+            "entity_name": "Tesla Model Y",
+            "attribute_name": "paint_color",
+            "value": "blue",
+            "required_source_chat_id": "u2"
+          }
+        ],
+        "forbidden_entities": [],
+        "forbidden_facts": [],
+        "exact_entity_count": 2,
+        "exact_fact_count": 2,
+        "require_unique_entity_ids": true
+      }
+    },
+    {
+      "case_id": "extraction-dev-assistant-assertion-not-user-truth",
+      "schema_version": 1,
+      "stage": "extraction",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "assistant-not-evidence"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "a1",
+            "role": "assistant",
+            "content": "Your Honda Civic was bought in 2024.",
+            "timestamp": 1791750000
+          },
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "Let's just talk about maintenance.",
+            "timestamp": 1791750001
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "required_entities": [],
+        "required_facts": [],
+        "forbidden_entities": [
+          {
+            "entity_name": "Honda Civic"
+          }
+        ],
+        "forbidden_facts": [
+          {
+            "entity_name": "Honda Civic",
+            "attribute_name": "purchase_year",
+            "value": "2024",
+            "required_source_chat_id": "a1"
+          }
+        ],
+        "exact_entity_count": 0,
+        "exact_fact_count": 0
+      }
+    },
+    {
+      "case_id": "extraction-dev-hypothetical-not-fact",
+      "schema_version": 1,
+      "stage": "extraction",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "hypothetical"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "If I bought a Porsche next year, would it be expensive to insure?",
+            "timestamp": 1791750000
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "required_entities": [],
+        "required_facts": [],
+        "forbidden_entities": [
+          {
+            "entity_name": "Porsche"
+          }
+        ],
+        "forbidden_facts": [],
+        "exact_entity_count": 0,
+        "exact_fact_count": 0
+      }
+    },
+    {
+      "case_id": "extraction-dev-local-instruction-not-durable",
+      "schema_version": 1,
+      "stage": "extraction",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "instruction-scope"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "For this answer only, keep it under 50 words.",
+            "timestamp": 1791750000
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "required_entities": [],
+        "required_facts": [],
+        "forbidden_entities": [
+          {
+            "entity_domain": "system_instructions"
+          }
+        ],
+        "forbidden_facts": [],
+        "exact_entity_count": 0,
+        "exact_fact_count": 0
+      }
+    },
+    {
+      "case_id": "identity-dev-explicit-name-match",
+      "schema_version": 1,
+      "stage": "identity_resolution",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "explicit-match"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "My Tesla Model Y is blue.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "EXTRACTED_SEMANTIC_INFORMATION": [
+          {
+            "id": "veh_01",
+            "name": "Tesla Model Y",
+            "type": "vehicle",
+            "domain": "assets_and_possessions",
+            "aliases": [],
+            "facts": {
+              "paint_color": "blue"
+            }
+          }
+        ],
+        "CANDIDATES_BY_OBJECT": {
+          "veh_01": [
+            {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "entity_id": "tesla-model-y",
+              "name": "Tesla Model Y",
+              "type": "vehicle",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Blueberry"
+              ],
+              "facts": {
+                "purchase_year": "2024"
+              },
+              "candidate_only_similarity": 0.93
+            },
+            {
+              "id": "22222222-2222-4222-8222-222222222222",
+              "entity_id": "honda-civic",
+              "name": "Honda Civic",
+              "type": "vehicle",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Civic"
+              ],
+              "facts": {
+                "purchase_year": "2021"
+              },
+              "candidate_only_similarity": 0.71
+            }
+          ]
+        },
+        "CANDIDATE_SET_TRUNCATED": {
+          "veh_01": false
+        }
+      },
+      "expected": {
+        "resolutions": [
+          {
+            "extracted_entity_id": "veh_01",
+            "expected_kind": "MATCH_ONE",
+            "required_target_ids": [
+              "11111111-1111-4111-8111-111111111111"
+            ],
+            "forbidden_target_ids": [
+              "22222222-2222-4222-8222-222222222222"
+            ],
+            "allowed_evidence_labels": [
+              "EXPLICIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "identity-dev-stored-alias-match",
+      "schema_version": 1,
+      "stage": "identity_resolution",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "alias-match"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "Blueberry needs new tires.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "EXTRACTED_SEMANTIC_INFORMATION": [
+          {
+            "id": "veh_01",
+            "name": "Blueberry",
+            "type": "vehicle",
+            "domain": "assets_and_possessions",
+            "aliases": [
+              "Blueberry"
+            ],
+            "facts": {
+              "maintenance_need": "new tires"
+            }
+          }
+        ],
+        "CANDIDATES_BY_OBJECT": {
+          "veh_01": [
+            {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "entity_id": "tesla-model-y",
+              "name": "Tesla Model Y",
+              "type": "vehicle",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Blueberry"
+              ],
+              "facts": {
+                "purchase_year": "2024"
+              },
+              "candidate_only_similarity": 0.89
+            },
+            {
+              "id": "22222222-2222-4222-8222-222222222222",
+              "entity_id": "honda-civic",
+              "name": "Honda Civic",
+              "type": "vehicle",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Civic"
+              ],
+              "facts": {
+                "purchase_year": "2021"
+              },
+              "candidate_only_similarity": 0.72
+            }
+          ]
+        },
+        "CANDIDATE_SET_TRUNCATED": {
+          "veh_01": false
+        }
+      },
+      "expected": {
+        "resolutions": [
+          {
+            "extracted_entity_id": "veh_01",
+            "expected_kind": "MATCH_ONE",
+            "required_target_ids": [
+              "11111111-1111-4111-8111-111111111111"
+            ],
+            "forbidden_target_ids": [
+              "22222222-2222-4222-8222-222222222222"
+            ],
+            "allowed_evidence_labels": [
+              "ALIAS"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "identity-dev-explicit-new-entity",
+      "schema_version": 1,
+      "stage": "identity_resolution",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "explicit-new"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "I bought a new kayak yesterday.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "EXTRACTED_SEMANTIC_INFORMATION": [
+          {
+            "id": "ast_01",
+            "name": "kayak",
+            "type": "kayak",
+            "domain": "assets_and_possessions",
+            "aliases": [],
+            "facts": {
+              "ownership_status": "owned"
+            }
+          }
+        ],
+        "CANDIDATES_BY_OBJECT": {
+          "ast_01": []
+        },
+        "CANDIDATE_SET_TRUNCATED": {
+          "ast_01": false
+        }
+      },
+      "expected": {
+        "resolutions": [
+          {
+            "extracted_entity_id": "ast_01",
+            "expected_kind": "NEW",
+            "required_target_ids": [],
+            "forbidden_target_ids": [],
+            "explicitly_new": true,
+            "evidence_quote_contains": "new kayak"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "identity-dev-presupposed-unknown-nickname",
+      "schema_version": 1,
+      "stage": "identity_resolution",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "presupposed-unknown"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "Bluebird needs service.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "EXTRACTED_SEMANTIC_INFORMATION": [
+          {
+            "id": "veh_01",
+            "name": "Bluebird",
+            "type": "vehicle",
+            "domain": "assets_and_possessions",
+            "aliases": [
+              "Bluebird"
+            ],
+            "facts": {
+              "maintenance_need": "service"
+            }
+          }
+        ],
+        "CANDIDATES_BY_OBJECT": {
+          "veh_01": []
+        },
+        "CANDIDATE_SET_TRUNCATED": {
+          "veh_01": false
+        }
+      },
+      "expected": {
+        "resolutions": [
+          {
+            "extracted_entity_id": "veh_01",
+            "expected_kind": "UNRESOLVED",
+            "required_target_ids": [],
+            "forbidden_target_ids": [],
+            "explicitly_new": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "identity-dev-generic-car-ambiguous",
+      "schema_version": 1,
+      "stage": "identity_resolution",
+      "partition": "dev",
+      "severity": "CRITICAL",
+      "tags": [
+        "benchmark-v1",
+        "ambiguous-identity"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "My car needs new tires.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "EXTRACTED_SEMANTIC_INFORMATION": [
+          {
+            "id": "veh_01",
+            "name": "my car",
+            "type": "vehicle",
+            "domain": "assets_and_possessions",
+            "aliases": [
+              "my car"
+            ],
+            "facts": {
+              "maintenance_need": "new tires"
+            }
+          }
+        ],
+        "CANDIDATES_BY_OBJECT": {
+          "veh_01": [
+            {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "entity_id": "tesla-model-y",
+              "name": "Tesla Model Y",
+              "type": "vehicle",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Blueberry"
+              ],
+              "facts": {
+                "purchase_year": "2024"
+              },
+              "candidate_only_similarity": 0.84
+            },
+            {
+              "id": "22222222-2222-4222-8222-222222222222",
+              "entity_id": "honda-civic",
+              "name": "Honda Civic",
+              "type": "vehicle",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Civic"
+              ],
+              "facts": {
+                "purchase_year": "2021"
+              },
+              "candidate_only_similarity": 0.83
+            }
+          ]
+        },
+        "CANDIDATE_SET_TRUNCATED": {
+          "veh_01": false
+        }
+      },
+      "expected": {
+        "resolutions": [
+          {
+            "extracted_entity_id": "veh_01",
+            "expected_kind": "UNRESOLVED",
+            "required_target_ids": [],
+            "forbidden_target_ids": [
+              "11111111-1111-4111-8111-111111111111",
+              "22222222-2222-4222-8222-222222222222"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "contextual-dev-explicit-correction",
+      "schema_version": 1,
+      "stage": "contextual_action",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "correction-targeting"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "No, the Honda was bought in 2021, not 2024.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANDIDATES": [
+          {
+            "db_id": "22222222-2222-4222-8222-222222222222",
+            "entity_name": "Honda Civic",
+            "entity_domain": "assets_and_possessions",
+            "entity_type": "vehicle",
+            "aliases": [
+              "Honda"
+            ],
+            "assertions": [
+              {
+                "fact_id": "fact_honda_year",
+                "attribute_name": "purchase_year",
+                "value": "2024",
+                "assertion_state": "ACTIVE"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "expected_action_count": 1,
+        "required_actions": [
+          {
+            "action_type": "CORRECTION",
+            "required_target_db_id": "22222222-2222-4222-8222-222222222222",
+            "required_target_fact_id": "fact_honda_year",
+            "required_source_ids": [
+              "u1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "contextual-dev-retraction",
+      "schema_version": 1,
+      "stage": "contextual_action",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "retraction-targeting"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "I'm not training for the marathon anymore.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANDIDATES": [
+          {
+            "db_id": "44444444-4444-4444-8444-444444444444",
+            "entity_name": "marathon training",
+            "entity_domain": "activities_and_skills",
+            "entity_type": "training_project",
+            "aliases": [
+              "the marathon"
+            ],
+            "assertions": [
+              {
+                "fact_id": "fact_marathon_training",
+                "attribute_name": "training_status",
+                "value": "training",
+                "assertion_state": "ACTIVE"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "expected_action_count": 1,
+        "required_actions": [
+          {
+            "action_type": "RETRACTION",
+            "required_target_db_id": "44444444-4444-4444-8444-444444444444",
+            "required_target_fact_id": "fact_marathon_training",
+            "required_source_ids": [
+              "u1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "contextual-dev-user-yes-confirms-assistant-question",
+      "schema_version": 1,
+      "stage": "contextual_action",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "user-confirmation"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "a1",
+            "role": "assistant",
+            "content": "Was your Honda Civic bought in 2021?",
+            "timestamp": 1791750000
+          },
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "Yes.",
+            "timestamp": 1791750001
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANDIDATES": [
+          {
+            "db_id": "22222222-2222-4222-8222-222222222222",
+            "entity_name": "Honda Civic",
+            "entity_domain": "assets_and_possessions",
+            "entity_type": "vehicle",
+            "aliases": [
+              "Honda"
+            ],
+            "assertions": [
+              {
+                "fact_id": "fact_honda_year",
+                "attribute_name": "purchase_year",
+                "value": "2021",
+                "assertion_state": "ACTIVE"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "expected_action_count": 1,
+        "required_actions": [
+          {
+            "action_type": "CONFIRMATION",
+            "required_target_db_id": "22222222-2222-4222-8222-222222222222",
+            "required_target_fact_id": "fact_honda_year",
+            "required_source_ids": [
+              "u1"
+            ],
+            "forbidden_source_ids": [
+              "a1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "mutation-dev-add-explicit-fact",
+      "schema_version": 1,
+      "stage": "fact_mutation",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "add"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "My Tesla Model Y is blue.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANONICAL_ATTRIBUTE_GUIDANCE": {
+          "ownership": "ownership_status",
+          "ownership_status": "ownership_status",
+          "vehicle_ownership": "ownership_status"
+        },
+        "TARGETS": [
+          {
+            "target_key": "target_0",
+            "identity": {
+              "entity_id": "tesla-model-y",
+              "entity_name": "Tesla Model Y",
+              "entity_domain": "assets_and_possessions",
+              "entity_type": "vehicle"
+            },
+            "incoming_semantics": [
+              {
+                "attribute_name": "paint_color",
+                "value": "blue",
+                "status": "active",
+                "source_chat_id": "u1",
+                "confidence": 0.9
+              }
+            ],
+            "assertions": [
+              {
+                "fact_id": "fact_tesla_year",
+                "attribute_name": "purchase_year",
+                "value": "2024",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          }
+        ]
+      },
+      "expected": {
+        "required_operations": [
+          {
+            "target_key": "target_0",
+            "operation": "ADD",
+            "required_source_ids": [
+              "u1"
+            ],
+            "allowed_evidence_types": [
+              "USER_EXPLICIT"
+            ],
+            "attribute_name": "paint_color",
+            "new_value": "blue"
+          }
+        ],
+        "forbidden_operations": [],
+        "allow_noop": false,
+        "exact_operation_count": 1
+      }
+    },
+    {
+      "case_id": "mutation-dev-reinforce-explicit-fact",
+      "schema_version": 1,
+      "stage": "fact_mutation",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "reinforce"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "My Tesla Model Y was bought in 2024.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANONICAL_ATTRIBUTE_GUIDANCE": {
+          "ownership": "ownership_status",
+          "ownership_status": "ownership_status",
+          "vehicle_ownership": "ownership_status"
+        },
+        "TARGETS": [
+          {
+            "target_key": "target_0",
+            "identity": {
+              "entity_id": "tesla-model-y",
+              "entity_name": "Tesla Model Y",
+              "entity_domain": "assets_and_possessions",
+              "entity_type": "vehicle"
+            },
+            "incoming_semantics": [
+              {
+                "attribute_name": "purchase_year",
+                "value": "2024",
+                "status": "active",
+                "source_chat_id": "u1",
+                "confidence": 0.9
+              }
+            ],
+            "assertions": [
+              {
+                "fact_id": "fact_tesla_year",
+                "attribute_name": "purchase_year",
+                "value": "2024",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          }
+        ]
+      },
+      "expected": {
+        "required_operations": [
+          {
+            "target_key": "target_0",
+            "operation": "REINFORCE",
+            "required_source_ids": [
+              "u1"
+            ],
+            "allowed_evidence_types": [
+              "USER_EXPLICIT"
+            ],
+            "target_fact_id": "fact_tesla_year"
+          }
+        ],
+        "forbidden_operations": [],
+        "allow_noop": false,
+        "exact_operation_count": 1
+      }
+    },
+    {
+      "case_id": "mutation-dev-supersede-real-world-change",
+      "schema_version": 1,
+      "stage": "fact_mutation",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "supersede"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "I changed roles; I'm an Engineering Manager now.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANONICAL_ATTRIBUTE_GUIDANCE": {
+          "ownership": "ownership_status",
+          "ownership_status": "ownership_status",
+          "vehicle_ownership": "ownership_status"
+        },
+        "TARGETS": [
+          {
+            "target_key": "target_0",
+            "identity": {
+              "entity_id": "career",
+              "entity_name": "career",
+              "entity_domain": "activities_and_skills",
+              "entity_type": "career"
+            },
+            "incoming_semantics": [
+              {
+                "attribute_name": "job_title",
+                "value": "Engineering Manager",
+                "status": "active",
+                "source_chat_id": "u1",
+                "confidence": 0.9
+              }
+            ],
+            "assertions": [
+              {
+                "fact_id": "fact_job_title",
+                "attribute_name": "job_title",
+                "value": "Software Engineer",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          }
+        ]
+      },
+      "expected": {
+        "required_operations": [
+          {
+            "target_key": "target_0",
+            "operation": "SUPERSEDE",
+            "required_source_ids": [
+              "u1"
+            ],
+            "allowed_evidence_types": [
+              "USER_EXPLICIT"
+            ],
+            "target_fact_id": "fact_job_title",
+            "new_value": "Engineering Manager"
+          }
+        ],
+        "forbidden_operations": [],
+        "allow_noop": false,
+        "exact_operation_count": 1
+      }
+    },
+    {
+      "case_id": "mutation-dev-correct-explicit-old-error",
+      "schema_version": 1,
+      "stage": "fact_mutation",
+      "partition": "dev",
+      "severity": "CRITICAL",
+      "tags": [
+        "benchmark-v1",
+        "correct"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "I was wrong earlier: I bought the Honda Civic in 2021, not 2020.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANONICAL_ATTRIBUTE_GUIDANCE": {
+          "ownership": "ownership_status",
+          "ownership_status": "ownership_status",
+          "vehicle_ownership": "ownership_status"
+        },
+        "TARGETS": [
+          {
+            "target_key": "target_0",
+            "identity": {
+              "entity_id": "honda-civic",
+              "entity_name": "Honda Civic",
+              "entity_domain": "assets_and_possessions",
+              "entity_type": "vehicle"
+            },
+            "incoming_semantics": [
+              {
+                "attribute_name": "purchase_year",
+                "value": "2021",
+                "status": "active",
+                "source_chat_id": "u1",
+                "confidence": 0.9
+              }
+            ],
+            "assertions": [
+              {
+                "fact_id": "fact_honda_year",
+                "attribute_name": "purchase_year",
+                "value": "2020",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          }
+        ]
+      },
+      "expected": {
+        "required_operations": [
+          {
+            "target_key": "target_0",
+            "operation": "CORRECT",
+            "required_source_ids": [
+              "u1"
+            ],
+            "allowed_evidence_types": [
+              "USER_EXPLICIT"
+            ],
+            "target_fact_id": "fact_honda_year",
+            "new_value": "2021"
+          }
+        ],
+        "forbidden_operations": [],
+        "allow_noop": false,
+        "exact_operation_count": 1
+      }
+    },
+    {
+      "case_id": "mutation-dev-retract-ended-activity",
+      "schema_version": 1,
+      "stage": "fact_mutation",
+      "partition": "dev",
+      "severity": "HIGH",
+      "tags": [
+        "benchmark-v1",
+        "retract"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "I'm not training for the marathon anymore.",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANONICAL_ATTRIBUTE_GUIDANCE": {
+          "ownership": "ownership_status",
+          "ownership_status": "ownership_status",
+          "vehicle_ownership": "ownership_status"
+        },
+        "TARGETS": [
+          {
+            "target_key": "target_0",
+            "identity": {
+              "entity_id": "marathon-training",
+              "entity_name": "marathon training",
+              "entity_domain": "activities_and_skills",
+              "entity_type": "training_project"
+            },
+            "incoming_semantics": [],
+            "assertions": [
+              {
+                "fact_id": "fact_marathon_training",
+                "attribute_name": "training_status",
+                "value": "training",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          }
+        ]
+      },
+      "expected": {
+        "required_operations": [
+          {
+            "target_key": "target_0",
+            "operation": "RETRACT",
+            "required_source_ids": [
+              "u1"
+            ],
+            "allowed_evidence_types": [
+              "USER_EXPLICIT"
+            ],
+            "target_fact_id": "fact_marathon_training"
+          }
+        ],
+        "forbidden_operations": [],
+        "allow_noop": false,
+        "exact_operation_count": 1
+      }
+    },
+    {
+      "case_id": "mutation-dev-honda-tesla-year-ambiguity-noop",
+      "schema_version": 1,
+      "stage": "fact_mutation",
+      "partition": "dev",
+      "severity": "CRITICAL",
+      "tags": [
+        "benchmark-v1",
+        "ambiguous-target-correction"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "Can we talk about the car I bought in 2024?",
+            "timestamp": 1791750000
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [
+          {
+            "role": "user",
+            "content": "Earlier we were discussing my Honda Civic."
+          }
+        ],
+        "CANONICAL_ATTRIBUTE_GUIDANCE": {
+          "ownership": "ownership_status",
+          "ownership_status": "ownership_status",
+          "vehicle_ownership": "ownership_status"
+        },
+        "TARGETS": [
+          {
+            "target_key": "target_0",
+            "identity": {
+              "entity_id": "honda-civic",
+              "entity_name": "Honda Civic",
+              "entity_domain": "assets_and_possessions",
+              "entity_type": "vehicle"
+            },
+            "incoming_semantics": [
+              {
+                "attribute_name": "purchase_year",
+                "value": "2024",
+                "status": "active",
+                "source_chat_id": "u1",
+                "confidence": 0.9
+              }
+            ],
+            "assertions": [
+              {
+                "fact_id": "fact_honda_year",
+                "attribute_name": "purchase_year",
+                "value": "2021",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          }
+        ]
+      },
+      "expected": {
+        "required_operations": [],
+        "forbidden_operations": [],
+        "allow_noop": true,
+        "exact_operation_count": 0
+      }
+    },
+    {
+      "case_id": "terminology-dev-exact-automobile-car-reuse",
+      "schema_version": 1,
+      "stage": "terminology",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "exact-synonym"
+      ],
+      "input": {
+        "entities": [
+          {
+            "entity_handle": "entity_0",
+            "entity_name": "Tesla",
+            "domain": "assets_and_possessions",
+            "raw_entity_type": "automobile",
+            "candidates": [
+              {
+                "candidate_handle": "candidate_0_0",
+                "keyword": "car"
+              }
+            ],
+            "facts": []
+          }
+        ]
+      },
+      "expected": {
+        "decisions": [
+          {
+            "entity_handle": "entity_0",
+            "expected_decision": "REUSE",
+            "expected_candidate_handle": "candidate_0_0"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "cross-anchor-dev-car-automobile-merge",
+      "schema_version": 1,
+      "stage": "cross_anchor_merge",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "exact-synonym"
+      ],
+      "input": "Group A: ['car', 'automobile']\nGroup B: ['automobile', 'car']\nAre these exact synonyms?",
+      "expected": {
+        "expected_merge": true
+      }
+    },
+    {
+      "case_id": "internal-merge-dev-wifi-spelling-only",
+      "schema_version": 1,
+      "stage": "internal_keyword_merge",
+      "partition": "dev",
+      "severity": "MEDIUM",
+      "tags": [
+        "benchmark-v1",
+        "spelling-equivalence"
+      ],
+      "input": "Keywords: ['WiFi', 'Wi-Fi', 'wireless_network']",
+      "expected": {
+        "required_pairs": [
+          [
+            "WiFi",
+            "Wi-Fi"
+          ]
+        ],
+        "forbidden_pairs": [
+          [
+            "WiFi",
+            "wireless_network"
+          ],
+          [
+            "Wi-Fi",
+            "wireless_network"
+          ]
+        ],
+        "allow_additional_pairs": false
+      }
+    },
+    {
+      "case_id": "junk-dev-bare-no-without-referent",
+      "schema_version": 1,
+      "stage": "junk",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "benchmark-v1",
+        "bare-negation"
+      ],
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "u1",
+            "role": "user",
+            "content": "No.",
+            "timestamp": 1791750000
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "expected_junk": true
+      }
+    }
+  ]
+}
