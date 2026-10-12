@@ -10,6 +10,8 @@ from uuid import uuid4
 import pytest
 from tomte.engine import Tomte
 from tomte.engine.core.resolution import ResolutionResponse
+from tomte.engine.core.resolution import EntityResolution
+
 from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.core.enums import ChatSenderRole
 from tomte.engine.workflows.consolidation import ConsolidationWorkflow
@@ -35,10 +37,11 @@ def entity():
             "entity_domain":"assets_and_possessions","aliases":[],"facts":[fact()]}
 
 
-def decision(kind, targets=(), evidence="EXPLICIT", confidence=1, equal=False, new_quote=None):
+def decision(kind, targets=(), evidence="EXPLICIT", confidence=1, equal=False, new_quote=None, accepted_aliases=()):
     return {"extracted_entity_id":"veh_01","kind":kind,"reasoning":"Prescribed synthetic evidence",
             "targets":[{"db_id":str(row["id"]),"resolution_confidence":confidence,"evidence":evidence} for row in targets],
-            "applies_equally_to_all":equal,"explicitly_new":new_quote is not None,"new_entity_evidence":new_quote}
+            "applies_equally_to_all":equal,"explicitly_new":new_quote is not None,"new_entity_evidence":new_quote,
+            "accepted_aliases":list(accepted_aliases)}
 
 
 def resolve(monkeypatch, records, message, result, recent=(), incoming=None):
@@ -153,7 +156,7 @@ def test_new_requires_explicit_current_introduction(monkeypatch):
     assert len(ops)==1 and ops[0]["mode"]=="INSERT" and "db_id" not in ops[0]
     for key in ("entity_id", "entity_name", "entity_type", "entity_domain"):
         assert ops[0][key]==ops[0]["payload"][key]==incoming[key]
-    assert ops[0]["payload"]["aliases"]==incoming["aliases"]
+    assert ops[0]["payload"]["aliases"]==[]
     ops,_,_=resolve(monkeypatch,[],message,decision("NEW",new_quote="I bought a Tesla."))
     assert ops==[]
     ops,_,_=resolve(monkeypatch,[],message,decision("NEW"))
@@ -320,7 +323,7 @@ def test_match_one_preserves_metadata_and_merges_nickname_facts(monkeypatch,mode
     incoming["facts"]=[current_fact]
     before_target,before_incoming=deepcopy(target),deepcopy(incoming)
     ops,_,_=resolve(monkeypatch,[target],"I named it Little Dog.",
-                    decision("MATCH_ONE",[target],"ALIAS"),incoming=incoming)
+                    decision("MATCH_ONE",[target],"ALIAS",accepted_aliases=["Little Dog"]),incoming=incoming)
     op,=ops
     assert op["mode"]==mode and op["db_id"]==str(target["id"])
     for key in ("entity_id", "entity_name", "entity_type", "entity_domain"):
@@ -356,7 +359,7 @@ def test_matched_metadata_stays_consistent_in_postgres(local_db,monkeypatch,mode
     incoming["facts"]=[fact("Owned") if mode=="REINFORCE" else {
         **fact("red"), "attribute_name":"paint_color"}]
     ops,_,_=resolve(monkeypatch,[target],"I named it Little Dog.",
-                    decision("MATCH_ONE",[target],"ALIAS"),incoming=incoming)
+                    decision("MATCH_ONE",[target],"ALIAS",accepted_aliases=["Little Dog"]),incoming=incoming)
     op,=ops
     assert op["mode"]==mode
     op.update(tenant_id=case.tenant,user_id=case.users[0],embedding=seed["embedding"])
@@ -379,3 +382,56 @@ def test_matched_metadata_stays_consistent_in_postgres(local_db,monkeypatch,mode
     assert retrieved["id"]==str(target["id"])
     for key in ("entity_id", "entity_name", "entity_type", "entity_domain"):
         assert retrieved[key]==target[key]
+
+
+def test_alias_schema_backward_compatible_default():
+    result = EntityResolution(extracted_entity_id="e", kind="NEW", reasoning="fixture")
+    assert result.accepted_aliases == []
+
+
+@pytest.mark.parametrize("kind,aliases", [("UNRESOLVED", ["Nickname"]),
+    ("NEW", [""]), ("NEW", ["  "]), ("NEW", ["Nickname", "Nickname"])])
+def test_invalid_alias_schema_rejected(kind, aliases):
+    with pytest.raises(ValueError):
+        EntityResolution(extracted_entity_id="e", kind=kind, reasoning="fixture", accepted_aliases=aliases)
+
+
+def test_match_many_cannot_authorize_aliases():
+    rows = [record("Tesla"), record("Honda")]
+    with pytest.raises(ValueError):
+        EntityResolution.model_validate(decision("MATCH_MANY", rows, equal=True, accepted_aliases=["Group"]))
+
+
+def test_structural_alias_filter_omits_individual_bad_aliases():
+    incoming = {"entity_name": "Tesla", "aliases": ["Little Dog", "Assistant nickname", "Old nickname"]}
+    current = [{"role": "user", "content": "I named my Tesla Little Dog."},
+               {"role": "assistant", "content": "Assistant nickname"}]
+    assert ConsolidationWorkflow._approved_aliases(
+        ["Little Dog", "invented", "Assistant nickname", "Old nickname", "Little Dog"], incoming, current) == ["Little Dog"]
+
+
+def test_rejected_identity_target_cannot_authorize_alias(monkeypatch):
+    target = record("Tesla")
+    incoming = entity()
+    incoming["aliases"] = ["Little Dog"]
+    ops, _, _ = resolve(monkeypatch, [target], "I named my Tesla Little Dog.",
+        decision("MATCH_ONE", [target], confidence=.2, accepted_aliases=["Little Dog"]), incoming=incoming)
+    assert ops == []
+
+
+def test_new_alias_does_not_bypass_user_introduction(monkeypatch):
+    incoming = entity()
+    incoming["aliases"] = ["Little Dog"]
+    ops, _, _ = resolve(monkeypatch, [], "Little Dog is my nickname for it.",
+        decision("NEW", new_quote="unsupported introduction", accepted_aliases=["Little Dog"]), incoming=incoming)
+    assert ops == []
+
+
+def test_preparation_preserves_stored_alias_order_and_only_appends_approved():
+    target = record("Tesla", ["existing Z", "existing A", "existing Z"])
+    incoming = entity()
+    incoming.update(entity_name="different name", aliases=["unapproved"])
+    op = ConsolidationWorkflow._prepare_operation("tenant", "user", incoming, target,
+                                                  ["Tesla", "Little Dog", "Little Dog"])
+    assert op["payload"]["aliases"] == ["existing Z", "existing A", "existing Z", "Little Dog"]
+    assert target["payload"]["aliases"] == ["existing Z", "existing A", "existing Z"]

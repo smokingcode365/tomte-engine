@@ -25,9 +25,17 @@ class EntityResolution(BaseModel):
     new_entity_evidence: str | None = None  # Verbatim CURRENT_BATCH introduction.
     explicitly_new: bool = False
     reasoning: str
+    accepted_aliases: list[str] = Field(
+        default_factory=list,
+        description="Stable durable aliases explicitly approved for this one resolved entity from offered current-user wording; empty means no alias authorization.",
+    )
 
     @model_validator(mode="after")
     def check_cardinality(self):
+        if any(not alias.strip() for alias in self.accepted_aliases) or len(set(self.accepted_aliases)) != len(self.accepted_aliases):
+            raise ValueError("Accepted aliases must be nonblank and unique")
+        if self.kind in {"MATCH_MANY", "UNRESOLVED"} and self.accepted_aliases:
+            raise ValueError("Alias authorization requires one resolved entity")
         if len({t.db_id for t in self.targets}) != len(self.targets):
             raise ValueError("Duplicate resolution targets")
         if self.kind == "MATCH_ONE" and len(self.targets) != 1:

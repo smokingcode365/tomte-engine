@@ -374,7 +374,8 @@ class ConsolidationWorkflow:
                         quote in item["content"] for item in current if item["role"] == "user"):
                     tomtelog.info("New identity lacks current introduction evidence: no permanent operation")
                     continue
-                operations.append(self._prepare_operation(tenant_id, user_id, entity, None))
+                aliases = self._approved_aliases(result.accepted_aliases, entity, current)
+                operations.append(self._prepare_operation(tenant_id, user_id, entity, None, aliases))
                 continue
             offered = {str(row["id"]) for row in candidate_sets.get(entity["entity_id"], [])[:CANDIDATE_LIMIT]}
             for target in result.targets:
@@ -408,7 +409,8 @@ class ConsolidationWorkflow:
                     # Apply facts, not the group label/type/aliases, to individual identities.
                     update.update(entity_name=record["entity_name"], entity_type=record["entity_type"],
                                   entity_domain=record["entity_domain"], aliases=record["payload"].get("aliases", []))
-                op = self._prepare_operation(tenant_id, user_id, update, record)
+                aliases = self._approved_aliases(result.accepted_aliases, entity, current) if result.kind == "MATCH_ONE" else []
+                op = self._prepare_operation(tenant_id, user_id, update, record, aliases)
                 if db_id in prepared:
                     previous = prepared[db_id]
                     previous["payload"] = op["payload"]
@@ -424,12 +426,33 @@ class ConsolidationWorkflow:
         return operations
 
     @staticmethod
-    def _prepare_operation(tenant_id, user_id, entity, record):
+    def _approved_aliases(accepted, entity, current):
+        """Check offered wording and user provenance; the resolver decides stability."""
+        offered = [entity.get("entity_name"), *entity.get("aliases", [])]
+        user_texts = [" ".join(item["content"].split()).casefold()
+                      for item in current if item["role"] == "user"]
+        approved = []
+        for alias in accepted:
+            normalized = " ".join(alias.split()).casefold()
+            if normalized and alias in offered and any(normalized in text for text in user_texts) and alias not in approved:
+                approved.append(alias)
+        return approved
+
+    @staticmethod
+    def _prepare_operation(tenant_id, user_id, entity, record, approved_aliases=()):
         """Existing fact merge/history semantics; identity decisions never choose a mode."""
         payload = deepcopy(entity)
         dictionary_evidence = payload.pop("_dictionary_evidence", [])
         incoming = deepcopy(entity.get("facts", []))
         mode = "INSERT"
+        stored_aliases = deepcopy(record.get("payload", {}).get("aliases", [])) if record is not None else []
+        canonical_name = record["entity_name"] if record is not None else entity.get("entity_name", "")
+        for alias in approved_aliases:
+            normalized = " ".join(alias.split()).casefold()
+            if normalized != " ".join(canonical_name.split()).casefold() and not any(
+                    normalized == " ".join(existing.split()).casefold() for existing in stored_aliases):
+                stored_aliases.append(alias)
+        payload["aliases"] = stored_aliases
         if record is not None:
             old = deepcopy(record.get("payload", {}).get("facts", []))
             values = {f["attribute_name"]: (f["value"], f.get("status", "active")) for f in old}
@@ -441,11 +464,6 @@ class ConsolidationWorkflow:
                 payload[key] = record[key]
             # Identity preparation does not decide assertion truth transitions.
             payload["facts"] = old
-            aliases = set(record.get("payload", {}).get("aliases", [])) | set(entity.get("aliases", []))
-            incoming_name = entity.get("entity_name")
-            if incoming_name and incoming_name != record["entity_name"]:
-                aliases.add(incoming_name)
-            payload["aliases"] = sorted(aliases)
         op = {"mode": mode, "tenant_id": tenant_id, "user_id": user_id,
               "entity_id": payload["entity_id"], "entity_name": payload.get("entity_name") or payload["entity_id"],
               "entity_type": payload["entity_type"], "entity_domain": payload["entity_domain"],

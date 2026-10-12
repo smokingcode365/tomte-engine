@@ -29,6 +29,7 @@ def contract(mechanics, monkeypatch):
     case = mechanics
     case.extracted = []
     case.matches = {}
+    case.accepted_aliases = {}
     case.new_evidence = None
     case.contextual = None
     case.plan = lambda target, data: []
@@ -70,6 +71,7 @@ def contract(mechanics, monkeypatch):
                         if isinstance(case.new_evidence, dict) else
                         case.new_evidence or data["CURRENT_BATCH"][0]["content"]),
                     "reasoning": "Deterministic contract fixture",
+                    "accepted_aliases": case.accepted_aliases.get(entity["id"], []),
                 })
             return schema.model_validate({"resolutions": resolutions})
         assert schema.__name__ == "MutationPlanResponse", "Unexpected model stage"
@@ -224,7 +226,6 @@ def test_empty_mutation_plan_does_not_write_existing_entity_contract(contract):
     complete_noop(contract, freeze(contract, ("user", "Can we discuss my Tesla?")))
 
 
-@known_gap
 def test_contextual_reference_is_not_automatically_persisted_as_alias_contract(contract):
     """A guessed referent must not create an alias; legitimate aliases survive."""
     case = contract
@@ -245,7 +246,6 @@ def test_contextual_reference_is_not_automatically_persisted_as_alias_contract(c
     assert after["Tesla Model Y"] == before["Tesla Model Y"]
 
 
-@known_gap
 def test_different_extracted_name_is_not_automatic_alias_contract(contract):
     """Even an accepted fact reinforcement cannot authorize a different name."""
     case = contract
@@ -293,6 +293,74 @@ def test_user_text_can_authorize_explicit_new_entity_control(contract):
     assert project_facts(stored["facts"])[0]["value"] == "owned"
     assert stored["facts"][0]["evidence"][0]["source_chat_id"] == batch[0]["item_id"]
     assert processed_count(case) == 1
+
+
+def test_explicitly_accepted_nickname_persists_without_identity_split_and_replays(contract):
+    case = contract
+    seed(case)
+    seed(case, "Honda Civic", "honda", "2021", ("Honda",))
+    before_ids = case.observer.execute("SELECT id FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s ORDER BY id", (case.tenant, case.user)).fetchall()
+    other = payloads(case)["Honda Civic"]
+    case.extracted = [proposal(aliases=("Little Dog",), attribute="nickname", value="Little Dog")]
+    case.matches = {"temporary": "Tesla Model Y"}
+    case.accepted_aliases = {"temporary": ["Little Dog"]}
+    case.plan = None
+    batch = freeze(case, ("user", "I named my Tesla Little Dog."))
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
+    stored = payloads(case)["Tesla Model Y"]
+    assert stored["aliases"] == ["Tesla", "Little Dog"]
+    assert stored["entity_name"] == "Tesla Model Y"
+    assert any(f["attribute_name"] == "nickname" and f["value"] == "Little Dog" for f in project_facts(stored["facts"]))
+    assert payloads(case)["Honda Civic"] == other
+    after = rows(case)
+    assert case.observer.execute("SELECT id FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s ORDER BY id", (case.tenant, case.user)).fetchall() == before_ids
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
+    assert rows(case) == after
+
+
+@pytest.mark.parametrize("source", ["unoffered", "assistant", "reference", "unapproved"])
+def test_bad_alias_does_not_cancel_supported_fact(contract, source):
+    case = contract
+    seed(case)
+    alias = "Little Dog"
+    case.extracted = [proposal(aliases=() if source == "unoffered" else (alias,))]
+    case.matches = {"temporary": "Tesla Model Y"}
+    case.accepted_aliases = {"temporary": [] if source == "unapproved" else [alias]}
+    case.plan = None
+    messages = [("user", "My Tesla Model Y was bought in 2024.")]
+    if source == "assistant":
+        messages.insert(0, ("assistant", "Little Dog"))
+    if source == "unoffered":
+        messages[0] = ("user", "Little Dog was bought in 2024.")
+    if source == "unapproved":
+        messages[0] = ("user", "Little Dog was bought in 2024.")
+    if source == "reference":
+        case.cache.append_chat_history(case.tenant, case.session, "Little Dog", "user", case.user)
+    batch = freeze(case, *messages)
+    case.extracted[0]["facts"][0]["source_chat_id"] = next(m["item_id"] for m in batch if m["role"] == "user")
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
+    stored = payloads(case)["Tesla Model Y"]
+    assert stored["aliases"] == ["Tesla"]
+    assert project_facts(stored["facts"])[0]["mention_count"] == 2
+
+
+def test_new_keeps_only_approved_current_user_aliases(contract):
+    case = contract
+    case.extracted = [proposal("Bicycle", aliases=("Speedy", "unused alias"),
+                               attribute="ownership_status", value="owned")]
+    case.accepted_aliases = {"temporary": ["Speedy", "invented"]}
+    case.plan = None
+    batch = freeze(case, ("user", "I bought a new bicycle named Speedy."))
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
+    assert payloads(case)["Bicycle"]["aliases"] == ["Speedy"]
+
+
+def test_approved_alias_with_no_fact_plan_still_has_no_write(contract):
+    seed(contract)
+    contract.extracted = [proposal(aliases=("Little Dog",))]
+    contract.matches = {"temporary": "Tesla Model Y"}
+    contract.accepted_aliases = {"temporary": ["Little Dog"]}
+    complete_noop(contract, freeze(contract, ("user", "I named my Tesla Little Dog.")))
 
 
 @known_gap

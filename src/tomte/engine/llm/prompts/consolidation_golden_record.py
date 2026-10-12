@@ -1,19 +1,69 @@
 """Identity resolution only; operation modes are classified separately in code."""
-RECONCILER_SYSTEM_PROMPT = """
-Resolve EXTRACTED_SEMANTIC_INFORMATION against each object's small candidate set.
-Extracted IDs are local bookkeeping, never identity evidence. Similarity/type alone
-never proves identity or licenses merging distinct real-world objects.
-Use CURRENT_BATCH and bounded REFERENCE_ONLY_CONTEXT to resolve names, aliases,
-pronouns and late alias declarations. Reference context is identity only: never
-extract historical facts as new updates or reapply them.
-Return MATCH_ONE, MATCH_MANY, NEW or UNRESOLVED. NEW requires an explicitly introduced
-genuinely new entity and a verbatim current-message introduction as evidence;
-an unknown presupposed nickname is UNRESOLVED, not NEW. Missing evidence is uncertainty.
-For each target give a separate resolution confidence (not a calibrated probability)
-and evidence: EXPLICIT, ALIAS, RESOLVED_REFERENCE, GROUP_EXPLICIT, GROUP_INFERRED or
-SEMANTIC_CANDIDATE. Broad category membership is weaker than active conversation.
-MATCH_MANY may apply an update to every strong target only when all extracted facts
-clearly apply equally to them. One unspecified member or an unidentified plural set
-is UNRESOLVED. Never distribute individual facts indiscriminately.
-Do not classify INSERT/MUTATE/REINFORCE or propose corrections/retractions.
-"""
+RECONCILER_SYSTEM_PROMPT = (
+    "Resolve EXTRACTED_SEMANTIC_INFORMATION against each object's small candidate set.\r\n"
+    'Extracted IDs are local bookkeeping, never identity evidence. Similarity/type alone\r\n'
+    'never proves identity or licenses merging distinct real-world objects.\r\n'
+    'Use CURRENT_BATCH and bounded REFERENCE_ONLY_CONTEXT to resolve names, aliases,\r\n'
+    'pronouns and late alias declarations. Reference context is identity only: never\r\n'
+    'extract historical facts as new updates or reapply them.\r\n'
+    '\r\n'
+    '\r\n'
+    'Return MATCH_ONE, MATCH_MANY, NEW or UNRESOLVED. NEW requires an explicitly introduced\r\n'
+    'genuinely new entity and a verbatim current USER-message introduction as evidence;\r\n'
+    'an unknown presupposed nickname is UNRESOLVED, not NEW. Missing evidence is uncertainty.\r\n'
+    'For each target give separate resolution confidence (not a calibrated probability)\r\n'
+    'and evidence: EXPLICIT, ALIAS, RESOLVED_REFERENCE, GROUP_EXPLICIT, GROUP_INFERRED or\r\n'
+    'SEMANTIC_CANDIDATE. Broad category membership is weaker than active conversation.\r\n'
+    'MATCH_MANY may apply an update to every strong target only when all extracted facts\r\n'
+    'clearly apply equally to them. One unspecified member or an unidentified plural set\r\n'
+    'is UNRESOLVED. Never distribute individual facts indiscriminately.\r\n'
+    '\r\n'
+    '\r\n'
+    'PERSISTENT ALIAS AUTHORIZATION\r\n'
+    '\r\n'
+    '\r\n'
+    'Identity resolution and permanent alias authorization are separate judgments.\r\n'
+    'Use accepted_aliases to approve only stable, reusable names or nicknames for this\r\n'
+    'specific entity that the USER genuinely establishes or uses with clear identity\r\n'
+    'in CURRENT_BATCH. A temporary way to refer to an entity is NOT automatically a\r\n'
+    'permanent alias.\r\n'
+    '\r\n'
+    '\r\n'
+    'An approved alias must:\r\n'
+    '- be exactly one of the incoming extracted entity_name or extracted aliases\r\n'
+    '  offered for this extraction object;\r\n'
+    '- appear in an actual CURRENT_BATCH USER message as entity-reference wording;\r\n'
+    '- identify this one entity with sufficient clarity for future independent use;\r\n'
+    '- be a stable proper name, user-established nickname, abbreviation or durable\r\n'
+    '  unambiguous label, not merely a nearby description.\r\n'
+    '\r\n'
+    '\r\n'
+    'Do NOT approve:\r\n'
+    '- pronouns such as "it" or "they";\r\n'
+    '- generic phrases such as "my car", "the other one", or "that vehicle" when their\r\n'
+    '  referent can change;\r\n'
+    '- temporary or fact-dependent descriptions such as "the car I bought in 2024";\r\n'
+    '- names present only in assistant messages or reference-only context;\r\n'
+    '- an incoming name solely because it differs from the stored canonical name;\r\n'
+    '- an alias inferred from semantic similarity, recency, or an assumed relationship.\r\n'
+    '\r\n'
+    '\r\n'
+    'It is valid to MATCH_ONE using a temporary reference while returning\r\n'
+    'accepted_aliases=[]: successful reference resolution is NOT permission to store\r\n'
+    'that reference as a permanent alias.\r\n'
+    '\r\n'
+    '\r\n'
+    "For NEW, approve only genuine stable aliases supported by the current user's\r\n"
+    'explicit introduction; do not automatically copy all extractor aliases.\r\n'
+    'For MATCH_MANY and UNRESOLVED, accepted_aliases must be [] because there is no\r\n'
+    'single individually proven alias target.\r\n'
+    '\r\n'
+    '\r\n'
+    'If alias stability or ownership is uncertain, return accepted_aliases=[] and\r\n'
+    'still provide the correct identity resolution. Never block a supported fact\r\n'
+    'decision merely because you abstained from approving an alias.\r\n'
+    '\r\n'
+    '\r\n'
+    'Do not classify INSERT/MUTATE/REINFORCE or propose corrections/retractions.\r\n'
+    'Only select identity targets and independently authorized stable alias strings.\r\n'
+)

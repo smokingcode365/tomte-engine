@@ -115,6 +115,7 @@ class VehicleLLM:
             "extracted_entity_id": entity.entity_id, "mode": self.mode,
             "matched_db_id": str(self.db_id) if self.db_id else None,
             "reasoning": "Prescribed synthetic match, not a model-quality claim",
+            "accepted_aliases": ["Little Dog"] if self.stage == 2 else [],
         }]}, user_text)
 
     def embed_batch(self, texts):
@@ -196,11 +197,9 @@ def test_full_vehicle_lifecycle_preserves_identity_state_history_and_replay(vehi
         row = consolidate_stage(case, stage, snapshots[0]["id"] if snapshots else None)
         snapshots.append(row)
         assert row["mention_count"] == stage + 1 and row["importance"] == 4
-        expected_aliases = {"Tesla Model Y"}
-        if stage >= 1:
-            expected_aliases.add("my car")
+        expected_aliases = set()
         if stage >= 2:
-            expected_aliases.update({"it", "Little Dog"})
+            expected_aliases.add("Little Dog")
         assert set(row["payload"]["aliases"]) == expected_aliases
         if previous:
             assert row["created_at"] == previous["created_at"]
@@ -220,7 +219,7 @@ def test_full_vehicle_lifecycle_preserves_identity_state_history_and_replay(vehi
             assert "ownership_status: sold" in text and "ownership_status: owned" not in text
             assert "sale_event: Sold Little Dog" in context(case, QUERIES[4])
     final = snapshots[-1]
-    assert set(final["payload"]["aliases"]) == {"Tesla Model Y", "my car", "it", "Little Dog"}
+    assert set(final["payload"]["aliases"]) == {"Little Dog"}
     assert len({row["id"] for row in snapshots}) == 1
     assert len(memory_rows(case)) == 1 and processed_count(case) == 4
     assert facts(snapshots[0])["ownership_status"]["timeline"][0]["event_description"] == "Purchased vehicle"

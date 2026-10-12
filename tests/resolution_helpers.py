@@ -18,7 +18,7 @@ def resolution_response(schema, prescribed, user_text):
             "new_entity_evidence":evidence if new else None,
             "targets":[] if new else [{"db_id":mapping["matched_db_id"],
                                       "resolution_confidence":1,"evidence":"EXPLICIT"}],
-            "reasoning":mapping["reasoning"]})
+            "reasoning":mapping["reasoning"], "accepted_aliases":mapping.get("accepted_aliases", [])})
     return schema.model_validate({"resolutions":results})
 
 

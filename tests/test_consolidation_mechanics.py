@@ -98,7 +98,9 @@ class DeterministicInsertLLM:
         if texts and texts[0].startswith("domain: "):
             self.record("dictionary_embed")
             return [self.vector() for _ in texts]
-        assert texts == [get_entity_summary(self.entity.model_dump(mode="json"))]
+        expected = self.entity.model_dump(mode="json")
+        expected["aliases"] = []  # No resolver alias authorization in this fixture.
+        assert texts == [get_entity_summary(expected)]
         self.record("embed_batch")
         return [self.vector()]
 
@@ -205,6 +207,7 @@ def test_deterministic_insert_is_committed_and_retrievable(mechanics):
     assert len(row) == 1 and row[0][1] == 1536
     payload=row[0][0]
     expected=case.llm.entity.model_dump(mode="json")
+    expected["aliases"] = []
     assert {k:v for k,v in payload.items() if k!="facts"}=={k:v for k,v in expected.items() if k!="facts"}
     stored,=payload["facts"]
     assert stored["value"]=="Python" and stored["assertion_state"]=="ACTIVE"
@@ -410,7 +413,7 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     historical=next(f for f in mutated["payload"]["facts"] if f["fact_id"]==language(reinforced)["fact_id"])
     assert historical["value"]=="Python" and historical["assertion_state"]=="HISTORICAL"
     assert language(mutated)["supersedes_fact_id"]==historical["fact_id"]
-    assert set(mutated["payload"]["aliases"]) == {"my favorite programming language", "my preferred language"}
+    assert set(mutated["payload"]["aliases"]) == set()
     hits = Counter()
     for anchor in case.anchors:
         for k in case.db.get_anchor_keywords(str(anchor)):
@@ -493,7 +496,7 @@ def test_matched_row_with_new_extraction_id_preserves_golden_identity(mechanics,
     assert updated["payload"]["entity_id"] == "pre_01"
     assert language(updated)["value"] == value
     assert inserted["payload"]["facts"][1] in updated["payload"]["facts"]
-    assert set(updated["payload"]["aliases"]) == {"my favorite programming language", "my preferred language"}
+    assert set(updated["payload"]["aliases"]) == set()
     for key in ("entity_name", "entity_type", "entity_domain"):
         assert updated["payload"][key] == case.llm.entity.model_dump(mode="json")[key]
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, "What programming language do I prefer?", ChatSenderRole.USER, case.user)["context_text"]
