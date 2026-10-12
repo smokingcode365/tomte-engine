@@ -410,6 +410,32 @@ def test_structural_alias_filter_omits_individual_bad_aliases():
         ["Little Dog", "invented", "Assistant nickname", "Old nickname", "Little Dog"], incoming, current) == ["Little Dog"]
 
 
+@pytest.mark.parametrize("alias,text,expected", [
+    ("Ann", "Annette is here.", []),
+    ("Ann", 'I named it "Ann".', ["Ann"]),
+    ("Ann", "ANN!", ["Ann"]),
+    ("Ann", "_Ann_", []),
+    ("Ann", "ÅAnn", []),
+    ("Little Dog", 'I named it "little   dog".', ["Little Dog"]),
+    ("Little Dog", "Little Doggy", []),
+    ("C++", "I call it C++.", ["C++"]),
+])
+def test_alias_literal_unicode_boundary(alias, text, expected):
+    assert ConsolidationWorkflow._approved_aliases(
+        [alias], {"entity_name": "Tesla", "aliases": [alias]},
+        [{"role": "user", "content": text}]) == expected
+
+
+def test_literal_alias_retains_exact_offer_user_role_and_duplicate_order():
+    entity = {"entity_name": "Tesla", "aliases": ["Ann", "Little  Dog"]}
+    current = [{"role": "user", "content": "Ann and little dog."},
+               {"role": "assistant", "content": "Assistant Alias"}]
+    assert ConsolidationWorkflow._approved_aliases(
+        ["Little  Dog", "Ann", "Ann", "ann", "Assistant Alias"], entity, current) == ["Little  Dog", "Ann"]
+    assert ConsolidationWorkflow._approved_aliases(
+        ["Ann"], entity, [{"role": "assistant", "content": "Ann"}]) == []
+
+
 def test_rejected_identity_target_cannot_authorize_alias(monkeypatch):
     target = record("Tesla")
     incoming = entity()

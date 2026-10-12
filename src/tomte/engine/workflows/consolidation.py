@@ -434,7 +434,8 @@ class ConsolidationWorkflow:
         approved = []
         for alias in accepted:
             normalized = " ".join(alias.split()).casefold()
-            if normalized and alias in offered and any(normalized in text for text in user_texts) and alias not in approved:
+            literal = re.compile(r"(?<!\w)" + re.escape(normalized) + r"(?!\w)")
+            if normalized and alias in offered and any(literal.search(text) for text in user_texts) and alias not in approved:
                 approved.append(alias)
         return approved
 

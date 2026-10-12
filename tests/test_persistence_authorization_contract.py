@@ -344,6 +344,31 @@ def test_bad_alias_does_not_cancel_supported_fact(contract, source):
     assert project_facts(stored["facts"])[0]["mention_count"] == 2
 
 
+def test_partial_alias_word_does_not_persist_or_cancel_reinforcement(contract):
+    case = contract
+    seed(case)
+    seed(case, "Honda Civic", "honda", "2021", ("Honda",))
+    before = payloads(case)
+    before_ids = case.observer.execute(
+        "SELECT id FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s ORDER BY id",
+        (case.tenant, case.user)).fetchall()
+    case.extracted = [proposal(aliases=("Ann",))]
+    case.matches = {"temporary": "Tesla Model Y"}
+    case.accepted_aliases = {"temporary": ["Ann"]}
+    case.plan = None
+    batch = freeze(case, ("user", "Annette asked about my Tesla Model Y. It was bought in 2024."))
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
+    stored = payloads(case)
+    assert stored["Tesla Model Y"]["aliases"] == before["Tesla Model Y"]["aliases"] == ["Tesla"]
+    assert project_facts(stored["Tesla Model Y"]["facts"])[0]["mention_count"] == 2
+    assert stored["Honda Civic"] == before["Honda Civic"]
+    assert case.observer.execute(
+        "SELECT id FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s ORDER BY id",
+        (case.tenant, case.user)).fetchall() == before_ids
+    keywords = {r[0] for r in case.observer.execute("SELECT keyword FROM tomte_keyword_registry").fetchall()}
+    assert not {"Ann", "ann", "Annette", "annette"} & keywords
+
+
 def test_new_keeps_only_approved_current_user_aliases(contract):
     case = contract
     case.extracted = [proposal("Bicycle", aliases=("Speedy", "unused alias"),
