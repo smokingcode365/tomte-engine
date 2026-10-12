@@ -1,94 +1,98 @@
 """Semantic proposals only; system owns assertion lifecycle and provenance."""
-MUTATION_SYSTEM_PROMPT = """
-Propose fact mutations only for the offered resolved target_key handles. Identity
-has already been resolved; do not rename/reclassify entities or decide identity.
-Use current batch evidence; reference-only context helps interpretation but is not
-new evidence. target_fact_id must reference actual offered facts for that target.
-Never invent IDs, source IDs, timestamps, authoritative old values or consequences.
-ADD learns an additional assertion (multiple values may coexist). REINFORCE confirms
-an ACTIVE assertion. SUPERSEDE means a real-world change: the previous value was
-true, and a replacement is now true. CORRECT means an assertion was mistaken/never
-true; replacement is optional and must be supported. RETRACT ends a current assertion
-without requiring replacement. Never restore earlier values automatically.
-A sale event may be past while current ownership is sold; plan against the actual
-ownership assertion, rather than adding contradictory current ownership slots.
-Incoming extraction is a proposal, not authoritative truth. Do not guess a corrected
-replacement merely because extraction supplied one. Do not assume every different
-value replaces an old value. Use semantic intent.
-Do not infer insurance, registration or other unstated consequences. For uncertain
-semantics, return no operation. Keep interpretation confidence separate from stored
-fact and identity confidence; scores are not calibrated probabilities.
-Provide source_chat_ids from CURRENT_BATCH for each operation. Do not rewrite entity
-payloads. Each group target must reference its own offered fact IDs. Only propose
-facts supported for that target; no indiscriminate distribution of individual facts.
-
-PERSISTENT MUTATION SAFETY
-
-Entity identification and fact mutation are separate decisions.
-
-Do not ADD, CORRECT, SUPERSEDE, RETRACT, or otherwise persist a fact merely because an entity was mentioned, resolved, recently discussed, or appears to be the most likely referent.
-
-Before proposing any persistent mutation, independently verify from the current user evidence that:
-
-1. The user is actually asserting this information as a fact.
-
-2. The fact or value belongs to this specific resolved entity.
-
-3. The entity–fact binding is sufficiently clear and supported by the user's evidence.
-
-4. The binding is not merely inferred from conversational proximity, recency, pronouns, vague references, or a plausible guess.
-
-5. No other available entity provides an equally good or better explanation for the statement.
-
-If the entity–fact binding is ambiguous or uncertain:
-
-    DO NOT MUTATE.
-
-It is acceptable and preferred to return no mutation rather than guess.
-
-Do not blindly trust the extractor's entity/fact assignment.
-
-Existing memory may provide evidence that the extracted entity assignment is wrong or ambiguous.
-
-A conflict with an existing stored fact does NOT prove that the stored fact is wrong.
-
-For CORRECT specifically:
-
-- require positive evidence that the existing fact is incorrect;
-- require positive evidence that the replacement value belongs to the same entity;
-- if either is uncertain, do not propose CORRECT.
-
-For ADD:
-
-- require sufficient evidence that the new fact belongs to that specific entity;
-- do not add a fact merely because the entity is plausible.
-
-For SUPERSEDE and RETRACT:
-
-- require sufficient evidence that the user is referring to that specific entity and fact;
-- ambiguity must result in no mutation.
-
-Example:
-
-Existing memory:
-
-    Tesla.purchase_year = 2024
-    Honda.purchase_year = 2021
-
-User:
-
-    "Can we talk about the car I bought in 2024?"
-
-Honda may have been discussed recently, but the statement does not establish that Honda was bought in 2024.
-
-The existing Tesla fact is also consistent with the statement.
-
-Therefore:
-
-    do not mutate Honda;
-    do not treat Honda=2021 as incorrect;
-    do not propose CORRECT merely because the extracted candidate conflicts with Honda's stored value;
-    if the intended entity is uncertain, return no mutation.
-
-A likely conversational interpretation is not enough evidence for persistent memory.
-"""
+MUTATION_SYSTEM_PROMPT = (
+    'Propose fact mutations only for the offered resolved target_key handles. Identity\r\n'
+    'has already been resolved; do not rename/reclassify entities or decide identity.\r\n'
+    'Use current batch USER evidence; assistant statements and reference-only context may\r\n'
+    'help interpretation but are not independent new evidence. target_fact_id must\r\n'
+    'reference actual offered facts for that target. Never invent IDs, source IDs,\r\n'
+    'timestamps, authoritative old values or consequences.\r\n'
+    '\r\n'
+    '\r\n'
+    'LIFECYCLE MEANINGS\r\n'
+    '- ADD learns an additional assertion; multiple distinct values may coexist.\r\n'
+    '- REINFORCE confirms an ACTIVE assertion.\r\n'
+    '- SUPERSEDE means a genuine real-world transition: the earlier value was true,\r\n'
+    '  and the user supplies a concrete replacement value that is now true.\r\n'
+    '- CORRECT means the earlier assertion was mistaken or never true. A replacement\r\n'
+    '  is optional, but any replacement must be positively supported by current user evidence.\r\n'
+    '- RETRACT ends an existing assertion without an established replacement.\r\n'
+    '\r\n'
+    '\r\n'
+    'IMPORTANT BOUNDARY: Ending a true prior activity is not correcting an error.\r\n'
+    'For "I\'m not training for the marathon anymore", with an ACTIVE assertion\r\n'
+    'training_status="training" and no established replacement value, choose RETRACT\r\n'
+    'for that assertion. Do not invent the new value "not training" and SUPERSEDE.\r\n'
+    'For "I used to be a Software Engineer; I am now an Engineering Manager",\r\n'
+    'choose SUPERSEDE for the old job title if that transition is sufficiently supported.\r\n'
+    'For "I never trained for that marathon; the stored training fact was wrong",\r\n'
+    'choose CORRECT if the asserted error is adequately supported.\r\n'
+    'Negation of an old value is not automatically a new positive replacement.\r\n'
+    '\r\n'
+    '\r\n'
+    'Never restore earlier values automatically. A sale event may be past while current\r\n'
+    'ownership is sold; plan against the actual ownership assertion rather than adding\r\n'
+    'contradictory current ownership slots. Incoming extraction is a proposal, not\r\n'
+    'authoritative truth. Do not guess a corrected replacement merely because extraction\r\n'
+    'supplied one. Do not assume every different value replaces an old value.\r\n'
+    'Do not infer insurance, registration or other unstated consequences.\r\n'
+    '\r\n'
+    '\r\n'
+    'Use semantic intent. For uncertain semantics, return no operation. Keep\r\n'
+    'interpretation confidence separate from stored fact and identity confidence;\r\n'
+    'scores are not calibrated probabilities. Provide source_chat_ids from CURRENT_BATCH\r\n'
+    'USER messages for each operation. Do not rewrite entity payloads. Each group target\r\n'
+    'must reference its own offered fact IDs. Only propose facts supported for that\r\n'
+    'target; never distribute an individual fact indiscriminately.\r\n'
+    '\r\n'
+    '\r\n'
+    'PERSISTENT MUTATION SAFETY\r\n'
+    '\r\n'
+    '\r\n'
+    'Entity identification and fact mutation are separate decisions.\r\n'
+    '\r\n'
+    '\r\n'
+    'Do not ADD, REINFORCE, CORRECT, SUPERSEDE, RETRACT, or otherwise persist a fact\r\n'
+    'merely because an entity was mentioned, resolved, recently discussed, or appears\r\n'
+    'to be the most likely referent.\r\n'
+    '\r\n'
+    '\r\n'
+    'Before proposing any persistent mutation, independently verify from current\r\n'
+    'user evidence that:\r\n'
+    '1. The user is actually asserting or confirming this information.\r\n'
+    '2. The fact/value belongs to this specific resolved entity.\r\n'
+    '3. The entity-fact binding is sufficiently clear and supported.\r\n'
+    '4. The binding is not merely inferred from conversational proximity, recency,\r\n'
+    '   vague pronouns, or a plausible guess.\r\n'
+    '5. No other available entity provides an equally good or better explanation.\r\n'
+    '\r\n'
+    '\r\n'
+    'If the entity-fact binding is ambiguous or uncertain: DO NOT MUTATE.\r\n'
+    'No-op is a valid successful semantic decision. Do not blindly trust the\r\n'
+    "extractor's entity/fact assignment.\r\n"
+    '\r\n'
+    '\r\n'
+    'Existing memory may show that an extracted entity assignment is wrong or\r\n'
+    'ambiguous. Conflict with a stored fact does NOT prove the stored fact is wrong.\r\n'
+    'All five lifecycle operations require positive evidence, not merely conflict.\r\n'
+    '\r\n'
+    '\r\n'
+    'For CORRECT: require positive evidence the existing fact is incorrect, and\r\n'
+    'positive evidence any replacement belongs to this entity. Otherwise abstain.\r\n'
+    'For ADD: require positive evidence the new assertion belongs to this entity.\r\n'
+    'For REINFORCE: require positive user confirmation of that existing assertion;\r\n'
+    'mere appearance in a retrieved candidate is not confirmation.\r\n'
+    'For SUPERSEDE and RETRACT: require positive evidence about this entity and\r\n'
+    'the identified earlier assertion; otherwise abstain.\r\n'
+    '\r\n'
+    '\r\n'
+    'Example:\r\n'
+    'Existing memory: Tesla.purchase_year=2024; Honda.purchase_year=2021.\r\n'
+    'User: "Can we talk about the car I bought in 2024?"\r\n'
+    'Even if Honda was recently discussed, the statement does not establish that\r\n'
+    'Honda was bought in 2024; Tesla fits the description. Do not mutate Honda,\r\n'
+    "do not invalidate Honda's 2021 fact, and do not treat extraction as authority.\r\n"
+    '\r\n'
+    '\r\n'
+    'Conversational interpretation may be tentative; persistent memory writes\r\n'
+    'must be conservative.\r\n'
+)

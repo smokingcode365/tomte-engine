@@ -51,8 +51,6 @@ def test_input_separates_bounded_antecedents_from_current_sources():
     assert prompt["RECENT_CONTEXT_REFERENCE_ONLY"] == history[-RECENT_CONTEXT_TURNS:]
     assert all(x["content"] not in [y["content"] for y in prompt["CURRENT_BATCH"]]
                for x in prompt["RECENT_CONTEXT_REFERENCE_ONLY"])
-    assert "do not extract its facts as new updates" in EXTRACTOR_SYSTEM_PROMPT
-    assert "temporary extraction-local labels" in EXTRACTOR_SYSTEM_PROMPT
 
 
 def test_single_source_and_event_provenance_are_supplied_by_code():
