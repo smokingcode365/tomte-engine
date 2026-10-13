@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tomte V1 · Local memory demo</title>
+<style>
+body{font:16px system-ui,sans-serif;line-height:1.5;background:#f4f6f8;color:#172b3a;margin:0}main{max-width:1100px;margin:auto;padding:24px}h1{margin-bottom:0}p{margin-top:6px}.layout{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}section{background:white;padding:20px;border:1px solid #d9e0e6;border-radius:8px;margin-bottom:16px}button,select,textarea{font:inherit}button{padding:8px 14px;cursor:pointer}button:disabled{cursor:wait;opacity:.6}textarea{width:100%;box-sizing:border-box;min-height:80px}#conversation{min-height:240px;max-height:480px;overflow:auto}.turn{padding:10px 0;border-bottom:1px solid #eee;white-space:pre-wrap}.label{font-weight:600}.fact{margin:4px 0}.entity{padding:12px 0;border-bottom:1px solid #eee}small{display:block;color:#516372;overflow-wrap:anywhere}#status{white-space:pre-wrap;padding:12px;background:#e8eef4}details{margin-top:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere}#scope{font-size:13px}.notice{color:#76501d}@media(max-width:760px){.layout{display:block}}
+</style>
+<main>
+<h1>Tomte V1</h1><p>Local chat with persistent memory · Synthetic data only</p>
+<p class="notice">LLMs can make mistakes. Current context excludes historical facts; related facts may become stale and histories may be incomplete. This local demo has no login and must never be exposed to a network.</p>
+<p id="scope"></p>
+<div class="layout"><div><section>
+<label for="sessions">Conversation</label> <select id="sessions"></select>
+<button id="new">New session</button><button id="consolidate">Consolidate session</button>
+<div id="conversation" aria-live="polite"></div>
+<form id="send"><label for="message">Message</label><textarea id="message" maxlength="4000" required placeholder="I own a blue bicycle named Willow."></textarea><button type="submit">Send</button></form>
+<p>Sending queues user evidence and logs the host reply. Consolidation is a separate, paid model operation. New session keeps durable memories; switch back to consolidate pending old sessions before stopping.</p>
+</section><div id="status" role="status">Connecting…</div></div>
+<div><section><h2>Query-relevant memories</h2><p>Query-oriented candidates, not guaranteed relevant.</p><div id="query"></div><h2>Background / continuity</h2><div id="background"></div></section>
+<section><h2>Stored active memories</h2><button id="inspect">Refresh inspector</button><p>Read-only, scoped to this demo profile. Select a canonical entity.</p><select id="entities"></select><div id="entity"></div></section></div></div>
+</main>
+<script>
+const token='__TOKEN__';let session='',busy=false,stored=[];
+const $=id=>document.getElementById(id);
+function status(text){$('status').textContent=text;}
+function lock(value){busy=value;document.querySelectorAll('button,select,textarea').forEach(x=>x.disabled=value);}
+async function api(path,data={}){const r=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Demo-Token':token},body:JSON.stringify({session,...data})});const result=await r.json();if(!r.ok){const error=new Error(result.error||'Request failed.');error.generatedReply=result.generated_reply;throw error;}return result;}
+function memories(container,rows){container.replaceChildren();if(!rows.length){container.textContent='None returned.';return;}for(const e of rows){const item=document.createElement('div');item.className='entity';const title=document.createElement('strong');title.textContent=e.name+' · '+(e.type||'unknown');item.append(title);const meta=document.createElement('small');meta.textContent='UUID: '+(e.id||'unavailable')+' · '+e.entity_id+(e.aliases.length?' · Aliases: '+e.aliases.join(', '):'');item.append(meta);for(const f of e.facts){const p=document.createElement('p');p.className='fact';p.textContent=f.attribute_name+': '+f.value;item.append(p);}if(!e.facts.length){const p=document.createElement('p');p.textContent='No currently active assertions.';item.append(p);}container.append(item);}}
+async function refresh(){const s=await api('state');session=s.session;$('scope').textContent=s.tenant+' / '+s.user;$('sessions').replaceChildren();s.sessions.forEach((id,i)=>{const o=new Option('Session '+(i+1),id);o.selected=id===session;$('sessions').add(o);});$('conversation').replaceChildren();for(const m of s.history){const p=document.createElement('div');p.className='turn';p.textContent=(m.role==='user'?'You':'Host AI')+': '+m.content;$('conversation').append(p);}memories($('query'),s.context.query_relevant_memories);memories($('background'),s.context.background_memories);$('conversation').scrollTop=$('conversation').scrollHeight;}
+function showEntity(){const e=stored.find(e=>e.id===$('entities').value);memories($('entity'),e?[e]:[]);if(e){const d=document.createElement('details');const summary=document.createElement('summary');summary.textContent='Active assertion IDs and source/evidence';const pre=document.createElement('pre');pre.textContent=JSON.stringify(e.facts,null,2);d.append(summary,pre);$('entity').append(d);}}
+async function inspect(){stored=(await api('inspect')).entities;$('entities').replaceChildren();stored.forEach(e=>$('entities').add(new Option(e.name+' · '+e.id,e.id)));showEntity();}
+async function action(fn){if(busy)return;lock(true);try{await fn();}catch(e){if(session){try{await refresh();}catch{}}status((e.generatedReply?'Generated reply (logging NOT confirmed):\n'+e.generatedReply+'\n':'')+e.message+' No automatic retry. Inspect history before resending.');}finally{lock(false);}}
+$('send').onsubmit=e=>{e.preventDefault();action(async()=>{status('Retrieving and calling host…');await api('chat',{message:$('message').value});$('message').value='';await refresh();status('Host answer logged. Durable memory requires consolidation.');});};
+$('new').onclick=()=>action(async()=>{session=(await api('new-session')).session;await refresh();status('New session. Previous durable memories retained. Old sessions remain selectable.');});
+$('sessions').onchange=()=>action(async()=>{session=$('sessions').value;await refresh();status('Session selected.');});
+$('consolidate').onclick=()=>action(async()=>{status('Consolidating the frozen batch…');const r=await api('consolidate');await refresh();await inspect();status(r.status+': '+r.message);});
+$('inspect').onclick=()=>action(async()=>{await inspect();status('Read-only active memory inspector refreshed.');});$('entities').onchange=showEntity;
+action(async()=>{session=(await api('new-session')).session;await refresh();await inspect();status('Ready. Use fictional information only. No daemon worker is running.');});
+</script></html>

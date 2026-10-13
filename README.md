@@ -5,6 +5,12 @@ Windows host and PostgreSQL with pgvector plus Redis in Docker.
 
 ## Local development
 
+For a small runnable chat interface, see the [Tomte V1 local demo](docs/demo.md).
+After local infrastructure/bootstrap, run `uv run python -m demo.app --profile playground`
+and open `http://127.0.0.1:8765/`. It uses the existing configured real host/provider,
+manual consolidation with the daemon disabled, separate sessions, and an active
+memory inspector. Use synthetic data only; this is a trusted-local demonstration.
+
 Prerequisites: Python 3.10+, uv, and Docker Desktop running Linux containers
 with Docker Compose. Run commands from this repository. Ports 5432 and 6379
 must be available; Compose publishes both on loopback only.
