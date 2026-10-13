@@ -13,7 +13,6 @@ from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.llm.prompts.contextual_action import CONTEXTUAL_ACTION_PROMPT
 from tomte.engine.core.assertions import MutationPlanResponse, adapt_assertions, apply_mutations, fact_values, project_facts
-from tomte.engine.core.correction_safety import validate_corrections, UnsupportedCorrection
 from tomte.engine.llm.prompts.fact_mutation import MUTATION_SYSTEM_PROMPT
 from tomte.engine.core.resolution import ResolutionResponse, CANDIDATE_LIMIT, MIN_RESOLUTION_CONFIDENCE, STRONG_EVIDENCE
 from tomte.engine.dictionary.terminology import canonical_attribute, ATTRIBUTE_ALIASES
@@ -169,10 +168,8 @@ class ConsolidationWorkflow:
             if action.replacement_text is not None and not any(action.replacement_text in text for text in user_texts):
                 continue
             record = offered[key][0]
-            anchors = [record["entity_name"], *record["payload"].get("aliases", [])]
-            mentioned = any(len(name.strip()) > 2 and re.search(r"\b" + re.escape(name.lower().strip()) + r"\b", context.lower()) for name in anchors)
             if (action.target.resolution_confidence < MIN_RESOLUTION_CONFIDENCE or
-                    action.target.evidence not in STRONG_EVIDENCE or not mentioned):
+                    action.target.evidence not in STRONG_EVIDENCE):
                 continue
             if key not in operations:
                 # Reference preparation asserts no new facts or aliases; stable metadata remains authoritative.
@@ -236,12 +233,6 @@ class ConsolidationWorkflow:
             mutations = [mutation for mutation in proposals if set(mutation.source_chat_ids) <= user_sources]
             if not mutations:
                 continue  # No authorization for aliases, row metadata or dictionary feedback.
-            try:
-                validate_corrections(mutations, operation, [*prepared, *correction_context],
-                    input_data["CURRENT_BATCH"], input_data["RECENT_CONTEXT_REFERENCE_ONLY"])
-            except UnsupportedCorrection:
-                tomtelog.warn("Unsupported correction rejected before persistence; retain frozen batch")
-                raise
             operation["payload"]["facts"] = apply_mutations(operation["payload"]["facts"], mutations,
                 input_data["CURRENT_BATCH"], scope, batch_id, operation["extracted_facts"], ids)
             operation["importance"] = max((f.get("importance",3) for f in project_facts(operation["payload"]["facts"])), default=3)
@@ -374,7 +365,7 @@ class ConsolidationWorkflow:
                         quote in item["content"] for item in current if item["role"] == "user"):
                     tomtelog.info("New identity lacks current introduction evidence: no permanent operation")
                     continue
-                aliases = self._approved_aliases(result.accepted_aliases, entity, current)
+                aliases = self._approved_aliases(result.accepted_aliases, entity, current, result.alias_evidence)
                 operations.append(self._prepare_operation(tenant_id, user_id, entity, None, aliases))
                 continue
             offered = {str(row["id"]) for row in candidate_sets.get(entity["entity_id"], [])[:CANDIDATE_LIMIT]}
@@ -383,16 +374,8 @@ class ConsolidationWorkflow:
                     raise ValueError("Matched Golden Record not found in offered scoped candidates")
             targets = []
             for target in result.targets:
-                record = records[str(target.db_id)]
-                anchors = [record["entity_name"], *record.get("payload", {}).get("aliases", [])]
-                active_text = " ".join(item["content"] for item in current + reference).lower()
-                active = any(len(name.strip()) > 2 and re.search(r"\b" + re.escape(name.lower().strip()) + r"\b", active_text)
-                             for name in anchors)
-                if (target.resolution_confidence >= MIN_RESOLUTION_CONFIDENCE and target.evidence in STRONG_EVIDENCE
-                        and (target.evidence not in {"GROUP_EXPLICIT", "RESOLVED_REFERENCE"} or active)):
+                if target.resolution_confidence >= MIN_RESOLUTION_CONFIDENCE and target.evidence in STRONG_EVIDENCE:
                     targets.append(target)
-            if result.kind == "MATCH_MANY" and any(re.search(r"\bone of\b", item["content"], re.I) for item in current):
-                targets = []  # An unspecified individual cannot be expanded into a set.
             if result.kind == "MATCH_MANY" and (not result.applies_equally_to_all or len(targets) < 2
                                                or prompt["CANDIDATE_SET_TRUNCATED"][entity["entity_id"]]):
                 tomtelog.info("Target set/update is uncertain: no permanent memory operation")
@@ -409,7 +392,7 @@ class ConsolidationWorkflow:
                     # Apply facts, not the group label/type/aliases, to individual identities.
                     update.update(entity_name=record["entity_name"], entity_type=record["entity_type"],
                                   entity_domain=record["entity_domain"], aliases=record["payload"].get("aliases", []))
-                aliases = self._approved_aliases(result.accepted_aliases, entity, current) if result.kind == "MATCH_ONE" else []
+                aliases = self._approved_aliases(result.accepted_aliases, entity, current, result.alias_evidence) if result.kind == "MATCH_ONE" else []
                 op = self._prepare_operation(tenant_id, user_id, update, record, aliases)
                 if db_id in prepared:
                     previous = prepared[db_id]
@@ -426,17 +409,24 @@ class ConsolidationWorkflow:
         return operations
 
     @staticmethod
-    def _approved_aliases(accepted, entity, current):
-        """Check offered wording and user provenance; the resolver decides stability."""
+    def _approved_aliases(accepted, entity, current, alias_evidence=()):
+        """Verify offered spelling and exact USER quote provenance, not alias meaning."""
+        if not accepted:
+            return []
         offered = [entity.get("entity_name"), *entity.get("aliases", [])]
-        user_texts = [" ".join(item["content"].split()).casefold()
-                      for item in current if item["role"] == "user"]
+        user_sources = {item["item_id"]: item["content"] for item in current if item["role"] == "user"}
         approved = []
         for alias in accepted:
-            normalized = " ".join(alias.split()).casefold()
-            literal = re.compile(r"(?<!\w)" + re.escape(normalized) + r"(?!\w)")
-            if normalized and alias in offered and any(literal.search(text) for text in user_texts) and alias not in approved:
+            citations = [citation for citation in alias_evidence if citation.alias == alias]
+            if not alias.strip() or alias not in offered or len(citations) != 1:
+                tomtelog.info("Alias citation or offered spelling not authorized: retain supported fact operations")
+                continue
+            citation = citations[0]
+            text = user_sources.get(citation.source_chat_id)
+            if text is not None and citation.evidence_quote.strip() and citation.evidence_quote in text and alias not in approved:
                 approved.append(alias)
+            else:
+                tomtelog.info("Alias source quotation not authorized: retain supported fact operations")
         return approved
 
     @staticmethod

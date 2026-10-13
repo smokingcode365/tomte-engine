@@ -16,13 +16,6 @@ from tomte.engine.core.schema import Entity, Fact
 from tomte.engine.workflows.consolidation import ConsolidationWorkflow
 
 
-known_gap = pytest.mark.xfail(
-    strict=True,
-    reason="known persistence-contract gap",
-    raises=(AssertionError, ValueError),
-)
-
-
 @pytest.fixture
 def contract(mechanics, monkeypatch):
     """Prescribe model outputs, retaining real workflow, SQL, and queue behavior."""
@@ -30,6 +23,7 @@ def contract(mechanics, monkeypatch):
     case.extracted = []
     case.matches = {}
     case.accepted_aliases = {}
+    case.alias_evidence = {}
     case.new_evidence = None
     case.contextual = None
     case.plan = lambda target, data: []
@@ -72,6 +66,7 @@ def contract(mechanics, monkeypatch):
                         case.new_evidence or data["CURRENT_BATCH"][0]["content"]),
                     "reasoning": "Deterministic contract fixture",
                     "accepted_aliases": case.accepted_aliases.get(entity["id"], []),
+                    "alias_evidence": case.alias_evidence.get(entity["id"], []),
                 })
             return schema.model_validate({"resolutions": resolutions})
         assert schema.__name__ == "MutationPlanResponse", "Unexpected model stage"
@@ -306,6 +301,7 @@ def test_explicitly_accepted_nickname_persists_without_identity_split_and_replay
     case.accepted_aliases = {"temporary": ["Little Dog"]}
     case.plan = None
     batch = freeze(case, ("user", "I named my Tesla Little Dog."))
+    case.alias_evidence = {"temporary": [{"alias": "Little Dog", "source_chat_id": batch[0]["item_id"], "evidence_quote": batch[0]["content"]}]}
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
     stored = payloads(case)["Tesla Model Y"]
     assert stored["aliases"] == ["Tesla", "Little Dog"]
@@ -344,7 +340,7 @@ def test_bad_alias_does_not_cancel_supported_fact(contract, source):
     assert project_facts(stored["facts"])[0]["mention_count"] == 2
 
 
-def test_partial_alias_word_does_not_persist_or_cancel_reinforcement(contract):
+def test_model_refuses_unrelated_person_alias_without_canceling_reinforcement(contract):
     case = contract
     seed(case)
     seed(case, "Honda Civic", "honda", "2021", ("Honda",))
@@ -354,7 +350,7 @@ def test_partial_alias_word_does_not_persist_or_cancel_reinforcement(contract):
         (case.tenant, case.user)).fetchall()
     case.extracted = [proposal(aliases=("Ann",))]
     case.matches = {"temporary": "Tesla Model Y"}
-    case.accepted_aliases = {"temporary": ["Ann"]}
+    case.accepted_aliases = {"temporary": []}  # Model refuses the unrelated person, not a Python word matcher.
     case.plan = None
     batch = freeze(case, ("user", "Annette asked about my Tesla Model Y. It was bought in 2024."))
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
@@ -376,6 +372,7 @@ def test_new_keeps_only_approved_current_user_aliases(contract):
     case.accepted_aliases = {"temporary": ["Speedy", "invented"]}
     case.plan = None
     batch = freeze(case, ("user", "I bought a new bicycle named Speedy."))
+    case.alias_evidence = {"temporary": [{"alias": "Speedy", "source_chat_id": batch[0]["item_id"], "evidence_quote": batch[0]["content"]}]}
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
     assert payloads(case)["Bicycle"]["aliases"] == ["Speedy"]
 
@@ -385,12 +382,14 @@ def test_approved_alias_with_no_fact_plan_still_has_no_write(contract):
     contract.extracted = [proposal(aliases=("Little Dog",))]
     contract.matches = {"temporary": "Tesla Model Y"}
     contract.accepted_aliases = {"temporary": ["Little Dog"]}
-    complete_noop(contract, freeze(contract, ("user", "I named my Tesla Little Dog.")))
+    batch = freeze(contract, ("user", "I named my Tesla Little Dog."))
+    contract.alias_evidence = {"temporary": [{"alias": "Little Dog",
+        "source_chat_id": batch[0]["item_id"], "evidence_quote": batch[0]["content"]}]}
+    complete_noop(contract, batch)
 
 
-@known_gap
-def test_unsafe_correction_does_not_cancel_independent_supported_mutation_contract(contract):
-    """Reject one unsafe target mutation while retaining an independent valid ADD."""
+def test_model_correction_abstention_preserves_independent_supported_mutation_contract(contract):
+    """Model abstention on one target retains the independent valid ADD; no Python semantic veto."""
     case = contract
     seed(case)
     seed(case, "Honda Civic", "honda", "2021", ("Honda",))
@@ -406,7 +405,9 @@ def test_unsafe_correction_does_not_cancel_independent_supported_mutation_contra
 
     def plan(target, data):
         safe = target["identity"]["entity_name"] == "Tesla Model Y"
-        return [{"operation": "ADD" if safe else "CORRECT",
+        if not safe:
+            return []  # The mutation model owns semantic abstention on the unsupported correction.
+        return [{"operation": "ADD",
                  "target_fact_id": None if safe else target["assertions"][0]["fact_id"],
                  "attribute_name": "paint_color" if safe else "purchase_year",
                  "new_value": "blue" if safe else "2024",
@@ -668,3 +669,84 @@ def test_contextual_assistant_evidence_is_successful_noop(contract, unsupported)
         return actions
     case.contextual = unsupported_action
     complete_noop(case, batch)
+
+
+
+@pytest.mark.parametrize("language", ["english", "chinese"])
+def test_model_retraction_of_nonliteral_training_reference_persists_and_acks(contract, monkeypatch, language):
+    case = contract
+    payload = Entity(entity_id="training-canonical",entity_name="Marathon training",entity_type="marathon_training",
+        entity_domain="activities_and_skills",aliases=[],facts=[Fact(attribute_name="training_status",value="training",
+        confidence=1,source_chat_id="synthetic-original-user",last_mentioned_at="2026-10-09T00:00:00Z")]).model_dump(mode="json")
+    payload["facts"] = adapt_assertions(payload["facts"],case.tenant+case.user)
+    assert case.db.commit_graph_updates([{"mode":"INSERT","tenant_id":case.tenant,"user_id":case.user,
+        **{k:payload[k] for k in ("entity_id","entity_name","entity_type","entity_domain")},"payload":payload,"embedding":case.llm.vector()}])
+    prior_id,prior_payload = case.observer.execute("SELECT id,payload FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s",(case.tenant,case.user)).fetchone()
+    old_fact_id = prior_payload["facts"][0]["fact_id"]
+    original = case.llm.parse_structured
+    def model(system_prompt,user_text,schema,**kwargs):
+        data=json.loads(user_text)
+        if schema is ExtractionMemorySchema:
+            case.calls.append(schema.__name__)
+            return schema.model_validate({"activities_and_skills":[{"entity_id":"temporary","entity_name":"training activity",
+                "entity_type":"marathon_training","entity_domain":"activities_and_skills","aliases":[],"facts":[{
+                "attribute_name":"training_status","value":"not training","source_chat_id":data["CURRENT_BATCH"][0]["item_id"],"confidence":1}]}]})
+        if schema.__name__ == "ResolutionResponse":
+            case.calls.append(schema.__name__)
+            assert str(prior_id) in {r["id"] for r in data["CANDIDATES_BY_OBJECT"]["temporary"]}
+            return schema.model_validate({"resolutions":[{"extracted_entity_id":"temporary","kind":"MATCH_ONE",
+                "targets":[{"db_id":str(prior_id),"resolution_confidence":.98,"evidence":"RESOLVED_REFERENCE"}],
+                "reasoning":"Prescribed semantic reference", "accepted_aliases":[],"alias_evidence":[]}]})
+        return original(system_prompt,user_text,schema,**kwargs)
+    monkeypatch.setattr(case.llm,"parse_structured",model)
+    case.plan=lambda target,data:[{"operation":"RETRACT","target_fact_id":old_fact_id,
+        "source_chat_ids":[data["CURRENT_BATCH"][0]["item_id"]],"interpretation_confidence":1,"evidence_type":"USER_EXPLICIT"}]
+    message="I'm not training for the marathon anymore." if language=="english" else "我不再为马拉松训练了"
+    batch=freeze(case,("user",message)); workflow=ConsolidationWorkflow()
+    assert workflow.run_consolidation_cycle(case.tenant,case.user,batch)
+    assert case.calls.count("MutationPlanResponse") == 1
+    stored_id,stored = case.observer.execute("SELECT id,payload FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s",(case.tenant,case.user)).fetchone()
+    assert stored_id == prior_id
+    for k in ("entity_id","entity_name","entity_type","entity_domain","aliases"): assert stored[k] == prior_payload[k]
+    old,=stored["facts"]
+    assert old["fact_id"] == old_fact_id
+    assert old["assertion_state"] == "RETRACTED"
+    assert old["ended_at"] is None
+    assert old["evidence"][-1]["source_chat_id"]==batch[0]["item_id"] and project_facts(stored["facts"])==[]
+    assert case.db.get_user_graph_skeleton(case.tenant+"-foreign",case.user)==[]
+    before,vocabulary,calls=rows(case),dictionary(case),list(case.calls)
+    assert workflow.run_consolidation_cycle(case.tenant,case.user,batch)
+    assert rows(case)==before and dictionary(case)==vocabulary and case.calls==calls and processed_count(case)==1
+    case.cache.enqueue_for_consolidation(case.tenant,case.user,case.session,"Next synthetic turn.","user",vector=case.llm.vector())
+    assert case.cache.clear_session_4_consolidation(case.tenant,case.user,case.session,batch)
+    future=case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)
+    assert len(future)==1 and future[0]["item_id"]!=batch[0]["item_id"]
+
+
+@pytest.mark.parametrize("authorization", ["valid_chinese", "missing", "duplicate", "assistant", "invented_quote", "model_refusal"])
+def test_alias_citation_boundary_preserves_independent_reinforcement(contract, authorization):
+    case=contract; seed(case)
+    name="小蓝" if authorization=="valid_chinese" else "Little Dog"
+    case.extracted=[proposal(aliases=(name,))];case.matches={"temporary":"Tesla Model Y"}
+    case.accepted_aliases={"temporary":[] if authorization=="model_refusal" else [name]};case.plan=None
+    user_text="我的特斯拉叫小蓝，买于2024年" if authorization=="valid_chinese" else "My Tesla Model Y was bought in 2024."
+    messages=[("user",user_text)]
+    if authorization=="assistant":messages.insert(0,("assistant","Little Dog"))
+    batch=freeze(case,*messages)
+    user_item=next(m for m in batch if m["role"]=="user")
+    case.extracted[0]["facts"][0]["source_chat_id"]=user_item["item_id"]
+    citation={"alias":name,"source_chat_id":batch[0]["item_id"],"evidence_quote":batch[0]["content"]}
+    if authorization=="invented_quote":citation["evidence_quote"]="I named it Little Dog."
+    case.alias_evidence={"temporary":[] if authorization=="missing" else [citation,citation] if authorization=="duplicate" else [citation]}
+    vocabulary=dictionary(case); prior_ids=case.observer.execute("SELECT id FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s",(case.tenant,case.user)).fetchall()
+    workflow=ConsolidationWorkflow();assert workflow.run_consolidation_cycle(case.tenant,case.user,batch)
+    stored=payloads(case)["Tesla Model Y"]
+    assert stored["aliases"]==["Tesla",name] if authorization=="valid_chinese" else stored["aliases"]==["Tesla"]
+    assert project_facts(stored["facts"])[0]["mention_count"]==2
+    assert case.observer.execute("SELECT id FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s",(case.tenant,case.user)).fetchall()==prior_ids
+    keywords={r[0] for r in case.observer.execute("SELECT keyword FROM tomte_keyword_registry").fetchall()}
+    assert name not in keywords  # Alias spelling is not dictionary vocabulary.
+    before,feedback,calls=rows(case),dictionary(case),list(case.calls)
+    assert workflow.run_consolidation_cycle(case.tenant,case.user,batch)
+    assert rows(case)==before and dictionary(case)==feedback and case.calls==calls
+    assert case.cache.clear_session_4_consolidation(case.tenant,case.user,case.session,batch)

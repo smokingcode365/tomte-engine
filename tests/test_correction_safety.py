@@ -1,4 +1,7 @@
-"""Correction evidence policy and recorded failure replay; no model APIs."""
+"""Dormant English helper history and active model/structure boundary; no model APIs.
+
+Helper-only checks are historical behavior, not current semantic authorization.
+"""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -63,15 +66,16 @@ def replay():
     return workflow, operations, data, fixture
 
 
-def test_recorded_honda_tesla_destructive_plan_fails_before_mutation():
+def test_structurally_valid_recorded_wrong_correction_exposes_semantic_risk():
+    """A wrong model decision can pass integrity checks; this is NOT safety evidence."""
     workflow, operations, data, fixture = replay()
     before = deepcopy(operations)
     assert fixture['recorded_correction']['interpretation_confidence'] == 0.88
-    with pytest.raises(UnsupportedCorrection):
-        workflow._plan_fact_mutations(operations, data, 'recorded-failure')
+    planned = workflow._plan_fact_mutations(operations, data, 'recorded-risk')
     assert operations == before
-    honda = next(op for op in operations if op['entity_name'] == 'Honda Civic')
-    assert any(f['value'] == '2021' and f['assertion_state'] == 'ACTIVE' for f in honda['payload']['facts'])
+    honda = next(op for op in planned if op['entity_name'] == 'Honda Civic')
+    assert any(f['value'] == '2021' and f['assertion_state'] == 'CORRECTED_INVALID' for f in honda['payload']['facts'])
+    assert any(f['value'] == '2024' for f in project_facts(honda['payload']['facts']))
 
 
 @pytest.mark.parametrize('operation', ['ADD', 'REINFORCE', 'RETRACT', 'SUPERSEDE'])
@@ -131,7 +135,7 @@ def test_wrong_paperwork_is_not_evidence_that_the_stored_year_was_wrong():
 
 
 @pytest.mark.parametrize('legitimate', [False, True])
-def test_real_persistence_and_frozen_batch_on_correction_decision(mechanics, monkeypatch, legitimate):
+def test_model_supported_correction_or_abstention_with_real_persistence(mechanics, monkeypatch, legitimate):
     from tomte.engine.core.schema import Entity, Fact
     from tomte.engine.core.extraction import ExtractionMemorySchema
     case = mechanics
@@ -162,7 +166,7 @@ def test_real_persistence_and_frozen_batch_on_correction_decision(mechanics, mon
                 targets=[dict(db_id=honda['id'], resolution_confidence=.99, evidence='EXPLICIT')])]})
         target = data['TARGETS'][0]
         sources = [frozen[0]['item_id']] if legitimate else [i['item_id'] for i in frozen if any(text in i['content'] for text in ('paperwork has the wrong','I mean the Honda','car I bought in 2024'))]
-        return schema.model_validate({'plans':[dict(target_key=target['target_key'], operations=[dict(operation='CORRECT',
+        return schema.model_validate({'plans':[dict(target_key=target['target_key'], operations=[] if not legitimate else [dict(operation='CORRECT',
             target_fact_id=target['assertions'][0]['fact_id'], attribute_name='purchase_year', new_value=new_value,
             source_chat_ids=sources, interpretation_confidence=.88, evidence_type='RESOLVED_REFERENCE')])]})
     monkeypatch.setattr(case.llm, 'parse_structured', model)
@@ -177,20 +181,32 @@ def test_real_persistence_and_frozen_batch_on_correction_decision(mechanics, mon
         assert honda['payload']['facts'][0]['assertion_state'] == 'CORRECTED_INVALID'
         assert processed_count(case) == 1
     else:
-        with pytest.raises(UnsupportedCorrection):
-            workflow.run_consolidation_cycle(case.tenant, case.user, frozen)
+        assert workflow.run_consolidation_cycle(case.tenant, case.user, frozen)
         assert memory_rows(case) == before
-        assert processed_count(case) == 0
+        assert processed_count(case) == 1
         visible = case.observer.execute('SELECT entity_id,payload FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s', (case.tenant, case.user)).fetchall()
         assert {eid:payload['facts'][0]['value'] for eid,payload in visible} == {'honda':'2021','tesla':'2024'}
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == frozen
 
 
-def test_uncaught_rejection_rolls_back_an_explicit_outer_transaction(mechanics):
+def test_invalid_fact_reference_rolls_back_an_explicit_outer_transaction(mechanics):
     case = mechanics
     workflow, operations, data, fixture = replay()
-    with pytest.raises(UnsupportedCorrection):
+    output = deepcopy(fixture['stages']['MutationPlanResponse']['output'])
+    MutationPlanResponse.model_validate(output)
+    corrections = [(plan, operation) for plan in output['plans']
+                   for operation in plan['operations'] if operation['operation'] == 'CORRECT']
+    assert len(corrections) == 1
+    plan, correction = corrections[0]
+    target = next(target for target in fixture['stages']['MutationPlanResponse']['input']['TARGETS']
+                  if target['target_key'] == plan['target_key'])
+    assert target['target_key'] == 'target_1'
+    assert correction['target_fact_id'] in {fact['fact_id'] for fact in target['assertions']}
+    correction['target_fact_id'] = 'foreign-unoffered-fact'
+    MutationPlanResponse.model_validate(output)
+    workflow.llm.parse_structured = lambda **kw: MutationPlanResponse.model_validate(output)
+    with pytest.raises(ValueError, match="Target fact"):
         with case.db.transaction():
             case.db.conn.execute('INSERT INTO tomte_user_registry (tenant_id,user_id) VALUES (%s,%s)', (case.tenant,case.user))
-            workflow._plan_fact_mutations(operations, data, 'rejected-outer-transaction')
+            workflow._plan_fact_mutations(operations, data, 'invalid-outer-transaction')
     assert case.observer.execute('SELECT count(*) FROM tomte_user_registry WHERE tenant_id=%s AND user_id=%s', (case.tenant,case.user)).fetchone()[0] == 0

@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 from tomte.engine import Tomte
 from tomte.engine.core.resolution import ResolutionResponse
-from tomte.engine.core.resolution import EntityResolution
+from tomte.engine.core.resolution import EntityResolution, AliasEvidence
 
 from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.core.enums import ChatSenderRole
@@ -55,8 +55,14 @@ def resolve(monkeypatch, records, message, result, recent=(), incoming=None):
     monkeypatch.setattr(Tomte,"_llm",SimpleNamespace(parse_structured=mutation_aware(model)))
     monkeypatch.setattr("tomte.engine.workflows.consolidation.get_dictionary_service",lambda:Mock())
     workflow=ConsolidationWorkflow()
+    source = (incoming or entity()).get("facts", [{}])[0].get("source_chat_id") or "current-source"
+    result = deepcopy(result)
+    if result.get("accepted_aliases") and "alias_evidence" not in result:
+        result["alias_evidence"] = [{"alias": alias, "source_chat_id": source, "evidence_quote": message}
+                                    for alias in result["accepted_aliases"]]
     op=workflow._reconcile_with_golden_records("tenant","user",[incoming or entity()],records,
-        [{"role":"user","content":text} for text in recent], [{"role":"user","content":message}])
+        [{"role":"user","content":text} for text in recent],
+        [{"role":"user","content":message,"item_id":source}])
     # Identity and truth-state are separate stages. Supply deterministic local
     # semantic plans while exercising production lifecycle application.
     from datetime import datetime, timezone
@@ -126,15 +132,15 @@ def test_unresolved_never_defaults_to_insert(monkeypatch,message):
     assert ops==[] and workflow.last_resolution["resolutions"][0]["kind"]=="UNRESOLVED"
 
 
-def test_ambiguous_member_cannot_be_expanded_even_if_model_claims_all(monkeypatch):
+def test_model_abstains_on_unidentified_member_without_group_fanout(monkeypatch):
     records=[record("Tesla"),record("truck")]
     ops,_,_=resolve(monkeypatch,records,"One of my cars has a broken window.",
-        decision("MATCH_MANY",records,"GROUP_EXPLICIT",equal=True),["Tesla and truck are my cars."])
+        decision("UNRESOLVED"),["Tesla and truck are my cars."])
     assert ops==[]
 
 
-@pytest.mark.parametrize("safe,active",[(False,True),(True,False)])
-def test_plural_requires_shared_update_and_active_set(monkeypatch,safe,active):
+@pytest.mark.parametrize("safe,active",[(False,True),(False,False)])
+def test_plural_requires_model_shared_update_approval(monkeypatch,safe,active):
     records=[record("Tesla"),record("truck")]
     ops,_,_=resolve(monkeypatch,records,"I sold them both.",decision("MATCH_MANY",records,"GROUP_EXPLICIT",equal=safe),
                     ["Tesla and truck"] if active else [])
@@ -402,38 +408,24 @@ def test_match_many_cannot_authorize_aliases():
         EntityResolution.model_validate(decision("MATCH_MANY", rows, equal=True, accepted_aliases=["Group"]))
 
 
-def test_structural_alias_filter_omits_individual_bad_aliases():
-    incoming = {"entity_name": "Tesla", "aliases": ["Little Dog", "Assistant nickname", "Old nickname"]}
-    current = [{"role": "user", "content": "I named my Tesla Little Dog."},
-               {"role": "assistant", "content": "Assistant nickname"}]
-    assert ConsolidationWorkflow._approved_aliases(
-        ["Little Dog", "invented", "Assistant nickname", "Old nickname", "Little Dog"], incoming, current) == ["Little Dog"]
+@pytest.mark.parametrize("alias,text", [("Little Dog", "I named it Little Dog."),
+    ("小蓝", "我把这辆车叫小蓝了"), ("Ann", "The nickname is Ann-Marie")])
+def test_alias_provenance_does_not_require_standalone_word(alias, text):
+    incoming = entity(); incoming["aliases"] = [alias]
+    citation = AliasEvidence(alias=alias, source_chat_id="u1", evidence_quote=text)
+    assert ConsolidationWorkflow._approved_aliases([alias], incoming,
+        [{"role":"user", "content":text, "item_id":"u1"}], [citation]) == [alias]
 
 
-@pytest.mark.parametrize("alias,text,expected", [
-    ("Ann", "Annette is here.", []),
-    ("Ann", 'I named it "Ann".', ["Ann"]),
-    ("Ann", "ANN!", ["Ann"]),
-    ("Ann", "_Ann_", []),
-    ("Ann", "ÅAnn", []),
-    ("Little Dog", 'I named it "little   dog".', ["Little Dog"]),
-    ("Little Dog", "Little Doggy", []),
-    ("C++", "I call it C++.", ["C++"]),
-])
-def test_alias_literal_unicode_boundary(alias, text, expected):
-    assert ConsolidationWorkflow._approved_aliases(
-        [alias], {"entity_name": "Tesla", "aliases": [alias]},
-        [{"role": "user", "content": text}]) == expected
-
-
-def test_literal_alias_retains_exact_offer_user_role_and_duplicate_order():
-    entity = {"entity_name": "Tesla", "aliases": ["Ann", "Little  Dog"]}
-    current = [{"role": "user", "content": "Ann and little dog."},
-               {"role": "assistant", "content": "Assistant Alias"}]
-    assert ConsolidationWorkflow._approved_aliases(
-        ["Little  Dog", "Ann", "Ann", "ann", "Assistant Alias"], entity, current) == ["Little  Dog", "Ann"]
-    assert ConsolidationWorkflow._approved_aliases(
-        ["Ann"], entity, [{"role": "assistant", "content": "Ann"}]) == []
+@pytest.mark.parametrize("defect", ["missing", "duplicate", "foreign", "assistant", "wrong_quote", "blank", "unoffered", "different_alias"])
+def test_alias_source_contract_rejects_individual_invalid_citation(defect):
+    incoming = entity(); incoming["aliases"] = [] if defect == "unoffered" else ["Little Dog"]
+    citation = AliasEvidence(alias="Other" if defect == "different_alias" else "Little Dog",
+        source_chat_id="foreign" if defect == "foreign" else "u1",
+        evidence_quote=" " if defect == "blank" else "Invented quote" if defect == "wrong_quote" else "I named it Little Dog.")
+    citations = [] if defect == "missing" else [citation, citation] if defect == "duplicate" else [citation]
+    assert ConsolidationWorkflow._approved_aliases(["Little Dog"], incoming,
+        [{"role":"assistant" if defect == "assistant" else "user", "content":"I named it Little Dog.", "item_id":"u1"}], citations) == []
 
 
 def test_rejected_identity_target_cannot_authorize_alias(monkeypatch):
@@ -461,3 +453,70 @@ def test_preparation_preserves_stored_alias_order_and_only_appends_approved():
                                                   ["Tesla", "Little Dog", "Little Dog"])
     assert op["payload"]["aliases"] == ["existing Z", "existing A", "existing Z", "Little Dog"]
     assert target["payload"]["aliases"] == ["existing Z", "existing A", "existing Z"]
+
+
+
+@pytest.mark.parametrize("message", ["I'm not training for the marathon anymore.", "我不再为马拉松训练了"])
+def test_model_resolved_paraphrase_reaches_retraction_without_literal_anchor(monkeypatch, message):
+    from tomte.engine.core.assertions import adapt_assertions
+    row = record("Marathon training")
+    row["payload"]["facts"] = adapt_assertions([dict(fact("training"), attribute_name="training_status")], str(row["id"]))
+    fact_id = row["payload"]["facts"][0]["fact_id"]
+    incoming = entity(); incoming["facts"] = [dict(fact("not training"), attribute_name="training_status")]
+    current = [{"item_id":"current-source", "role":"user", "content":message, "timestamp":1791547200}]
+    calls = []
+    def model(system_prompt, user_text, schema):
+        calls.append(schema.__name__)
+        if schema is ResolutionResponse:
+            return schema.model_validate({"resolutions":[decision("MATCH_ONE", [row], "RESOLVED_REFERENCE", .98)]})
+        target, = json.loads(user_text)["TARGETS"]
+        return schema.model_validate({"plans":[{"target_key":target["target_key"], "operations":[{
+            "operation":"RETRACT", "target_fact_id":fact_id, "source_chat_ids":["current-source"],
+            "interpretation_confidence":1, "evidence_type":"USER_EXPLICIT"}]}]})
+    monkeypatch.setattr(Tomte,"_db",Mock()); monkeypatch.setattr(Tomte,"_llm",SimpleNamespace(parse_structured=model))
+    monkeypatch.setattr("tomte.engine.workflows.consolidation.get_dictionary_service",lambda:Mock())
+    workflow = ConsolidationWorkflow()
+    prepared = workflow._reconcile_with_golden_records("t","u",[incoming],[row, record("Other activity")], [], current)
+    assert prepared[0]["db_id"] == str(row["id"]) and prepared[0]["payload"]["aliases"] == []
+    planned = workflow._plan_fact_mutations(prepared,{"CURRENT_BATCH":current,"RECENT_CONTEXT_REFERENCE_ONLY":[]},"paraphrase-batch")
+    assert calls == ["ResolutionResponse", "MutationPlanResponse"]
+    old, = planned[0]["payload"]["facts"]
+    assert old["fact_id"] == fact_id and old["assertion_state"] == "RETRACTED"
+    assert project_facts(planned[0]["payload"]["facts"]) == []
+
+
+@pytest.mark.parametrize("message", ["I sold my Tesal.", "我把小蓝卖了", "I sold it."])
+def test_prescribed_identity_acceptance_does_not_require_surface_name(monkeypatch, message):
+    row = record("Tesla Model Y")
+    ops, _, _ = resolve(monkeypatch,[row,record("Honda Civic")],message,
+        decision("MATCH_ONE",[row],"RESOLVED_REFERENCE",.98))
+    assert len(ops) == 1 and ops[0]["db_id"] == str(row["id"])
+    assert ops[0]["payload"]["aliases"] == []
+
+
+@pytest.mark.parametrize("message", ["两辆车都涂红了", "Paint both of them red."])
+def test_model_group_scope_without_literal_names(monkeypatch, message):
+    records = [record("Tesla Model Y"), record("Honda Civic")]
+    ops, _, _ = resolve(monkeypatch,records,message,decision("MATCH_MANY",records,"GROUP_EXPLICIT",equal=True))
+    assert {op["db_id"] for op in ops} == {str(row["id"]) for row in records}
+    assert all(op["payload"]["aliases"] == [] for op in ops)
+
+
+@pytest.mark.parametrize("kind", ["MATCH_MANY", "UNRESOLVED"])
+def test_group_or_unresolved_cannot_cite_aliases(kind):
+    targets = [record("A"),record("B")] if kind == "MATCH_MANY" else []
+    data = decision(kind, targets, equal=True)
+    data["alias_evidence"] = [{"alias":"Group", "source_chat_id":"u1", "evidence_quote":"Group"}]
+    with pytest.raises(ValueError, match="one resolved entity"):
+        EntityResolution.model_validate(data)
+
+
+def test_alias_quote_proves_source_not_alias_semantics():
+    incoming = entity(); incoming["aliases"] = ["Blue"]
+    quote = "我把车叫小蓝了"
+    citation = AliasEvidence(alias="Blue",source_chat_id="u1",evidence_quote=quote)
+    assert ConsolidationWorkflow._approved_aliases(["Blue"],incoming,
+        [{"item_id":"u1","role":"user","content":quote}],[citation]) == ["Blue"]
+    # This verifies the owner boundary, not whether a model should translate this name.
+    assert ConsolidationWorkflow._approved_aliases([],incoming,
+        [{"item_id":"u1","role":"user","content":quote}],[citation]) == []

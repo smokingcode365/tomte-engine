@@ -16,6 +16,14 @@ class ResolvedTarget(BaseModel):
     evidence: Evidence
 
 
+class AliasEvidence(BaseModel):
+    """Source-owned quotation; the identity model judges durable alias meaning."""
+    model_config = ConfigDict(extra="forbid")
+    alias: str = Field(min_length=1)
+    source_chat_id: str = Field(min_length=1)
+    evidence_quote: str = Field(min_length=1)
+
+
 class EntityResolution(BaseModel):
     model_config = ConfigDict(extra="forbid")
     extracted_entity_id: str  # Correlation only, never evidence.
@@ -30,11 +38,13 @@ class EntityResolution(BaseModel):
         description="Stable durable aliases explicitly approved for this one resolved entity from offered current-user wording; empty means no alias authorization.",
     )
 
+    alias_evidence: list[AliasEvidence] = Field(default_factory=list)
+
     @model_validator(mode="after")
     def check_cardinality(self):
         if any(not alias.strip() for alias in self.accepted_aliases) or len(set(self.accepted_aliases)) != len(self.accepted_aliases):
             raise ValueError("Accepted aliases must be nonblank and unique")
-        if self.kind in {"MATCH_MANY", "UNRESOLVED"} and self.accepted_aliases:
+        if self.kind in {"MATCH_MANY", "UNRESOLVED"} and (self.accepted_aliases or self.alias_evidence):
             raise ValueError("Alias authorization requires one resolved entity")
         if len({t.db_id for t in self.targets}) != len(self.targets):
             raise ValueError("Duplicate resolution targets")

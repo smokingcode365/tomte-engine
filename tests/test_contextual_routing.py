@@ -127,3 +127,57 @@ def test_contextual_candidate_and_reference_isolation(contextual_case,monkeypatc
     finally:
         case.cache.client.delete(*keys)
         for tenant,user in foreign:case.db.delete_user_memory(tenant,user)
+
+
+
+@pytest.mark.parametrize("current", ["It is not happening anymore.", "我不再继续了"])
+def test_contextual_reference_without_name_still_requires_mutation_stage(contextual_case,current):
+    case=contextual_case;case.action_type="RETRACTION";case.operation="RETRACT"
+    original=seed(case,"trip_plan","Japan",trip=True)
+    frozen=queue(case,current,"We discussed that plan.")
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant,case.user,frozen)
+    stored,=memory_rows(case)
+    assert any(name=="MutationPlanResponse" for name,_ in case.calls)
+    assert stored["id"]==original["id"] and stored["payload"]["aliases"]==original["payload"]["aliases"]
+    old,=stored["payload"]["facts"]
+    assert old["fact_id"]==original["payload"]["facts"][0]["fact_id"] and old["assertion_state"]=="RETRACTED"
+
+
+
+@pytest.mark.parametrize("defect", [None, "foreign_source", "assistant_source", "foreign_fact"])
+def test_contextual_nonliteral_reference_keeps_structural_boundaries(monkeypatch, defect):
+    from unittest.mock import Mock
+    from tomte.engine import Tomte
+    payload=Entity(entity_id="canonical",entity_name="Marathon training",entity_type="marathon_training",
+        entity_domain="activities_and_skills",facts=[Fact(attribute_name="training_status",value="training",
+        confidence=1,source_chat_id="old-source",last_mentioned_at="2026-10-09T00:00:00Z")]).model_dump(mode="json")
+    key=str(uuid4());payload["facts"]=adapt_assertions(payload["facts"],key)
+    row={"id":key,**{k:payload[k] for k in ("entity_id","entity_name","entity_type","entity_domain")},"payload":payload}
+    current=[{"item_id":"u1","timestamp":1791547200,"role":"assistant" if defect=="assistant_source" else "user","content":"我不再继续了"}]
+    calls=[]
+    def model(system_prompt,user_text,schema):
+        calls.append(schema.__name__)
+        if schema is ContextualActionResponse:
+            return schema.model_validate({"actions":[{"action_type":"RETRACTION","reference_hint":"the activity",
+                "source_chat_ids":["foreign" if defect=="foreign_source" else "u1"],"interpretation_confidence":1,
+                "target":{"db_id":key,"resolution_confidence":.98,"evidence":"RESOLVED_REFERENCE"},
+                "target_fact_id":"foreign-fact" if defect=="foreign_fact" else payload["facts"][0]["fact_id"]}]})
+        target,=json.loads(user_text)["TARGETS"]
+        return schema.model_validate({"plans":[{"target_key":target["target_key"],"operations":[{
+            "operation":"RETRACT","target_fact_id":payload["facts"][0]["fact_id"],"source_chat_ids":["u1"],
+            "interpretation_confidence":1,"evidence_type":"USER_EXPLICIT"}]}]})
+    db=Mock();db.get_resolution_candidates.return_value=[row]
+    monkeypatch.setattr(Tomte,"_db",db);monkeypatch.setattr(Tomte,"_llm",SimpleNamespace(parse_structured=model))
+    monkeypatch.setattr("tomte.engine.workflows.consolidation.get_dictionary_service",lambda:Mock())
+    workflow=ConsolidationWorkflow();data={"CURRENT_BATCH":current,"RECENT_CONTEXT_REFERENCE_ONLY":[]}
+    if defect in {"foreign_source","foreign_fact"}:
+        with pytest.raises(ValueError):workflow._resolve_contextual_actions("tenant","user",data,[1.0])
+        assert calls==["ContextualActionResponse"]
+    else:
+        prepared=workflow._resolve_contextual_actions("tenant","user",data,[1.0])
+        if defect=="assistant_source":assert prepared==[]
+        else:
+            planned=workflow._plan_fact_mutations(prepared,data,"contextual-unit-batch")
+            assert calls==["ContextualActionResponse","MutationPlanResponse"]
+            old,=planned[0]["payload"]["facts"]
+            assert old["fact_id"]==payload["facts"][0]["fact_id"] and old["assertion_state"]=="RETRACTED"
