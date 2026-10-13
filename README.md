@@ -146,8 +146,20 @@ cleanup; it makes no model calls and starts no worker.
 Registered-user context combines persona (stable identity), recent memories
 (continuity across nearby conversations), raw semantic memories (long-term
 meaning-based retrieval), and session entities (continuity within a conversation).
-Merge order is persona, recent, raw semantic, then session; fresh session payloads
-win on duplicates without moving an entity's original position in context.
+Successful chat payloads additionally expose `query_relevant_memories` and
+`background_memories`: lists of flat entities, including canonical DB `id`,
+original payload fields and available row metadata. Query candidates keep raw
+semantic rank, followed by unique current-message lexical hits. Background keeps
+persona, recent and session-only order, excluding entities already in the query
+list. Session-read payloads win overlaps, preserving canonical DB identity.
+
+`context_text` remains a string, now headed `QUERY-RELEVANT MEMORIES` then
+`BACKGROUND/CONTINUITY`; it renders current facts only. Structured lists retain
+the full stored facts and lifecycle states; hosts must not treat historical or
+invalid assertions as current. Existing history/message/user fields remain;
+guest and assistant success payloads have empty memory lists, and errors retain
+their error-only shape. Hosts can keep using the text or consume the new lists;
+exact-text/order parsers must account for the new headings and order.
 
 Live semantic retrieval returns the closest five memories with no similarity
 cutoff and deterministic entity-ID/DB-ID ties. Age and mention frequency do not

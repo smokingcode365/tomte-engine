@@ -201,6 +201,8 @@ class ChatHookPayload(TypedDict, total=False):
     total=False allows us to return just an 'error' key if needed.
     """
     context_text: str
+    query_relevant_memories: List[Dict[str, Any]]
+    background_memories: List[Dict[str, Any]]
     chat_history: List[Dict[str, Any]]
     user_id: Optional[str]
     clean_message: str

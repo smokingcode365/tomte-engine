@@ -103,8 +103,11 @@ class ChatHookWorkflow:
         persona = self._get_or_refresh_persona(tenant_id, user_id)
         recent, semantic = self._fetch_live_pulse(tenant_id, user_id, query_vector)
         
-        session_entities = self._get_session_entities(tenant_id, user_id, session_id, message, query_vector)
-        context_text = self._build_knowledge_context(persona, recent, semantic, session_entities)
+        session_entities, lexical = self._get_session_entities(tenant_id, user_id, session_id, message, query_vector)
+        # Semantic rank first; append only unique current-message lexical hits.
+        query_matches = self.cog.merge_entities(semantic, lexical)
+        relevant, background = self._group_memories(persona, recent, query_matches, session_entities)
+        context_text = self._build_knowledge_context(persona, recent, query_matches, session_entities)
 
         # 3. History Handshake (Append Last Rule)
         chat_history = self.cache.get_chat_history(tenant_id, session_id, user_id=user_id,limit=settings.history_chat_number)
@@ -113,6 +116,8 @@ class ChatHookWorkflow:
                                              recent_context=chat_history[-RECENT_CONTEXT_TURNS:])
         return self._build_payload(
             context_text=context_text,
+            query_relevant_memories=relevant,
+            background_memories=background,
             chat_history=chat_history,
             clean_message=message,
             user_id=user_id
@@ -180,18 +185,28 @@ class ChatHookWorkflow:
         ids = self._session_call(self.cache, "get_session_entity_ids", tenant_id, user_id, session_id,
                                  settings.session_entity_return_cap) or []
         if not ids:
-            return []
+            return [], lexical
         entities = self._session_call(self.db, "get_entities_by_ids", tenant_id, user_id, ids) or []
         self._check_session_scope(entities, tenant_id, user_id)
         if any(entity["entity_id"] not in ids for entity in entities):
             raise TomteSecurityViolationError("Unexpected session entity identity")
-        return entities
+        return entities, lexical
+
+    def _group_memories(self, persona, recent, query_matches, session_entities):
+        """Group by retrieval source, retaining query order and latest payloads."""
+        query_count = len(self.cog.merge_entities(query_matches))
+        # The initial query list establishes positions; subsequent reads only
+        # replace payloads. Session rows keep their existing freshness priority.
+        merged = self.cog.merge_entities(query_matches, persona, recent, query_matches, session_entities)
+        return merged[:query_count], merged[query_count:]
 
     def _build_knowledge_context(self, persona: List[Dict], recent: List[Dict], semantic: List[Dict], session_entities: Optional[List[Dict]] = None) -> str:
-        """Add session continuity without replacing the existing retrieval streams."""
-        # Session rows were fetched last: earlier reads/cache must not replace them.
-        merged_entities = self.cog.merge_entities(persona, recent, semantic, session_entities or [])
-        return self.cog.format_entities(merged_entities)
+        """Render query candidates before distinct background continuity."""
+        relevant, background = self._group_memories(persona, recent, semantic, session_entities or [])
+        if not relevant and not background:
+            return ""
+        return ("QUERY-RELEVANT MEMORIES\n" + self.cog.format_entities(relevant)
+                + "\n\nBACKGROUND/CONTINUITY\n" + self.cog.format_entities(background))
 
 
     def _build_payload(
@@ -200,7 +215,9 @@ class ChatHookWorkflow:
         chat_history: Optional[List[Dict[str, Any]]] = None, 
         clean_message: str = "", 
         user_id: Optional[str] = None,
-        error: Optional[str] = None
+        error: Optional[str] = None,
+        query_relevant_memories: Optional[List[Dict[str, Any]]] = None,
+        background_memories: Optional[List[Dict[str, Any]]] = None,
     ) -> ChatHookPayload:
         """Centralized factory for the Chat Hook return payload to avoid magic strings."""
         if error:
@@ -208,6 +225,8 @@ class ChatHookWorkflow:
             
         return ChatHookPayload(
             context_text=context_text,
+            query_relevant_memories=query_relevant_memories or [],
+            background_memories=background_memories or [],
             chat_history=chat_history or [],
             user_id=user_id,
             clean_message=clean_message

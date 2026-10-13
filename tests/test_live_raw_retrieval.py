@@ -124,9 +124,94 @@ def test_live_composition_omits_frequent_and_weighted_and_keeps_fresh_session(li
     assert 'Below activation floor' in text and 'Persona' in text and 'Prior conversation aquarium' in text
     assert 'Fresh session Tesla' in text and 'Stale Tesla' not in text
     assert text.count('[[ENTITY: s |')==1
-    assert [text.index('[[ENTITY: '+eid+' |') for eid in ('p','r','s','below')]==sorted(text.index('[[ENTITY: '+eid+' |') for eid in ('p','r','s','below'))
+    assert [text.index('[[ENTITY: '+eid+' |') for eid in ('s','below','p','r')]==sorted(text.index('[[ENTITY: '+eid+' |') for eid in ('s','below','p','r'))
     db.discover_session_entities.assert_called_once_with('t','u',[1.0],.25,5)
     cache.promote_session_entities.assert_called_once_with('t','u','s',[],10,86400)
+
+
+def test_memory_groups_keep_query_rank_and_complete_fresh_overlap(live_workflow):
+    workflow, db, cache = live_workflow
+    tesla = dict(id='tesla-db', entity_id='veh_01', entity_name='Tesla Model Y',
+                 tenant_id='t', user_id='u', entity_type='vehicle', aliases=['Little Dog'],
+                 facts=[dict(fact_id='current', attribute_name='color', value='red', assertion_state='ACTIVE'),
+                        dict(fact_id='old', attribute_name='color', value='white', assertion_state='HISTORICAL')],
+                 metadata={'preserved': True})
+    stale = {**tesla, 'entity_name': 'Stale Tesla', 'facts': []}
+    db.get_recent_entities.return_value = [stale]
+    second = dict(id='second-db', entity_id='veh_02', entity_name='Honda', tenant_id='t', user_id='u', facts=[])
+    lexical = dict(id='lexical-db', entity_id='veh_03', entity_name='Bicycle', tenant_id='t', user_id='u', facts=[])
+    continuity = dict(id='continuity-db', entity_id='act_01', entity_name='Running', tenant_id='t', user_id='u', facts=[])
+    db.get_raw_semantic_context.return_value = [stale, second]
+    db.find_session_entity_mentions.return_value = [second, lexical]
+    db.get_entities_by_ids.return_value = [tesla, second, lexical, continuity]
+    cache.get_session_entity_ids.return_value = ['veh_01', 'veh_02', 'veh_03', 'act_01']
+    result = workflow.on_chat('t', 's', 'Tesla Model Y', ChatSenderRole.USER, 'u')
+    relevant, background = result['query_relevant_memories'], result['background_memories']
+    assert [e['id'] for e in relevant] == ['tesla-db', 'second-db', 'lexical-db']
+    assert relevant[0] == tesla
+    assert [e['entity_id'] for e in background] == ['p', 'act_01']
+    assert len(relevant + background) == 5
+    text = result['context_text']
+    assert text.startswith('QUERY-RELEVANT MEMORIES\n')
+    assert text.index('BACKGROUND/CONTINUITY') < text.index('[[ENTITY: p |')
+    assert text.count('[[ENTITY: veh_01 |') == 1
+    assert 'color: red' in text and 'color: white' not in text
+    assert {'context_text', 'chat_history', 'clean_message', 'user_id'} <= result.keys()
+    workflow.llm.embed_text.assert_called_once_with('Tesla Model Y')
+    db.get_raw_semantic_context.assert_called_once()
+    db.find_session_entity_mentions.assert_called_once()
+    db.get_entities_by_ids.assert_called_once()
+    cache.append_chat_history.assert_called_once()
+    cache.enqueue_for_consolidation.assert_called_once()
+
+
+def test_empty_query_groups_keep_background_without_claiming_abstention(live_workflow):
+    workflow, db, _ = live_workflow
+    db.get_raw_semantic_context.return_value = []
+    result = workflow.on_chat('t', 's', 'hello', ChatSenderRole.USER, 'u')
+    assert result['query_relevant_memories'] == []
+    assert [e['entity_id'] for e in result['background_memories']] == ['p', 'r', 's']
+    assert result['context_text'].startswith('QUERY-RELEVANT MEMORIES\n\n\nBACKGROUND/CONTINUITY')
+
+
+def test_memory_group_dedup_uses_db_identity_not_just_logical_id(live_workflow):
+    workflow, _, _ = live_workflow
+    row = dict(id='first', entity_id='same', tenant_id='t', user_id='u', facts=[])
+    other = {**row, 'id': 'second'}
+    query, background = workflow._group_memories([other], [], [row], [])
+    assert query == [row] and background == [other]
+
+
+@pytest.mark.parametrize('role,user', [(ChatSenderRole.USER, None),
+                                     (ChatSenderRole.ASSISTANT, 'u'),
+                                     (ChatSenderRole.ASSISTANT, None)])
+def test_nonretrieval_success_branches_return_empty_memory_lists(live_workflow, role, user):
+    workflow, db, cache = live_workflow
+    result = workflow.on_chat('t', 's', 'hello', role, user)
+    assert result['query_relevant_memories'] == result['background_memories'] == []
+    assert result['context_text'] == ''
+    workflow.llm.embed_text.assert_not_called()
+    db.get_raw_semantic_context.assert_not_called()
+    db.upsert_user_activity.assert_not_called()
+    cache.append_chat_history.assert_called_once()
+    assert cache.enqueue_for_consolidation.call_count == int(role == ChatSenderRole.ASSISTANT and user is not None)
+
+
+def test_memory_groups_do_not_hide_cross_tenant_lexical_rows(live_workflow):
+    workflow, db, _ = live_workflow
+    db.find_session_entity_mentions.return_value = [dict(entity_id='foreign', tenant_id='other', user_id='u')]
+    with pytest.raises(TomteSecurityViolationError):
+        workflow.on_chat('t', 's', 'hello', ChatSenderRole.USER, 'u')
+
+
+def test_public_client_keeps_error_only_payload(live_workflow):
+    from tomte.engine.clients.chat_client import TomteChatClient
+    workflow, _, _ = live_workflow
+    workflow.security.check_for_injection = lambda _: False
+    client = TomteChatClient('t')
+    client._workflow = workflow
+    result = client.send_user_message('s', 'blocked', user_id='u')
+    assert set(result) == {'error'}
 
 
 @pytest.mark.parametrize('error',[TomteSessionStateUnavailable,NotImplementedError])
