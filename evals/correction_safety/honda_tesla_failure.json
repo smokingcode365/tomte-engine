@@ -1,0 +1,2397 @@
+{
+  "trace_id": "long-01",
+  "repetition": 3,
+  "tenant": "world-eval-f68346413f8c442584a2111dc9343c3f-group-0",
+  "user": "user-0-repeat-3-long-01",
+  "turns": [
+    {
+      "turn_id": "u01",
+      "role": "user",
+      "content": "The Tesla Model Y I bought in 2024 is red. The Honda Civic is my other car; I bought that one in 2022.",
+      "session_id": "a",
+      "relative_seconds": 0
+    },
+    {
+      "turn_id": "a01",
+      "role": "assistant",
+      "content": "Got it.",
+      "session_id": "a",
+      "relative_seconds": 12
+    },
+    {
+      "turn_id": "u02",
+      "role": "user",
+      "content": "The red one makes a clicking sound when I charge it at home.",
+      "session_id": "a",
+      "relative_seconds": 43
+    },
+    {
+      "turn_id": "a02",
+      "role": "assistant",
+      "content": "That sounds inconvenient.",
+      "session_id": "a",
+      "relative_seconds": 55
+    },
+    {
+      "turn_id": "u03",
+      "role": "user",
+      "content": "yeah",
+      "session_id": "a",
+      "relative_seconds": 86
+    },
+    {
+      "turn_id": "a03",
+      "role": "assistant",
+      "content": "Which part worries you most?",
+      "session_id": "a",
+      "relative_seconds": 98
+    },
+    {
+      "turn_id": "u04",
+      "role": "user",
+      "content": "Maybe it's nothing. I hate making appointments for this stuff.",
+      "session_id": "a",
+      "relative_seconds": 129
+    },
+    {
+      "turn_id": "a04",
+      "role": "assistant",
+      "content": "We can come back to that.",
+      "session_id": "a",
+      "relative_seconds": 141
+    },
+    {
+      "turn_id": "u05",
+      "role": "user",
+      "content": "I named the Tesla Little Dog. Don't ask why, the kids started it.",
+      "session_id": "a",
+      "relative_seconds": 172
+    },
+    {
+      "turn_id": "a05",
+      "role": "assistant",
+      "content": "Okay, keep going.",
+      "session_id": "a",
+      "relative_seconds": 184
+    },
+    {
+      "turn_id": "u06",
+      "role": "user",
+      "content": "Actually wait, I bought the Honda in 2021, not 2022. I'm sure now.",
+      "session_id": "a",
+      "relative_seconds": 215
+    },
+    {
+      "turn_id": "a06",
+      "role": "assistant",
+      "content": "I would check the paperwork before deciding.",
+      "session_id": "a",
+      "relative_seconds": 227
+    },
+    {
+      "turn_id": "u07",
+      "role": "user",
+      "content": "Terry is my older son. He plays basketball. Bryan is the younger one and swims.",
+      "session_id": "a",
+      "relative_seconds": 258
+    },
+    {
+      "turn_id": "a07",
+      "role": "assistant",
+      "content": "That makes sense.",
+      "session_id": "a",
+      "relative_seconds": 270
+    },
+    {
+      "turn_id": "u08",
+      "role": "user",
+      "content": "He has basketball practice Thursday, and getting him there clashes with work.",
+      "session_id": "a",
+      "relative_seconds": 301
+    },
+    {
+      "turn_id": "a08",
+      "role": "assistant",
+      "content": "Perhaps Terry practices every day? That is only a guess, not something you told me.",
+      "session_id": "a",
+      "relative_seconds": 313
+    },
+    {
+      "turn_id": "u09",
+      "role": "user",
+      "content": "okay",
+      "session_id": "a",
+      "relative_seconds": 344
+    },
+    {
+      "turn_id": "a09",
+      "role": "assistant",
+      "content": "Got it.",
+      "session_id": "a",
+      "relative_seconds": 356
+    },
+    {
+      "turn_id": "u10",
+      "role": "user",
+      "content": "Luna, my beagle, keeps scratching at night. She's four.",
+      "session_id": "a",
+      "relative_seconds": 387
+    },
+    {
+      "turn_id": "a10",
+      "role": "assistant",
+      "content": "That sounds inconvenient.",
+      "session_id": "a",
+      "relative_seconds": 399
+    },
+    {
+      "turn_id": "u11",
+      "role": "user",
+      "content": "The dog, not Little Dog. That name really was a bad idea.",
+      "session_id": "a",
+      "relative_seconds": 430
+    },
+    {
+      "turn_id": "a11",
+      "role": "assistant",
+      "content": "Which part worries you most?",
+      "session_id": "a",
+      "relative_seconds": 442
+    },
+    {
+      "turn_id": "u12",
+      "role": "user",
+      "content": "I'm building Tomte, a memory project using PostgreSQL and Redis.",
+      "session_id": "a",
+      "relative_seconds": 473
+    },
+    {
+      "turn_id": "a12",
+      "role": "assistant",
+      "content": "We can come back to that.",
+      "session_id": "a",
+      "relative_seconds": 485
+    },
+    {
+      "turn_id": "u13",
+      "role": "user",
+      "content": "I think I said this already, but Terry still plays basketball.",
+      "session_id": "a",
+      "relative_seconds": 516
+    },
+    {
+      "turn_id": "a13",
+      "role": "assistant",
+      "content": "Okay, keep going.",
+      "session_id": "a",
+      "relative_seconds": 528
+    },
+    {
+      "turn_id": "u14",
+      "role": "user",
+      "content": "Anyway, what is the weather tomorrow?",
+      "session_id": "a",
+      "relative_seconds": 559
+    },
+    {
+      "turn_id": "a14",
+      "role": "assistant",
+      "content": "I would check the paperwork before deciding.",
+      "session_id": "a",
+      "relative_seconds": 571
+    },
+    {
+      "turn_id": "u15",
+      "role": "user",
+      "content": "not sure",
+      "session_id": "a",
+      "relative_seconds": 602
+    },
+    {
+      "turn_id": "a15",
+      "role": "assistant",
+      "content": "That makes sense.",
+      "session_id": "a",
+      "relative_seconds": 614
+    },
+    {
+      "turn_id": "u16",
+      "role": "user",
+      "content": "The workshop called back about the Tesla. Still waiting for a date.",
+      "session_id": "a",
+      "relative_seconds": 645
+    },
+    {
+      "turn_id": "a16",
+      "role": "assistant",
+      "content": "Let us separate those two things.",
+      "session_id": "a",
+      "relative_seconds": 657
+    },
+    {
+      "turn_id": "u17",
+      "role": "user",
+      "content": "I had the Tesla wrapped blue yesterday. It used to be red; now the exterior is blue.",
+      "session_id": "a",
+      "relative_seconds": 688
+    },
+    {
+      "turn_id": "a17",
+      "role": "assistant",
+      "content": "Got it.",
+      "session_id": "a",
+      "relative_seconds": 700
+    },
+    {
+      "turn_id": "u18",
+      "role": "user",
+      "content": "The blue one looks nicer, although the price hurt.",
+      "session_id": "a",
+      "relative_seconds": 731
+    },
+    {
+      "turn_id": "a18",
+      "role": "assistant",
+      "content": "That sounds inconvenient.",
+      "session_id": "a",
+      "relative_seconds": 743
+    },
+    {
+      "turn_id": "u19",
+      "role": "user",
+      "content": "oh, one more thing: the Honda paperwork has the wrong purchase year.",
+      "session_id": "b",
+      "relative_seconds": 173574
+    },
+    {
+      "turn_id": "a19",
+      "role": "assistant",
+      "content": "Which part worries you most?",
+      "session_id": "b",
+      "relative_seconds": 173586
+    },
+    {
+      "turn_id": "u20",
+      "role": "user",
+      "content": "No, not that one. I mean the Honda Civic, not the Tesla.",
+      "session_id": "b",
+      "relative_seconds": 173617
+    },
+    {
+      "turn_id": "a20",
+      "role": "assistant",
+      "content": "We can come back to that.",
+      "session_id": "b",
+      "relative_seconds": 173629
+    },
+    {
+      "turn_id": "u21",
+      "role": "user",
+      "content": "How does a database index work?",
+      "session_id": "b",
+      "relative_seconds": 173660
+    },
+    {
+      "turn_id": "a21",
+      "role": "assistant",
+      "content": "Okay, keep going.",
+      "session_id": "b",
+      "relative_seconds": 173672
+    },
+    {
+      "turn_id": "u22",
+      "role": "user",
+      "content": "I see",
+      "session_id": "b",
+      "relative_seconds": 173703
+    },
+    {
+      "turn_id": "a22",
+      "role": "assistant",
+      "content": "I would check the paperwork before deciding.",
+      "session_id": "b",
+      "relative_seconds": 173715
+    },
+    {
+      "turn_id": "u23",
+      "role": "user",
+      "content": "Back to what I was saying, can we talk about the car I bought in 2024?",
+      "session_id": "b",
+      "relative_seconds": 173746
+    },
+    {
+      "turn_id": "a23",
+      "role": "assistant",
+      "content": "That makes sense.",
+      "session_id": "b",
+      "relative_seconds": 173758
+    },
+    {
+      "turn_id": "u24",
+      "role": "user",
+      "content": "I sold the Honda Civic today. I still own the Tesla Model Y.",
+      "session_id": "b",
+      "relative_seconds": 173789
+    },
+    {
+      "turn_id": "a24",
+      "role": "assistant",
+      "content": "Let us separate those two things.",
+      "session_id": "b",
+      "relative_seconds": 173801
+    },
+    {
+      "turn_id": "u25",
+      "role": "user",
+      "content": "Actually, retract the idea that Terry practices every day. I never said that was true.",
+      "session_id": "b",
+      "relative_seconds": 173832
+    },
+    {
+      "turn_id": "a25",
+      "role": "assistant",
+      "content": "Got it.",
+      "session_id": "b",
+      "relative_seconds": 173844
+    },
+    {
+      "turn_id": "u26",
+      "role": "user",
+      "content": "What about Little Dog in winter?",
+      "session_id": "b",
+      "relative_seconds": 173875
+    },
+    {
+      "turn_id": "a26",
+      "role": "assistant",
+      "content": "That sounds inconvenient.",
+      "session_id": "b",
+      "relative_seconds": 173887
+    },
+    {
+      "turn_id": "u27",
+      "role": "user",
+      "content": "Terry's basketball practice is still Thursday.",
+      "session_id": "b",
+      "relative_seconds": 173918
+    },
+    {
+      "turn_id": "a27",
+      "role": "assistant",
+      "content": "Which part worries you most?",
+      "session_id": "b",
+      "relative_seconds": 173930
+    }
+  ],
+  "stages": {
+    "ExtractionMemorySchema": {
+      "trace": "long-01-rep3",
+      "stage": "ExtractionMemorySchema",
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+            "role": "user",
+            "content": "oh, one more thing: the Honda paperwork has the wrong purchase year.",
+            "timestamp": 1795231448.564687
+          },
+          {
+            "item_id": "cf0b7838-c42c-421e-ba4c-afd8b7d059a7",
+            "role": "assistant",
+            "content": "Which part worries you most?",
+            "timestamp": 1795231460.6088436
+          },
+          {
+            "item_id": "09b19283-f121-4f58-b30e-74df43b48d72",
+            "role": "user",
+            "content": "No, not that one. I mean the Honda Civic, not the Tesla.",
+            "timestamp": 1795231491.6135435
+          },
+          {
+            "item_id": "fdcad986-1fd1-444c-a071-e916f50bb151",
+            "role": "assistant",
+            "content": "We can come back to that.",
+            "timestamp": 1795231503.7635822
+          },
+          {
+            "item_id": "b18571c6-8da9-48ab-b72a-caff4c0fcf9b",
+            "role": "user",
+            "content": "How does a database index work?",
+            "timestamp": 1795231534.7694736
+          },
+          {
+            "item_id": "f05ad204-4963-41c3-9658-c2b3531e8ccc",
+            "role": "assistant",
+            "content": "Okay, keep going.",
+            "timestamp": 1795231546.8165636
+          },
+          {
+            "item_id": "b452a98e-198c-4dde-a250-bca43db1face",
+            "role": "user",
+            "content": "I see",
+            "timestamp": 1795231577.8207443
+          },
+          {
+            "item_id": "81bf51d3-fbec-4fdb-94ba-fb033d87c280",
+            "role": "assistant",
+            "content": "I would check the paperwork before deciding.",
+            "timestamp": 1795231589.96755
+          },
+          {
+            "item_id": "92cf5523-4139-40f8-bfda-165f7b716ede",
+            "role": "user",
+            "content": "Back to what I was saying, can we talk about the car I bought in 2024?",
+            "timestamp": 1795231620.9714909
+          },
+          {
+            "item_id": "bfc5b5ff-4e7a-42f3-82ce-2fbce0804d3b",
+            "role": "assistant",
+            "content": "That makes sense.",
+            "timestamp": 1795231633.0126884
+          },
+          {
+            "item_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+            "role": "user",
+            "content": "I sold the Honda Civic today. I still own the Tesla Model Y.",
+            "timestamp": 1795231664.0170066
+          },
+          {
+            "item_id": "6ddc4c84-ec55-4e59-8ae2-5d5eabc89f70",
+            "role": "assistant",
+            "content": "Let us separate those two things.",
+            "timestamp": 1795231676.0668333
+          },
+          {
+            "item_id": "7d8a194b-470d-4297-a525-d2492f989565",
+            "role": "user",
+            "content": "Actually, retract the idea that Terry practices every day. I never said that was true.",
+            "timestamp": 1795231707.0710275
+          },
+          {
+            "item_id": "18e7f2ef-3119-487e-99bd-976f6ef4b35f",
+            "role": "assistant",
+            "content": "Got it.",
+            "timestamp": 1795231719.1130178
+          },
+          {
+            "item_id": "25d34ea2-7544-49ed-b59c-0a3ad22463ce",
+            "role": "user",
+            "content": "What about Little Dog in winter?",
+            "timestamp": 1795231750.1172898
+          },
+          {
+            "item_id": "720d8f15-6bc0-4234-860d-c98c3048c849",
+            "role": "assistant",
+            "content": "That sounds inconvenient.",
+            "timestamp": 1795231762.1610684
+          },
+          {
+            "item_id": "182480d0-51f6-4fbb-9cc2-d1e8ef43a7f7",
+            "role": "user",
+            "content": "Terry's basketball practice is still Thursday.",
+            "timestamp": 1795231793.165337
+          },
+          {
+            "item_id": "b0d74ab8-f1cf-46fc-af7c-6d384aa0056c",
+            "role": "assistant",
+            "content": "Which part worries you most?",
+            "timestamp": 1795231805.2140467
+          }
+        ],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "output": {
+        "identity_and_demographics": [],
+        "relationships": [
+          {
+            "entity_id": "per_01",
+            "entity_name": "Terry",
+            "entity_domain": "relationships",
+            "entity_type": "person",
+            "aliases": [
+              "Terry"
+            ],
+            "facts": [
+              {
+                "attribute_name": "daily_practice_claim",
+                "value": "Retracted; the user never said that Terry practices every day was true.",
+                "importance": 2,
+                "status": "archived",
+                "sentiment": "neutral",
+                "volatility": "core",
+                "related_entity_ids": [],
+                "confidence": 1.0,
+                "mention_count": 1,
+                "source_chat_id": "7d8a194b-470d-4297-a525-d2492f989565",
+                "timeline": []
+              },
+              {
+                "attribute_name": "basketball_practice_day",
+                "value": "Thursday",
+                "importance": 3,
+                "status": "active",
+                "sentiment": "neutral",
+                "volatility": "core",
+                "related_entity_ids": [],
+                "confidence": 1.0,
+                "mention_count": 1,
+                "source_chat_id": "182480d0-51f6-4fbb-9cc2-d1e8ef43a7f7",
+                "timeline": []
+              }
+            ]
+          }
+        ],
+        "assets_and_possessions": [
+          {
+            "entity_id": "veh_01",
+            "entity_name": "Honda Civic",
+            "entity_domain": "assets_and_possessions",
+            "entity_type": "car",
+            "aliases": [
+              "Honda",
+              "Honda Civic",
+              "the car I bought in 2024"
+            ],
+            "facts": [
+              {
+                "attribute_name": "paperwork_purchase_year_accuracy",
+                "value": "The Honda paperwork has the wrong purchase year.",
+                "importance": 2,
+                "status": "active",
+                "sentiment": "neutral",
+                "volatility": "core",
+                "related_entity_ids": [],
+                "confidence": 1.0,
+                "mention_count": 1,
+                "source_chat_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+                "timeline": []
+              },
+              {
+                "attribute_name": "model",
+                "value": "Honda Civic",
+                "importance": 4,
+                "status": "active",
+                "sentiment": "neutral",
+                "volatility": "core",
+                "related_entity_ids": [],
+                "confidence": 1.0,
+                "mention_count": 1,
+                "source_chat_id": "09b19283-f121-4f58-b30e-74df43b48d72",
+                "timeline": []
+              },
+              {
+                "attribute_name": "purchase_year",
+                "value": "2024",
+                "importance": 4,
+                "status": "active",
+                "sentiment": "neutral",
+                "volatility": "core",
+                "related_entity_ids": [],
+                "confidence": 0.9,
+                "mention_count": 1,
+                "source_chat_id": "92cf5523-4139-40f8-bfda-165f7b716ede",
+                "timeline": []
+              },
+              {
+                "attribute_name": "ownership_status",
+                "value": "Sold today.",
+                "importance": 4,
+                "status": "past",
+                "sentiment": "neutral",
+                "volatility": "core",
+                "related_entity_ids": [],
+                "confidence": 1.0,
+                "mention_count": 1,
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "timeline": [
+                  {
+                    "event_description": "Sold the Honda Civic today.",
+                    "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "entity_id": "veh_02",
+            "entity_name": "Tesla Model Y",
+            "entity_domain": "assets_and_possessions",
+            "entity_type": "car",
+            "aliases": [
+              "Tesla",
+              "Tesla Model Y"
+            ],
+            "facts": [
+              {
+                "attribute_name": "model",
+                "value": "Tesla Model Y",
+                "importance": 4,
+                "status": "active",
+                "sentiment": "neutral",
+                "volatility": "core",
+                "related_entity_ids": [],
+                "confidence": 1.0,
+                "mention_count": 1,
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "timeline": []
+              },
+              {
+                "attribute_name": "ownership_status",
+                "value": "Still owned by the user.",
+                "importance": 4,
+                "status": "active",
+                "sentiment": "neutral",
+                "volatility": "core",
+                "related_entity_ids": [],
+                "confidence": 1.0,
+                "mention_count": 1,
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "timeline": []
+              }
+            ]
+          }
+        ],
+        "activities_and_skills": [],
+        "preferences_and_traits": [],
+        "events_and_logistics": [],
+        "system_instructions": [],
+        "unstructured_observations": []
+      }
+    },
+    "ResolutionResponse": {
+      "trace": "long-01-rep3",
+      "stage": "ResolutionResponse",
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "role": "user",
+            "content": "oh, one more thing: the Honda paperwork has the wrong purchase year.",
+            "item_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+            "timestamp": 1795231448.564687
+          },
+          {
+            "role": "assistant",
+            "content": "Which part worries you most?",
+            "item_id": "cf0b7838-c42c-421e-ba4c-afd8b7d059a7",
+            "timestamp": 1795231460.6088436
+          },
+          {
+            "role": "user",
+            "content": "No, not that one. I mean the Honda Civic, not the Tesla.",
+            "item_id": "09b19283-f121-4f58-b30e-74df43b48d72",
+            "timestamp": 1795231491.6135435
+          },
+          {
+            "role": "assistant",
+            "content": "We can come back to that.",
+            "item_id": "fdcad986-1fd1-444c-a071-e916f50bb151",
+            "timestamp": 1795231503.7635822
+          },
+          {
+            "role": "user",
+            "content": "How does a database index work?",
+            "item_id": "b18571c6-8da9-48ab-b72a-caff4c0fcf9b",
+            "timestamp": 1795231534.7694736
+          },
+          {
+            "role": "assistant",
+            "content": "Okay, keep going.",
+            "item_id": "f05ad204-4963-41c3-9658-c2b3531e8ccc",
+            "timestamp": 1795231546.8165636
+          },
+          {
+            "role": "user",
+            "content": "I see",
+            "item_id": "b452a98e-198c-4dde-a250-bca43db1face",
+            "timestamp": 1795231577.8207443
+          },
+          {
+            "role": "assistant",
+            "content": "I would check the paperwork before deciding.",
+            "item_id": "81bf51d3-fbec-4fdb-94ba-fb033d87c280",
+            "timestamp": 1795231589.96755
+          },
+          {
+            "role": "user",
+            "content": "Back to what I was saying, can we talk about the car I bought in 2024?",
+            "item_id": "92cf5523-4139-40f8-bfda-165f7b716ede",
+            "timestamp": 1795231620.9714909
+          },
+          {
+            "role": "assistant",
+            "content": "That makes sense.",
+            "item_id": "bfc5b5ff-4e7a-42f3-82ce-2fbce0804d3b",
+            "timestamp": 1795231633.0126884
+          },
+          {
+            "role": "user",
+            "content": "I sold the Honda Civic today. I still own the Tesla Model Y.",
+            "item_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+            "timestamp": 1795231664.0170066
+          },
+          {
+            "role": "assistant",
+            "content": "Let us separate those two things.",
+            "item_id": "6ddc4c84-ec55-4e59-8ae2-5d5eabc89f70",
+            "timestamp": 1795231676.0668333
+          },
+          {
+            "role": "user",
+            "content": "Actually, retract the idea that Terry practices every day. I never said that was true.",
+            "item_id": "7d8a194b-470d-4297-a525-d2492f989565",
+            "timestamp": 1795231707.0710275
+          },
+          {
+            "role": "assistant",
+            "content": "Got it.",
+            "item_id": "18e7f2ef-3119-487e-99bd-976f6ef4b35f",
+            "timestamp": 1795231719.1130178
+          },
+          {
+            "role": "user",
+            "content": "What about Little Dog in winter?",
+            "item_id": "25d34ea2-7544-49ed-b59c-0a3ad22463ce",
+            "timestamp": 1795231750.1172898
+          },
+          {
+            "role": "assistant",
+            "content": "That sounds inconvenient.",
+            "item_id": "720d8f15-6bc0-4234-860d-c98c3048c849",
+            "timestamp": 1795231762.1610684
+          },
+          {
+            "role": "user",
+            "content": "Terry's basketball practice is still Thursday.",
+            "item_id": "182480d0-51f6-4fbb-9cc2-d1e8ef43a7f7",
+            "timestamp": 1795231793.165337
+          },
+          {
+            "role": "assistant",
+            "content": "Which part worries you most?",
+            "item_id": "b0d74ab8-f1cf-46fc-af7c-6d384aa0056c",
+            "timestamp": 1795231805.2140467
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "EXTRACTED_SEMANTIC_INFORMATION": [
+          {
+            "id": "per_01",
+            "name": "Terry",
+            "type": "person",
+            "domain": "relationships",
+            "aliases": [
+              "Terry"
+            ],
+            "facts": {
+              "daily_practice_claim": "Retracted; the user never said that Terry practices every day was true.",
+              "basketball_practice_day": "Thursday"
+            }
+          },
+          {
+            "id": "veh_01",
+            "name": "Honda Civic",
+            "type": "car",
+            "domain": "assets_and_possessions",
+            "aliases": [
+              "Honda",
+              "Honda Civic",
+              "the car I bought in 2024"
+            ],
+            "facts": {
+              "paperwork_purchase_year_accuracy": "The Honda paperwork has the wrong purchase year.",
+              "model": "Honda Civic",
+              "purchase_year": "2024"
+            }
+          },
+          {
+            "id": "veh_02",
+            "name": "Tesla Model Y",
+            "type": "car",
+            "domain": "assets_and_possessions",
+            "aliases": [
+              "Tesla",
+              "Tesla Model Y"
+            ],
+            "facts": {
+              "model": "Tesla Model Y",
+              "ownership_status": "Still owned by the user."
+            }
+          }
+        ],
+        "CANDIDATES_BY_OBJECT": {
+          "per_01": [
+            {
+              "id": "82ddb994-62e9-4222-bceb-75866cd1dc1a",
+              "entity_id": "per_01",
+              "name": "Terry",
+              "type": "son",
+              "domain": "relationships",
+              "aliases": [
+                "Terry",
+                "my older son"
+              ],
+              "facts": {
+                "relationship": "The user's older son",
+                "sport": "basketball"
+              },
+              "candidate_only_similarity": 0.3449026369252566
+            },
+            {
+              "id": "1f1114a3-fc73-47a0-bdf4-ea02b49d19a0",
+              "entity_id": "pet_01",
+              "name": "Luna",
+              "type": "dog",
+              "domain": "relationships",
+              "aliases": [
+                "Luna",
+                "my beagle",
+                "The dog"
+              ],
+              "facts": {
+                "ownership_status": "The user's dog",
+                "breed": "beagle",
+                "age": "four years old",
+                "symptom": "Keeps scratching at night"
+              },
+              "candidate_only_similarity": 0.2672918236504368
+            },
+            {
+              "id": "897b429b-70b5-41c7-a49b-34ad25ffb25b",
+              "entity_id": "per_02",
+              "name": "Bryan",
+              "type": "son",
+              "domain": "relationships",
+              "aliases": [
+                "Bryan",
+                "the younger one"
+              ],
+              "facts": {
+                "relationship": "The user's younger son",
+                "sport": "swimming"
+              },
+              "candidate_only_similarity": 0.2351057711112794
+            },
+            {
+              "id": "cdbded82-173e-4413-a8c8-8d0579f68fe3",
+              "entity_id": "veh_02",
+              "name": "Honda Civic",
+              "type": "car",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Honda Civic",
+                "my other car",
+                "the Honda"
+              ],
+              "facts": {
+                "ownership_status": "Owned by the user; their other car",
+                "purchase_year": "2021"
+              },
+              "candidate_only_similarity": 0.5073447643176481
+            },
+            {
+              "id": "f9b7b7fe-0232-458b-9b0e-1fef534be754",
+              "entity_id": "veh_01",
+              "name": "Tesla Model Y",
+              "type": "car",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Little Dog",
+                "Tesla",
+                "Tesla Model Y",
+                "The blue one",
+                "The red one",
+                "the Tesla"
+              ],
+              "facts": {
+                "ownership_status": "Owned by the user",
+                "purchase_year": "2024",
+                "charging_noise": "Makes a clicking sound when charged at home",
+                "nickname": "Little Dog",
+                "nickname_origin": "The kids started it",
+                "nickname_opinion": "The user thinks the nickname was a bad idea",
+                "color": "blue",
+                "exterior_wrap": "Wrapped blue yesterday",
+                "workshop_update": "Workshop called back about the Tesla; user is still waiting for a date",
+                "appearance_opinion": "The user thinks the blue exterior looks nicer",
+                "wrap_price_reaction": "The user felt the wrap price hurt"
+              },
+              "candidate_only_similarity": 0.49485177174031914
+            }
+          ],
+          "veh_01": [
+            {
+              "id": "cdbded82-173e-4413-a8c8-8d0579f68fe3",
+              "entity_id": "veh_02",
+              "name": "Honda Civic",
+              "type": "car",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Honda Civic",
+                "my other car",
+                "the Honda"
+              ],
+              "facts": {
+                "ownership_status": "Owned by the user; their other car",
+                "purchase_year": "2021"
+              },
+              "candidate_only_similarity": 0.5073447643176481
+            },
+            {
+              "id": "f9b7b7fe-0232-458b-9b0e-1fef534be754",
+              "entity_id": "veh_01",
+              "name": "Tesla Model Y",
+              "type": "car",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Little Dog",
+                "Tesla",
+                "Tesla Model Y",
+                "The blue one",
+                "The red one",
+                "the Tesla"
+              ],
+              "facts": {
+                "ownership_status": "Owned by the user",
+                "purchase_year": "2024",
+                "charging_noise": "Makes a clicking sound when charged at home",
+                "nickname": "Little Dog",
+                "nickname_origin": "The kids started it",
+                "nickname_opinion": "The user thinks the nickname was a bad idea",
+                "color": "blue",
+                "exterior_wrap": "Wrapped blue yesterday",
+                "workshop_update": "Workshop called back about the Tesla; user is still waiting for a date",
+                "appearance_opinion": "The user thinks the blue exterior looks nicer",
+                "wrap_price_reaction": "The user felt the wrap price hurt"
+              },
+              "candidate_only_similarity": 0.49485177174031914
+            },
+            {
+              "id": "82ddb994-62e9-4222-bceb-75866cd1dc1a",
+              "entity_id": "per_01",
+              "name": "Terry",
+              "type": "son",
+              "domain": "relationships",
+              "aliases": [
+                "Terry",
+                "my older son"
+              ],
+              "facts": {
+                "relationship": "The user's older son",
+                "sport": "basketball"
+              },
+              "candidate_only_similarity": 0.3449026369252566
+            },
+            {
+              "id": "18edf89e-5628-49fa-866b-35acd3f55657",
+              "entity_id": "evt_01",
+              "name": "Thursday basketball practice",
+              "type": "sports_practice",
+              "domain": "events_and_logistics",
+              "aliases": [],
+              "facts": {
+                "participant": "Terry",
+                "day": "Thursday",
+                "scheduling_conflict": "Getting him there clashes with the user's work"
+              },
+              "candidate_only_similarity": 0.3916307954680357
+            },
+            {
+              "id": "e4b57682-c134-4a5c-8c9d-18c00407a4df",
+              "entity_id": "pre_01",
+              "name": "Vehicle appointment aversion",
+              "type": "appointment_preference",
+              "domain": "preferences_and_traits",
+              "aliases": [],
+              "facts": {
+                "dislike": "The user hates making appointments for vehicle issues"
+              },
+              "candidate_only_similarity": 0.31658630180851344
+            }
+          ],
+          "veh_02": [
+            {
+              "id": "f9b7b7fe-0232-458b-9b0e-1fef534be754",
+              "entity_id": "veh_01",
+              "name": "Tesla Model Y",
+              "type": "car",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Little Dog",
+                "Tesla",
+                "Tesla Model Y",
+                "The blue one",
+                "The red one",
+                "the Tesla"
+              ],
+              "facts": {
+                "ownership_status": "Owned by the user",
+                "purchase_year": "2024",
+                "charging_noise": "Makes a clicking sound when charged at home",
+                "nickname": "Little Dog",
+                "nickname_origin": "The kids started it",
+                "nickname_opinion": "The user thinks the nickname was a bad idea",
+                "color": "blue",
+                "exterior_wrap": "Wrapped blue yesterday",
+                "workshop_update": "Workshop called back about the Tesla; user is still waiting for a date",
+                "appearance_opinion": "The user thinks the blue exterior looks nicer",
+                "wrap_price_reaction": "The user felt the wrap price hurt"
+              },
+              "candidate_only_similarity": 0.49485177174031914
+            },
+            {
+              "id": "cdbded82-173e-4413-a8c8-8d0579f68fe3",
+              "entity_id": "veh_02",
+              "name": "Honda Civic",
+              "type": "car",
+              "domain": "assets_and_possessions",
+              "aliases": [
+                "Honda Civic",
+                "my other car",
+                "the Honda"
+              ],
+              "facts": {
+                "ownership_status": "Owned by the user; their other car",
+                "purchase_year": "2021"
+              },
+              "candidate_only_similarity": 0.5073447643176481
+            },
+            {
+              "id": "82ddb994-62e9-4222-bceb-75866cd1dc1a",
+              "entity_id": "per_01",
+              "name": "Terry",
+              "type": "son",
+              "domain": "relationships",
+              "aliases": [
+                "Terry",
+                "my older son"
+              ],
+              "facts": {
+                "relationship": "The user's older son",
+                "sport": "basketball"
+              },
+              "candidate_only_similarity": 0.3449026369252566
+            },
+            {
+              "id": "18edf89e-5628-49fa-866b-35acd3f55657",
+              "entity_id": "evt_01",
+              "name": "Thursday basketball practice",
+              "type": "sports_practice",
+              "domain": "events_and_logistics",
+              "aliases": [],
+              "facts": {
+                "participant": "Terry",
+                "day": "Thursday",
+                "scheduling_conflict": "Getting him there clashes with the user's work"
+              },
+              "candidate_only_similarity": 0.3916307954680357
+            },
+            {
+              "id": "e4b57682-c134-4a5c-8c9d-18c00407a4df",
+              "entity_id": "pre_01",
+              "name": "Vehicle appointment aversion",
+              "type": "appointment_preference",
+              "domain": "preferences_and_traits",
+              "aliases": [],
+              "facts": {
+                "dislike": "The user hates making appointments for vehicle issues"
+              },
+              "candidate_only_similarity": 0.31658630180851344
+            }
+          ]
+        },
+        "CANDIDATE_SET_TRUNCATED": {
+          "per_01": false,
+          "veh_01": false,
+          "veh_02": false
+        }
+      },
+      "output": {
+        "resolutions": [
+          {
+            "extracted_entity_id": "per_01",
+            "kind": "MATCH_ONE",
+            "targets": [
+              {
+                "db_id": "82ddb994-62e9-4222-bceb-75866cd1dc1a",
+                "resolution_confidence": 0.99,
+                "evidence": "EXPLICIT"
+              }
+            ],
+            "applies_equally_to_all": false,
+            "new_entity_evidence": null,
+            "explicitly_new": false,
+            "reasoning": "Terry is explicitly named, and the basketball context supports the named Terry candidate."
+          },
+          {
+            "extracted_entity_id": "veh_01",
+            "kind": "MATCH_ONE",
+            "targets": [
+              {
+                "db_id": "cdbded82-173e-4413-a8c8-8d0579f68fe3",
+                "resolution_confidence": 0.99,
+                "evidence": "EXPLICIT"
+              }
+            ],
+            "applies_equally_to_all": false,
+            "new_entity_evidence": null,
+            "explicitly_new": false,
+            "reasoning": "The user explicitly identifies the Honda Civic and distinguishes it from the Tesla. The purchase-year reference does not override that explicit identity or justify merging the two cars; its attribution is less certain than the named identity."
+          },
+          {
+            "extracted_entity_id": "veh_02",
+            "kind": "MATCH_ONE",
+            "targets": [
+              {
+                "db_id": "f9b7b7fe-0232-458b-9b0e-1fef534be754",
+                "resolution_confidence": 0.99,
+                "evidence": "EXPLICIT"
+              }
+            ],
+            "applies_equally_to_all": false,
+            "new_entity_evidence": null,
+            "explicitly_new": false,
+            "reasoning": "The user explicitly names the Tesla Model Y as still owned, separately from the Honda Civic. This matches the named Tesla candidate regardless of local extracted IDs."
+          }
+        ]
+      }
+    },
+    "MutationPlanResponse": {
+      "trace": "long-01-rep3",
+      "stage": "MutationPlanResponse",
+      "input": {
+        "CURRENT_BATCH": [
+          {
+            "item_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+            "role": "user",
+            "content": "oh, one more thing: the Honda paperwork has the wrong purchase year.",
+            "timestamp": 1795231448.564687
+          },
+          {
+            "item_id": "cf0b7838-c42c-421e-ba4c-afd8b7d059a7",
+            "role": "assistant",
+            "content": "Which part worries you most?",
+            "timestamp": 1795231460.6088436
+          },
+          {
+            "item_id": "09b19283-f121-4f58-b30e-74df43b48d72",
+            "role": "user",
+            "content": "No, not that one. I mean the Honda Civic, not the Tesla.",
+            "timestamp": 1795231491.6135435
+          },
+          {
+            "item_id": "fdcad986-1fd1-444c-a071-e916f50bb151",
+            "role": "assistant",
+            "content": "We can come back to that.",
+            "timestamp": 1795231503.7635822
+          },
+          {
+            "item_id": "b18571c6-8da9-48ab-b72a-caff4c0fcf9b",
+            "role": "user",
+            "content": "How does a database index work?",
+            "timestamp": 1795231534.7694736
+          },
+          {
+            "item_id": "f05ad204-4963-41c3-9658-c2b3531e8ccc",
+            "role": "assistant",
+            "content": "Okay, keep going.",
+            "timestamp": 1795231546.8165636
+          },
+          {
+            "item_id": "b452a98e-198c-4dde-a250-bca43db1face",
+            "role": "user",
+            "content": "I see",
+            "timestamp": 1795231577.8207443
+          },
+          {
+            "item_id": "81bf51d3-fbec-4fdb-94ba-fb033d87c280",
+            "role": "assistant",
+            "content": "I would check the paperwork before deciding.",
+            "timestamp": 1795231589.96755
+          },
+          {
+            "item_id": "92cf5523-4139-40f8-bfda-165f7b716ede",
+            "role": "user",
+            "content": "Back to what I was saying, can we talk about the car I bought in 2024?",
+            "timestamp": 1795231620.9714909
+          },
+          {
+            "item_id": "bfc5b5ff-4e7a-42f3-82ce-2fbce0804d3b",
+            "role": "assistant",
+            "content": "That makes sense.",
+            "timestamp": 1795231633.0126884
+          },
+          {
+            "item_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+            "role": "user",
+            "content": "I sold the Honda Civic today. I still own the Tesla Model Y.",
+            "timestamp": 1795231664.0170066
+          },
+          {
+            "item_id": "6ddc4c84-ec55-4e59-8ae2-5d5eabc89f70",
+            "role": "assistant",
+            "content": "Let us separate those two things.",
+            "timestamp": 1795231676.0668333
+          },
+          {
+            "item_id": "7d8a194b-470d-4297-a525-d2492f989565",
+            "role": "user",
+            "content": "Actually, retract the idea that Terry practices every day. I never said that was true.",
+            "timestamp": 1795231707.0710275
+          },
+          {
+            "item_id": "18e7f2ef-3119-487e-99bd-976f6ef4b35f",
+            "role": "assistant",
+            "content": "Got it.",
+            "timestamp": 1795231719.1130178
+          },
+          {
+            "item_id": "25d34ea2-7544-49ed-b59c-0a3ad22463ce",
+            "role": "user",
+            "content": "What about Little Dog in winter?",
+            "timestamp": 1795231750.1172898
+          },
+          {
+            "item_id": "720d8f15-6bc0-4234-860d-c98c3048c849",
+            "role": "assistant",
+            "content": "That sounds inconvenient.",
+            "timestamp": 1795231762.1610684
+          },
+          {
+            "item_id": "182480d0-51f6-4fbb-9cc2-d1e8ef43a7f7",
+            "role": "user",
+            "content": "Terry's basketball practice is still Thursday.",
+            "timestamp": 1795231793.165337
+          },
+          {
+            "item_id": "b0d74ab8-f1cf-46fc-af7c-6d384aa0056c",
+            "role": "assistant",
+            "content": "Which part worries you most?",
+            "timestamp": 1795231805.2140467
+          }
+        ],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANONICAL_ATTRIBUTE_GUIDANCE": {
+          "ownership": "ownership_status",
+          "ownership_status": "ownership_status",
+          "vehicle_ownership": "ownership_status"
+        },
+        "TARGETS": [
+          {
+            "target_key": "target_0",
+            "identity": {
+              "entity_id": "per_01",
+              "entity_name": "Terry",
+              "entity_domain": "relationships",
+              "entity_type": "son"
+            },
+            "incoming_semantics": [
+              {
+                "attribute_name": "daily_practice_claim",
+                "value": "Retracted; the user never said that Terry practices every day was true.",
+                "status": "archived",
+                "source_chat_id": "7d8a194b-470d-4297-a525-d2492f989565",
+                "confidence": 1.0
+              },
+              {
+                "attribute_name": "basketball_practice_day",
+                "value": "Thursday",
+                "status": "active",
+                "source_chat_id": "182480d0-51f6-4fbb-9cc2-d1e8ef43a7f7",
+                "confidence": 1.0
+              }
+            ],
+            "assertions": [
+              {
+                "fact_id": "8cea878b-6068-5af7-a3d5-63541bc38d67",
+                "attribute_name": "relationship",
+                "value": "The user's older son",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "69ca0e7d-6c50-5b1c-a8d1-ebc65f4f98f4",
+                "attribute_name": "sport",
+                "value": "basketball",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          },
+          {
+            "target_key": "target_1",
+            "identity": {
+              "entity_id": "veh_02",
+              "entity_name": "Honda Civic",
+              "entity_domain": "assets_and_possessions",
+              "entity_type": "car"
+            },
+            "incoming_semantics": [
+              {
+                "attribute_name": "paperwork_purchase_year_accuracy",
+                "value": "The Honda paperwork has the wrong purchase year.",
+                "status": "active",
+                "source_chat_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+                "confidence": 1.0
+              },
+              {
+                "attribute_name": "model",
+                "value": "Honda Civic",
+                "status": "active",
+                "source_chat_id": "09b19283-f121-4f58-b30e-74df43b48d72",
+                "confidence": 1.0
+              },
+              {
+                "attribute_name": "purchase_year",
+                "value": "2024",
+                "status": "active",
+                "source_chat_id": "92cf5523-4139-40f8-bfda-165f7b716ede",
+                "confidence": 0.9
+              },
+              {
+                "attribute_name": "ownership_status",
+                "value": "Sold today.",
+                "status": "past",
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "confidence": 1.0
+              }
+            ],
+            "assertions": [
+              {
+                "fact_id": "7f904af9-daf5-55db-b03e-bd937b24dd69",
+                "attribute_name": "ownership_status",
+                "value": "Owned by the user; their other car",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "c151c733-aea8-5e95-a691-241220d749cb",
+                "attribute_name": "purchase_year",
+                "value": "2021",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          },
+          {
+            "target_key": "target_2",
+            "identity": {
+              "entity_id": "veh_01",
+              "entity_name": "Tesla Model Y",
+              "entity_domain": "assets_and_possessions",
+              "entity_type": "car"
+            },
+            "incoming_semantics": [
+              {
+                "attribute_name": "model",
+                "value": "Tesla Model Y",
+                "status": "active",
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "confidence": 1.0
+              },
+              {
+                "attribute_name": "ownership_status",
+                "value": "Still owned by the user.",
+                "status": "active",
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "confidence": 1.0
+              }
+            ],
+            "assertions": [
+              {
+                "fact_id": "3dc14a21-a4f6-52de-8daa-8ea76f8baf50",
+                "attribute_name": "ownership_status",
+                "value": "Owned by the user",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "b8b71440-dc8f-5cb5-8cad-9e8028d5241c",
+                "attribute_name": "purchase_year",
+                "value": "2024",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "6139b5f9-d4a7-5cc1-b134-c66c15979770",
+                "attribute_name": "charging_noise",
+                "value": "Makes a clicking sound when charged at home",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "3b5cda02-0d36-5a4a-9bee-3fdbdbd010a2",
+                "attribute_name": "nickname",
+                "value": "Little Dog",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "2e5f06e5-a22d-5bed-89e8-07fcf1b312c7",
+                "attribute_name": "nickname_origin",
+                "value": "The kids started it",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "d0910a5c-0d04-5dbb-b901-137b53f85389",
+                "attribute_name": "nickname_opinion",
+                "value": "The user thinks the nickname was a bad idea",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "ad2a6053-31ac-5f90-bfd1-b76fa35ea4a4",
+                "attribute_name": "color",
+                "value": "blue",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": "54240953-cc34-5848-8bec-a5b882d6a99f",
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "1d36a42c-6a99-51a3-9cc7-263e1f3991b1",
+                "attribute_name": "exterior_wrap",
+                "value": "Wrapped blue yesterday",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "93b1ca1c-0434-5ac3-b181-58e3443c0484",
+                "attribute_name": "workshop_update",
+                "value": "Workshop called back about the Tesla; user is still waiting for a date",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "806a0379-05c0-514f-964f-fcce38b94632",
+                "attribute_name": "appearance_opinion",
+                "value": "The user thinks the blue exterior looks nicer",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "c4490bf7-ca72-5047-a1d9-e01caa070806",
+                "attribute_name": "wrap_price_reaction",
+                "value": "The user felt the wrap price hurt",
+                "assertion_state": "ACTIVE",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              },
+              {
+                "fact_id": "54240953-cc34-5848-8bec-a5b882d6a99f",
+                "attribute_name": "color",
+                "value": "red",
+                "assertion_state": "HISTORICAL",
+                "effective_at": null,
+                "supersedes_fact_id": null,
+                "corrects_fact_id": null
+              }
+            ],
+            "assertions_truncated": false
+          }
+        ]
+      },
+      "output": {
+        "plans": [
+          {
+            "target_key": "target_0",
+            "operations": [
+              {
+                "operation": "ADD",
+                "target_fact_id": null,
+                "attribute_name": "basketball_practice_day",
+                "new_value": "Thursday",
+                "source_chat_ids": [
+                  "182480d0-51f6-4fbb-9cc2-d1e8ef43a7f7"
+                ],
+                "interpretation_confidence": 1.0,
+                "evidence_type": "USER_EXPLICIT"
+              }
+            ]
+          },
+          {
+            "target_key": "target_1",
+            "operations": [
+              {
+                "operation": "ADD",
+                "target_fact_id": null,
+                "attribute_name": "paperwork_purchase_year_accuracy",
+                "new_value": "The paperwork has the wrong purchase year.",
+                "source_chat_ids": [
+                  "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+                  "09b19283-f121-4f58-b30e-74df43b48d72"
+                ],
+                "interpretation_confidence": 0.99,
+                "evidence_type": "RESOLVED_REFERENCE"
+              },
+              {
+                "operation": "CORRECT",
+                "target_fact_id": "c151c733-aea8-5e95-a691-241220d749cb",
+                "attribute_name": "purchase_year",
+                "new_value": "2024",
+                "source_chat_ids": [
+                  "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+                  "09b19283-f121-4f58-b30e-74df43b48d72",
+                  "92cf5523-4139-40f8-bfda-165f7b716ede"
+                ],
+                "interpretation_confidence": 0.88,
+                "evidence_type": "RESOLVED_REFERENCE"
+              },
+              {
+                "operation": "SUPERSEDE",
+                "target_fact_id": "7f904af9-daf5-55db-b03e-bd937b24dd69",
+                "attribute_name": "ownership_status",
+                "new_value": "Sold; no longer owned by the user.",
+                "source_chat_ids": [
+                  "4bd676b6-8ea1-440a-ba62-0c792e3f89cf"
+                ],
+                "interpretation_confidence": 1.0,
+                "evidence_type": "USER_EXPLICIT"
+              }
+            ]
+          },
+          {
+            "target_key": "target_2",
+            "operations": [
+              {
+                "operation": "REINFORCE",
+                "target_fact_id": "3dc14a21-a4f6-52de-8daa-8ea76f8baf50",
+                "attribute_name": null,
+                "new_value": null,
+                "source_chat_ids": [
+                  "4bd676b6-8ea1-440a-ba62-0c792e3f89cf"
+                ],
+                "interpretation_confidence": 1.0,
+                "evidence_type": "USER_EXPLICIT"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "final_records": [
+    {
+      "id": "82ddb994-62e9-4222-bceb-75866cd1dc1a",
+      "tenant_id": "world-eval-f68346413f8c442584a2111dc9343c3f-group-0",
+      "user_id": "user-0-repeat-3-long-01",
+      "entity_id": "per_01",
+      "entity_name": "Terry",
+      "entity_domain": "relationships",
+      "entity_type": "son",
+      "payload": {
+        "facts": [
+          {
+            "value": "The user's older son",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "8cea878b-6068-5af7-a3d5-63541bc38d67",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:14:11Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "ce92f2a4-1d6b-43fe-b9fd-1369c221d795",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:14:11Z",
+            "importance": 4,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "relationship",
+            "source_chat_id": "ce92f2a4-1d6b-43fe-b9fd-1369c221d795",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:14:11Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "basketball",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "69ca0e7d-6c50-5b1c-a8d1-ebc65f4f98f4",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:14:11Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "ce92f2a4-1d6b-43fe-b9fd-1369c221d795",
+                "interpretation_confidence": 1.0
+              },
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:18:29Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "bb4c8dbf-05c5-45bf-9d4c-21ae4aa2b766",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:14:11Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 2,
+            "attribute_name": "sport",
+            "source_chat_id": "ce92f2a4-1d6b-43fe-b9fd-1369c221d795",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:18:29Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "Thursday",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "66491280-fe38-5df5-a410-504ab9e7b35f",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-21T03:29:53Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "182480d0-51f6-4fbb-9cc2-d1e8ef43a7f7",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-21T03:29:53Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "basketball_practice_day",
+            "source_chat_id": "182480d0-51f6-4fbb-9cc2-d1e8ef43a7f7",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-21T03:29:53Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          }
+        ],
+        "aliases": [
+          "Terry",
+          "my older son"
+        ],
+        "entity_id": "per_01",
+        "entity_name": "Terry",
+        "entity_type": "son",
+        "entity_domain": "relationships"
+      }
+    },
+    {
+      "id": "f9b7b7fe-0232-458b-9b0e-1fef534be754",
+      "tenant_id": "world-eval-f68346413f8c442584a2111dc9343c3f-group-0",
+      "user_id": "user-0-repeat-3-long-01",
+      "entity_id": "veh_01",
+      "entity_name": "Tesla Model Y",
+      "entity_domain": "assets_and_possessions",
+      "entity_type": "car",
+      "payload": {
+        "facts": [
+          {
+            "value": "Owned by the user",
+            "origin": "USER_IMPLIED",
+            "status": "active",
+            "fact_id": "3dc14a21-a4f6-52de-8daa-8ea76f8baf50",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:09:53Z",
+                "evidence_type": "USER_IMPLIED",
+                "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+                "interpretation_confidence": 0.99
+              },
+              {
+                "operation": "REINFORCE",
+                "recorded_at": "2026-11-21T03:27:44Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:09:53Z",
+            "importance": 4,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 2,
+            "attribute_name": "ownership_status",
+            "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-21T03:27:44Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "2024",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "b8b71440-dc8f-5cb5-8cad-9e8028d5241c",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:09:53Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:09:53Z",
+            "importance": 4,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "purchase_year",
+            "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:09:53Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "red",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "54240953-cc34-5848-8bec-a5b882d6a99f",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:09:53Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+                "interpretation_confidence": 1.0
+              },
+              {
+                "operation": "SUPERSEDE",
+                "recorded_at": "2026-11-19T03:22:18Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "f9d93f61-6844-4ae1-8190-1863185381c3",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:09:53Z",
+            "importance": 4,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "color",
+            "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+            "assertion_state": "HISTORICAL",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:09:53Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "Makes a clicking sound when charged at home",
+            "origin": "RESOLVED_REFERENCE",
+            "status": "active",
+            "fact_id": "6139b5f9-d4a7-5cc1-b134-c66c15979770",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:10:36Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "3ffaba97-6b81-4bfe-81c5-f4c40900290f",
+                "interpretation_confidence": 1.0
+              },
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:09:53Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:09:53Z",
+            "importance": 2,
+            "volatility": "ephemeral",
+            "effective_at": null,
+            "mention_count": 2,
+            "attribute_name": "charging_noise",
+            "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:10:36Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "Little Dog",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "3b5cda02-0d36-5a4a-9bee-3fdbdbd010a2",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:12:45Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "668e4d64-da24-4f52-b42d-297aaaa1f2ad",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:12:45Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "nickname",
+            "source_chat_id": "668e4d64-da24-4f52-b42d-297aaaa1f2ad",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:12:45Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "The kids started it",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "2e5f06e5-a22d-5bed-89e8-07fcf1b312c7",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:12:45Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "668e4d64-da24-4f52-b42d-297aaaa1f2ad",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:12:45Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "nickname_origin",
+            "source_chat_id": "668e4d64-da24-4f52-b42d-297aaaa1f2ad",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:12:45Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "The user thinks the nickname was a bad idea",
+            "origin": "RESOLVED_REFERENCE",
+            "status": "active",
+            "fact_id": "d0910a5c-0d04-5dbb-b901-137b53f85389",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:17:03Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "d412b05b-d3b2-48d0-af92-f83dddb6502c",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:17:03Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "nickname_opinion",
+            "source_chat_id": "d412b05b-d3b2-48d0-af92-f83dddb6502c",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:17:03Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "blue",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "ad2a6053-31ac-5f90-bfd1-b76fa35ea4a4",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "SUPERSEDE",
+                "recorded_at": "2026-11-19T03:22:18Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "f9d93f61-6844-4ae1-8190-1863185381c3",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:22:18Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "color",
+            "source_chat_id": "f9d93f61-6844-4ae1-8190-1863185381c3",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:22:18Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": "54240953-cc34-5848-8bec-a5b882d6a99f"
+          },
+          {
+            "value": "Wrapped blue yesterday",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "1d36a42c-6a99-51a3-9cc7-263e1f3991b1",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:22:18Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "f9d93f61-6844-4ae1-8190-1863185381c3",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:22:18Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "exterior_wrap",
+            "source_chat_id": "f9d93f61-6844-4ae1-8190-1863185381c3",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:22:18Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "Workshop called back about the Tesla; user is still waiting for a date",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "93b1ca1c-0434-5ac3-b181-58e3443c0484",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:21:35Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "8aec313f-4099-4215-8dee-5d9a5576d61e",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:21:35Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "workshop_update",
+            "source_chat_id": "8aec313f-4099-4215-8dee-5d9a5576d61e",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:21:35Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "The user thinks the blue exterior looks nicer",
+            "origin": "RESOLVED_REFERENCE",
+            "status": "active",
+            "fact_id": "806a0379-05c0-514f-964f-fcce38b94632",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:23:01Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "baeb019f-2d98-4fd6-8cbe-b87f50fd98d0",
+                "interpretation_confidence": 0.99
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 0.99,
+            "created_at": "2026-11-19T03:23:01Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "appearance_opinion",
+            "source_chat_id": "baeb019f-2d98-4fd6-8cbe-b87f50fd98d0",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:23:01Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "The user felt the wrap price hurt",
+            "origin": "RESOLVED_REFERENCE",
+            "status": "active",
+            "fact_id": "c4490bf7-ca72-5047-a1d9-e01caa070806",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:23:01Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "baeb019f-2d98-4fd6-8cbe-b87f50fd98d0",
+                "interpretation_confidence": 0.98
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 0.98,
+            "created_at": "2026-11-19T03:23:01Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "wrap_price_reaction",
+            "source_chat_id": "baeb019f-2d98-4fd6-8cbe-b87f50fd98d0",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:23:01Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          }
+        ],
+        "aliases": [
+          "Little Dog",
+          "Tesla",
+          "Tesla Model Y",
+          "The blue one",
+          "The red one",
+          "the Tesla"
+        ],
+        "entity_id": "veh_01",
+        "entity_name": "Tesla Model Y",
+        "entity_type": "car",
+        "entity_domain": "assets_and_possessions"
+      }
+    },
+    {
+      "id": "cdbded82-173e-4413-a8c8-8d0579f68fe3",
+      "tenant_id": "world-eval-f68346413f8c442584a2111dc9343c3f-group-0",
+      "user_id": "user-0-repeat-3-long-01",
+      "entity_id": "veh_02",
+      "entity_name": "Honda Civic",
+      "entity_domain": "assets_and_possessions",
+      "entity_type": "car",
+      "payload": {
+        "facts": [
+          {
+            "value": "Owned by the user; their other car",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "7f904af9-daf5-55db-b03e-bd937b24dd69",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:09:53Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+                "interpretation_confidence": 1.0
+              },
+              {
+                "operation": "SUPERSEDE",
+                "recorded_at": "2026-11-21T03:27:44Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:09:53Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "ownership_status",
+            "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+            "assertion_state": "HISTORICAL",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:09:53Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "2021",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "c151c733-aea8-5e95-a691-241220d749cb",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-19T03:13:28Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "2c97b996-dd2a-452b-8232-b928ae490cbd",
+                "interpretation_confidence": 1.0
+              },
+              {
+                "operation": "CORRECT",
+                "recorded_at": "2026-11-21T03:24:08Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+                "interpretation_confidence": 0.88
+              },
+              {
+                "operation": "CORRECT",
+                "recorded_at": "2026-11-21T03:24:51Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "09b19283-f121-4f58-b30e-74df43b48d72",
+                "interpretation_confidence": 0.88
+              },
+              {
+                "operation": "CORRECT",
+                "recorded_at": "2026-11-21T03:27:00Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "92cf5523-4139-40f8-bfda-165f7b716ede",
+                "interpretation_confidence": 0.88
+              }
+            ],
+            "timeline": [
+              {
+                "timestamp": "2026-11-19T03:09:53Z",
+                "source_chat_id": "134f6596-1f0f-41ff-b9f7-6dd380530143",
+                "event_description": "Initially reported purchase year as 2022"
+              },
+              {
+                "timestamp": "2026-11-19T03:13:28Z",
+                "source_chat_id": "2c97b996-dd2a-452b-8232-b928ae490cbd",
+                "event_description": "Corrected purchase year to 2021, not 2022"
+              }
+            ],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-19T03:13:28Z",
+            "importance": 4,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "purchase_year",
+            "source_chat_id": "2c97b996-dd2a-452b-8232-b928ae490cbd",
+            "assertion_state": "CORRECTED_INVALID",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-19T03:13:28Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "The paperwork has the wrong purchase year.",
+            "origin": "RESOLVED_REFERENCE",
+            "status": "active",
+            "fact_id": "0331aa59-2ff6-5c02-a92e-d6ac812a037f",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-21T03:24:08Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+                "interpretation_confidence": 0.99
+              },
+              {
+                "operation": "ADD",
+                "recorded_at": "2026-11-21T03:24:51Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "09b19283-f121-4f58-b30e-74df43b48d72",
+                "interpretation_confidence": 0.99
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 0.99,
+            "created_at": "2026-11-21T03:24:08Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 2,
+            "attribute_name": "paperwork_purchase_year_accuracy",
+            "source_chat_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-21T03:24:51Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "2024",
+            "origin": "RESOLVED_REFERENCE",
+            "status": "active",
+            "fact_id": "5a524dee-5fe6-55e4-8c9b-a18908f92704",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "CORRECT",
+                "recorded_at": "2026-11-21T03:24:08Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+                "interpretation_confidence": 0.88
+              },
+              {
+                "operation": "CORRECT",
+                "recorded_at": "2026-11-21T03:24:51Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "09b19283-f121-4f58-b30e-74df43b48d72",
+                "interpretation_confidence": 0.88
+              },
+              {
+                "operation": "CORRECT",
+                "recorded_at": "2026-11-21T03:27:00Z",
+                "evidence_type": "RESOLVED_REFERENCE",
+                "source_chat_id": "92cf5523-4139-40f8-bfda-165f7b716ede",
+                "interpretation_confidence": 0.88
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 0.9,
+            "created_at": "2026-11-21T03:24:08Z",
+            "importance": 4,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 3,
+            "attribute_name": "purchase_year",
+            "source_chat_id": "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": "c151c733-aea8-5e95-a691-241220d749cb",
+            "last_mentioned_at": "2026-11-21T03:27:00Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": null
+          },
+          {
+            "value": "Sold; no longer owned by the user.",
+            "origin": "USER_EXPLICIT",
+            "status": "active",
+            "fact_id": "eef3724c-8086-5d7b-8894-63963a5d713d",
+            "ended_at": null,
+            "evidence": [
+              {
+                "operation": "SUPERSEDE",
+                "recorded_at": "2026-11-21T03:27:44Z",
+                "evidence_type": "USER_EXPLICIT",
+                "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+                "interpretation_confidence": 1.0
+              }
+            ],
+            "timeline": [],
+            "sentiment": "neutral",
+            "confidence": 1.0,
+            "created_at": "2026-11-21T03:27:44Z",
+            "importance": 3,
+            "volatility": "core",
+            "effective_at": null,
+            "mention_count": 1,
+            "attribute_name": "ownership_status",
+            "source_chat_id": "4bd676b6-8ea1-440a-ba62-0c792e3f89cf",
+            "assertion_state": "ACTIVE",
+            "corrects_fact_id": null,
+            "last_mentioned_at": "2026-11-21T03:27:44Z",
+            "related_entity_ids": [],
+            "supersedes_fact_id": "7f904af9-daf5-55db-b03e-bd937b24dd69"
+          }
+        ],
+        "aliases": [
+          "Honda",
+          "Honda Civic",
+          "my other car",
+          "the Honda",
+          "the car I bought in 2024"
+        ],
+        "entity_id": "veh_02",
+        "entity_name": "Honda Civic",
+        "entity_type": "car",
+        "entity_domain": "assets_and_possessions"
+      }
+    }
+  ],
+  "recorded_correction": {
+    "operation": "CORRECT",
+    "target_fact_id": "c151c733-aea8-5e95-a691-241220d749cb",
+    "attribute_name": "purchase_year",
+    "new_value": "2024",
+    "source_chat_ids": [
+      "14352a8d-63c0-4229-9c2e-ed8b7e0b000d",
+      "09b19283-f121-4f58-b30e-74df43b48d72",
+      "92cf5523-4139-40f8-bfda-165f7b716ede"
+    ],
+    "interpretation_confidence": 0.88,
+    "evidence_type": "RESOLVED_REFERENCE"
+  },
+  "fixture_scope": "Complete conversation and failing model calls; persisted records restricted to the three planner targets. Full original evidence remains in log/real_world/.",
+  "session_id": "long-01-b-rep3"
+}

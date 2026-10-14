@@ -1,0 +1,6067 @@
+[
+  {
+    "trace_id": "long-01",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u17",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u20",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u23",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u25",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u19",
+        "required": [
+          "honda"
+        ],
+        "acceptable": [
+          "honda"
+        ],
+        "kind": "topic"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u06",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u13",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u17",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      },
+      {
+        "turn_id": "u27",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      }
+    ]
+  },
+  {
+    "trace_id": "long-02",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u17",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u23",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u25",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "bryan"
+        ],
+        "acceptable": [
+          "bryan"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u20",
+        "required": [
+          "honda"
+        ],
+        "acceptable": [
+          "honda"
+        ],
+        "kind": "topic"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u13",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u16",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u17",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  },
+  {
+    "trace_id": "long-03",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u15",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u17",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u19",
+        "required": [
+          "bryan"
+        ],
+        "acceptable": [
+          "bryan"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u23",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "tomte"
+        ],
+        "acceptable": [
+          "tomte"
+        ],
+        "kind": "old_return"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u14",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u15",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u17",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  },
+  {
+    "trace_id": "long-04",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u19",
+        "required": [
+          "bryan"
+        ],
+        "acceptable": [
+          "terry",
+          "bryan"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u23",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u25",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u08",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u11",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u16",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  },
+  {
+    "trace_id": "long-05",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u19",
+        "required": [
+          "bryan"
+        ],
+        "acceptable": [
+          "bryan"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u23",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "tomte"
+        ],
+        "acceptable": [
+          "tomte"
+        ],
+        "kind": "old_return"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u05",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u14",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u16",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  },
+  {
+    "trace_id": "long-06",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u17",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u20",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u23",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u25",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u19",
+        "required": [
+          "honda"
+        ],
+        "acceptable": [
+          "honda"
+        ],
+        "kind": "topic"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u06",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u13",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u17",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      },
+      {
+        "turn_id": "u27",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      }
+    ]
+  },
+  {
+    "trace_id": "long-07",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u17",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u23",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u25",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "bryan"
+        ],
+        "acceptable": [
+          "bryan"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u20",
+        "required": [
+          "honda"
+        ],
+        "acceptable": [
+          "honda"
+        ],
+        "kind": "topic"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u13",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u16",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u17",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  },
+  {
+    "trace_id": "long-08",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u15",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u17",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u19",
+        "required": [
+          "bryan"
+        ],
+        "acceptable": [
+          "bryan"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u23",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "tomte"
+        ],
+        "acceptable": [
+          "tomte"
+        ],
+        "kind": "old_return"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u14",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u15",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u17",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  },
+  {
+    "trace_id": "long-09",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": true,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u25",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u08",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u11",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u16",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  },
+  {
+    "trace_id": "long-10",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": true,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "tomte"
+        ],
+        "acceptable": [
+          "tomte"
+        ],
+        "kind": "old_return"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u05",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u14",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u16",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  },
+  {
+    "trace_id": "long-11",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": true,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u17",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u20",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u25",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u06",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u13",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u17",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      },
+      {
+        "turn_id": "u27",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      }
+    ]
+  },
+  {
+    "trace_id": "long-12",
+    "entities": {
+      "tesla": {
+        "names": [
+          "Tesla Model Y",
+          "Tesla",
+          "Little Dog"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "honda": {
+        "names": [
+          "Honda Civic",
+          "Honda"
+        ],
+        "domain": "assets_and_possessions"
+      },
+      "terry": {
+        "names": [
+          "Terry"
+        ],
+        "domain": "relationships"
+      },
+      "bryan": {
+        "names": [
+          "Bryan"
+        ],
+        "domain": "relationships"
+      },
+      "luna": {
+        "names": [
+          "Luna"
+        ],
+        "domain": "relationships"
+      },
+      "tomte": {
+        "names": [
+          "Tomte"
+        ],
+        "domain": "activities_and_skills"
+      }
+    },
+    "turn_annotations": [
+      {
+        "turn_id": "u01",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u02",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u03",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u04",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u05",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u06",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u07",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u08",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u09",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u10",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u11",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u12",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u13",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u14",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u15",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u16",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u17",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u18",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u19",
+        "filler": false,
+        "ambiguous": true,
+        "topic_switch": true
+      },
+      {
+        "turn_id": "u20",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u21",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u22",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u23",
+        "filler": true,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u24",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u25",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u26",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      },
+      {
+        "turn_id": "u27",
+        "filler": false,
+        "ambiguous": false,
+        "topic_switch": false
+      }
+    ],
+    "retrieval_checkpoints": [
+      {
+        "turn_id": "u16",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u17",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "topic"
+      },
+      {
+        "turn_id": "u24",
+        "required": [
+          "honda",
+          "tesla"
+        ],
+        "acceptable": [
+          "honda",
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u25",
+        "required": [
+          "terry"
+        ],
+        "acceptable": [
+          "terry"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u26",
+        "required": [
+          "tesla"
+        ],
+        "acceptable": [
+          "tesla"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u27",
+        "required": [
+          "bryan"
+        ],
+        "acceptable": [
+          "bryan"
+        ],
+        "kind": "old_return"
+      },
+      {
+        "turn_id": "u20",
+        "required": [
+          "honda"
+        ],
+        "acceptable": [
+          "honda"
+        ],
+        "kind": "topic"
+      }
+    ],
+    "expected_final_facts": [
+      {
+        "entity": "tesla",
+        "values": [
+          "blue"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "red"
+        ],
+        "attribute_contains": [
+          "color",
+          "colour",
+          "exterior"
+        ],
+        "state": "HISTORICAL"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "2021"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "basketball"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "bryan",
+        "values": [
+          "swimming",
+          "swim"
+        ],
+        "attribute_contains": [
+          "sport",
+          "hobby",
+          "activity"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "tomte",
+        "values": [
+          "postgresql"
+        ],
+        "attribute_contains": [
+          "database",
+          "stack",
+          "technolog",
+          "backend",
+          "use"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "luna",
+        "values": [
+          "4",
+          "four"
+        ],
+        "attribute_contains": [
+          "age"
+        ],
+        "state": "ACTIVE"
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership",
+          "sale_status"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "negative_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "state": "ACTIVE",
+        "value_rule": "positive_ownership"
+      }
+    ],
+    "expected_aliases": {
+      "tesla": [
+        "Little Dog"
+      ]
+    },
+    "forbidden_active": [
+      {
+        "entity": "honda",
+        "values": [
+          "2022"
+        ],
+        "attribute_contains": [
+          "year",
+          "bought",
+          "purchase"
+        ]
+      },
+      {
+        "entity": "terry",
+        "values": [
+          "every day",
+          "daily"
+        ],
+        "attribute_contains": [
+          "practice",
+          "frequency"
+        ]
+      },
+      {
+        "entity": "honda",
+        "values": [
+          "owned",
+          "own"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "positive_ownership"
+      },
+      {
+        "entity": "tesla",
+        "values": [
+          "sold",
+          "no longer owned"
+        ],
+        "attribute_contains": [
+          "ownership"
+        ],
+        "value_rule": "negative_ownership"
+      }
+    ],
+    "later_queries": [
+      {
+        "text": "What color is my Tesla now?",
+        "required": [
+          "tesla"
+        ]
+      },
+      {
+        "text": "What sport does Terry play?",
+        "required": [
+          "terry"
+        ]
+      },
+      {
+        "text": "What project was using PostgreSQL?",
+        "required": [
+          "tomte"
+        ]
+      }
+    ],
+    "notes": [
+      "Expected-value matching is a strict deterministic checklist, not an LLM semantic judge. Unmatched extra facts require review.",
+      "Ambiguous car/son reference should abstain; assistant daily-practice suggestion is not user evidence."
+    ],
+    "semantic_events": [
+      {
+        "turn_id": "u13",
+        "target": "honda",
+        "intent": "CORRECT_purchase_year",
+        "expected_active_value": "2021",
+        "forbidden_active_value": "2022"
+      },
+      {
+        "turn_id": "u16",
+        "target": "tesla",
+        "intent": "SUPERSEDE_exterior_color",
+        "expected_active_value": "blue",
+        "expected_history_value": "red"
+      },
+      {
+        "turn_id": "u17",
+        "target": "terry",
+        "intent": "REINFORCE_sport",
+        "expected_active_value": "basketball"
+      },
+      {
+        "turn_id": "u24",
+        "target": "honda",
+        "intent": "ownership_update",
+        "protected_target": "tesla"
+      },
+      {
+        "turn_id": "u25",
+        "target": "terry",
+        "intent": "RETRACT_if_existing",
+        "forbidden_active_value": "daily practice",
+        "abstention_allowed_if_not_stored": true
+      }
+    ]
+  }
+]

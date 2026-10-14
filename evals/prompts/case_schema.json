@@ -1,0 +1,915 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "minLength": 1,
+      "title": "Case Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "stage": {
+      "enum": [
+        "junk",
+        "extraction",
+        "terminology",
+        "identity_resolution",
+        "contextual_action",
+        "fact_mutation",
+        "cross_anchor_merge",
+        "internal_keyword_merge"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "partition": {
+      "enum": [
+        "dev",
+        "validation"
+      ],
+      "title": "Partition",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "CRITICAL",
+        "HIGH",
+        "MEDIUM",
+        "LOW"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "input": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Input"
+    },
+    "expected": {
+      "additionalProperties": true,
+      "title": "Expected",
+      "type": "object"
+    }
+  },
+  "required": [
+    "case_id",
+    "schema_version",
+    "stage",
+    "partition",
+    "severity",
+    "tags",
+    "input",
+    "expected"
+  ],
+  "title": "Tomte prompt evaluation case v1",
+  "type": "object",
+  "$id": "tomte-prompt-case-v1",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "junk"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_junk": {
+                "title": "Expected Junk",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "expected_junk"
+            ],
+            "title": "JunkExpected",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "extraction"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "required_entities": {
+                "items": {
+                  "$ref": "#/$defs/EntityRule"
+                },
+                "title": "Required Entities",
+                "type": "array"
+              },
+              "forbidden_entities": {
+                "items": {
+                  "$ref": "#/$defs/EntityRule"
+                },
+                "title": "Forbidden Entities",
+                "type": "array"
+              },
+              "required_facts": {
+                "items": {
+                  "$ref": "#/$defs/FactRule"
+                },
+                "title": "Required Facts",
+                "type": "array"
+              },
+              "forbidden_facts": {
+                "items": {
+                  "$ref": "#/$defs/FactRule"
+                },
+                "title": "Forbidden Facts",
+                "type": "array"
+              },
+              "exact_entity_count": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Exact Entity Count"
+              },
+              "exact_fact_count": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Exact Fact Count"
+              },
+              "require_unique_entity_ids": {
+                "default": false,
+                "title": "Require Unique Entity Ids",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "required_entities",
+              "forbidden_entities",
+              "required_facts",
+              "forbidden_facts"
+            ],
+            "title": "ExtractionExpected",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "terminology"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "decisions": {
+                "items": {
+                  "$ref": "#/$defs/TermRule"
+                },
+                "title": "Decisions",
+                "type": "array"
+              }
+            },
+            "required": [
+              "decisions"
+            ],
+            "title": "TermExpected",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "identity_resolution"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "resolutions": {
+                "items": {
+                  "$ref": "#/$defs/IdentityRule"
+                },
+                "title": "Resolutions",
+                "type": "array"
+              }
+            },
+            "required": [
+              "resolutions"
+            ],
+            "title": "IdentityExpected",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "contextual_action"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_action_count": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "$ref": "#/$defs/CountRange"
+                  }
+                ],
+                "title": "Expected Action Count"
+              },
+              "required_actions": {
+                "items": {
+                  "$ref": "#/$defs/ActionRule"
+                },
+                "title": "Required Actions",
+                "type": "array"
+              },
+              "require_no_action": {
+                "default": false,
+                "title": "Require No Action",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "expected_action_count"
+            ],
+            "title": "ActionExpected",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "fact_mutation"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "required_operations": {
+                "items": {
+                  "$ref": "#/$defs/MutationRule"
+                },
+                "title": "Required Operations",
+                "type": "array"
+              },
+              "forbidden_operations": {
+                "items": {
+                  "$ref": "#/$defs/MutationRule"
+                },
+                "title": "Forbidden Operations",
+                "type": "array"
+              },
+              "allow_noop": {
+                "title": "Allow Noop",
+                "type": "boolean"
+              },
+              "allow_additional_operations": {
+                "default": false,
+                "title": "Allow Additional Operations",
+                "type": "boolean"
+              },
+              "exact_operation_count": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Exact Operation Count"
+              }
+            },
+            "required": [
+              "required_operations",
+              "forbidden_operations",
+              "allow_noop"
+            ],
+            "title": "MutationExpected",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "cross_anchor_merge"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_merge": {
+                "title": "Expected Merge",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "expected_merge"
+            ],
+            "title": "CrossExpected",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "internal_keyword_merge"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "required_pairs": {
+                "items": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "title": "Required Pairs",
+                "type": "array"
+              },
+              "forbidden_pairs": {
+                "items": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "title": "Forbidden Pairs",
+                "type": "array"
+              },
+              "allow_additional_pairs": {
+                "default": false,
+                "title": "Allow Additional Pairs",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "required_pairs",
+              "forbidden_pairs"
+            ],
+            "title": "InternalExpected",
+            "type": "object"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "EntityRule": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Name"
+        },
+        "entity_domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Domain"
+        },
+        "entity_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Type"
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Id"
+        }
+      },
+      "title": "EntityRule",
+      "type": "object"
+    },
+    "FactRule": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Name"
+        },
+        "entity_selector": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attribute_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attribute Name"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "required_source_chat_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Required Source Chat Id"
+        }
+      },
+      "title": "FactRule",
+      "type": "object"
+    },
+    "TermRule": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_handle": {
+          "minLength": 1,
+          "title": "Entity Handle",
+          "type": "string"
+        },
+        "fact_handle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fact Handle"
+        },
+        "expected_decision": {
+          "enum": [
+            "KEEP_RAW",
+            "REUSE"
+          ],
+          "title": "Expected Decision",
+          "type": "string"
+        },
+        "expected_candidate_handle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Candidate Handle"
+        }
+      },
+      "required": [
+        "entity_handle",
+        "expected_decision"
+      ],
+      "title": "TermRule",
+      "type": "object"
+    },
+    "IdentityRule": {
+      "additionalProperties": false,
+      "properties": {
+        "extracted_entity_id": {
+          "minLength": 1,
+          "title": "Extracted Entity Id",
+          "type": "string"
+        },
+        "expected_kind": {
+          "enum": [
+            "NEW",
+            "UNRESOLVED",
+            "MATCH_ONE",
+            "MATCH_MANY"
+          ],
+          "title": "Expected Kind",
+          "type": "string"
+        },
+        "required_target_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Target Ids",
+          "type": "array"
+        },
+        "forbidden_target_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Target Ids",
+          "type": "array"
+        },
+        "allowed_evidence_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "EXPLICIT",
+                  "ALIAS",
+                  "RESOLVED_REFERENCE",
+                  "GROUP_EXPLICIT",
+                  "GROUP_INFERRED",
+                  "SEMANTIC_CANDIDATE"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allowed Evidence Labels"
+        },
+        "allow_additional_targets": {
+          "default": false,
+          "title": "Allow Additional Targets",
+          "type": "boolean"
+        },
+        "explicitly_new": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Explicitly New"
+        },
+        "evidence_quote_contains": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Quote Contains"
+        },
+        "exact_evidence_quote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Evidence Quote"
+        }
+      },
+      "required": [
+        "extracted_entity_id",
+        "expected_kind"
+      ],
+      "title": "IdentityRule",
+      "type": "object"
+    },
+    "ActionRule": {
+      "additionalProperties": false,
+      "properties": {
+        "action_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "CORRECTION",
+                "RETRACTION",
+                "CONFIRMATION",
+                "CLARIFICATION"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action Type"
+        },
+        "required_target_db_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Required Target Db Id"
+        },
+        "required_target_fact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Required Target Fact Id"
+        },
+        "require_unresolved": {
+          "default": false,
+          "title": "Require Unresolved",
+          "type": "boolean"
+        },
+        "required_source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Source Ids",
+          "type": "array"
+        },
+        "forbidden_source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Source Ids",
+          "type": "array"
+        }
+      },
+      "title": "ActionRule",
+      "type": "object"
+    },
+    "CountRange": {
+      "additionalProperties": false,
+      "properties": {
+        "minimum": {
+          "minimum": 0,
+          "title": "Minimum",
+          "type": "integer"
+        },
+        "maximum": {
+          "minimum": 0,
+          "title": "Maximum",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "minimum",
+        "maximum"
+      ],
+      "title": "CountRange",
+      "type": "object"
+    },
+    "MutationRule": {
+      "additionalProperties": false,
+      "properties": {
+        "target_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Key"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "enum": [
+                "ADD",
+                "REINFORCE",
+                "CORRECT",
+                "SUPERSEDE",
+                "RETRACT"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operation"
+        },
+        "target_fact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Fact Id"
+        },
+        "attribute_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attribute Name"
+        },
+        "new_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Value"
+        },
+        "required_source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Source Ids",
+          "type": "array"
+        },
+        "forbidden_source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Source Ids",
+          "type": "array"
+        },
+        "allowed_evidence_types": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "USER_EXPLICIT",
+                  "RESOLVED_REFERENCE",
+                  "GROUP_EXPLICIT",
+                  "USER_IMPLIED",
+                  "DERIVED"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allowed Evidence Types"
+        }
+      },
+      "title": "MutationRule",
+      "type": "object"
+    }
+  }
+}
