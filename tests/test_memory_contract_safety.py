@@ -152,7 +152,7 @@ def test_weak_nickname_reconciliation_gets_bounded_antecedents_and_persists_one_
             assert [m["content"] for m in data["CURRENT_BATCH"]] == ["I named it Little Dog."]
             assert data["RECENT_CONTEXT_REFERENCE_ONLY"] == reference[-4:]
             return schema.model_validate({"assets_and_possessions":[{
-                "entity_id":"veh_99","entity_name":"Little Dog","entity_type":"vehicle",
+                "entity_id":"tmp_veh_99","entity_name":"Little Dog","entity_type":"vehicle",
                 "entity_domain":"assets_and_possessions","aliases":["Little Dog"],
                 "facts":[{"attribute_name":"nickname","value":"Little Dog","confidence":1}]}]})
         data = json.loads(user_text)
@@ -195,14 +195,20 @@ def test_same_batch_late_alias_contract_preserves_sources_and_one_vehicle(mechan
         if schema is ExtractionMemorySchema:
             batch=json.loads(user_text)["CURRENT_BATCH"]
             assert [x["content"] for x in batch] == messages  # Later declaration actually reaches extraction.
-            return schema.model_validate({"assets_and_possessions":[{"entity_id":"veh_01",
+            return schema.model_validate({"assets_and_possessions":[{"entity_id":"tmp_veh_01",
                 "entity_name":"Tesla","entity_type":"vehicle","entity_domain":"assets_and_possessions",
                 "aliases":["Little Dog"],"facts":[
                 {"attribute_name":"vehicle_make","value":"Tesla","confidence":1,"source_chat_id":batch[0]["item_id"]},
                 {"attribute_name":"paint_color","value":"red","confidence":1,"source_chat_id":batch[1]["item_id"]},
                 {"attribute_name":"nickname","value":"Little Dog","confidence":1,"source_chat_id":batch[2]["item_id"]}]}]})
-        return resolution_response(schema, {"mappings":[{"extracted_entity_id":"veh_01","mode":"INSERT",
-                                    "reasoning":"Prescribed same-batch resolved entity"}]}, user_text)
+        current=json.loads(user_text)['CURRENT_BATCH']
+        return schema.model_validate({'resolutions':[{
+            'extracted_entity_id':'tmp_veh_01','kind':'NEW','explicitly_new':True,
+            'new_entity_evidence':current[0]['content'],'targets':[],
+            'reasoning':'Prescribed same-batch resolved entity',
+            'accepted_aliases':['Little Dog'],
+            'alias_evidence':[{'alias':'Little Dog','source_chat_id':current[2]['item_id'],
+                               'evidence_quote':current[2]['content']}]}]})
     monkeypatch.setattr(case.llm,"is_junk",lambda text:False)
     monkeypatch.setattr(case.llm,"parse_structured",mutation_aware(model))
     monkeypatch.setattr(case.llm,"embed_batch",lambda texts:[case.llm.vector() for text in texts])

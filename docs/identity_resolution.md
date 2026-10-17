@@ -8,7 +8,8 @@ four preceding turns. Redis freezes a processing list; retries reuse it while ne
 messages enter another queue. Consolidation validates that snapshot, runs junk
 filtering and dictionary bootstrap, extracts semantic objects, and resolves source
 IDs/times before identity resolution. After safe operations are prepared, embeddings
-are generated and batch claim, memory writes and dictionary feedback commit atomically.
+are generated and batch claim plus memory writes commit atomically. Optional dictionary
+feedback runs separately after commit.
 Only the worker acknowledges the snapshot; daemon startup is unnecessary for tests.
 
 Previously the second model call mapped each extraction-local ID to one UUID plus
@@ -50,11 +51,13 @@ without logging private fact values. Successful unresolved batches are claimed o
 and may be acknowledged/discarded; the absence of memory writes is intentional.
 
 Only strong evidence above threshold can write. Similarity and GROUP_INFERRED alone
-cannot. Reference/group evidence requires an active name/alias anchor in supplied
-current/reference text. MATCH_MANY additionally requires applies_equally_to_all,
-at least two strong targets and no truncated explicit set. An unspecified "one of"
+cannot. Reference/group meaning must be grounded by the model in supplied current/reference
+text; Python does not prove semantic identity by lexical matching. MATCH_MANY requires
+a quoted current-user group source, applies_equally_to_all, all selected targets
+strong (at least two), and no truncated explicit set. An unspecified "one of"
 member cannot be expanded. No generic NLP reference-object subsystem is introduced.
-For "my cars" with Tesla/truck active and Honda only inferred, Honda gets no hard fact.
+For "my cars" with Tesla/truck active and Honda only inferred, a selection that
+includes uncertain Honda abstains as a whole.
 If a broad group has no stable anchors, this initial policy may conservatively abstain.
 
 ## Integration with assertion mutation planning
@@ -74,8 +77,8 @@ frozen batch; ordinary unresolved extraction results may finish as a no-op. See
 contextual_actions.md for that distinction.
 
 Model calls and embedding preparation stay outside PostgreSQL write transactions.
-All expanded targets, processed marker and dictionary feedback share the existing
-outer transaction. No child operation commits independently. A failed group write
+All expanded memory targets and processed marker share the existing outer
+transaction. Optional dictionary feedback is separate and post-commit. No child operation commits independently. A failed group write
 rolls back even an earlier target write; retries use unchanged frozen context and,
 when DB state is unchanged, identical candidate/resolution input. External DB changes
 can legitimately change candidates on retry; they are not cached in Redis.
@@ -97,3 +100,10 @@ Controlled synthetic real-provider evaluations have since exercised normal mutat
 and contextual fallback; these limited samples do not establish general AI accuracy.
 The current checkpoint includes assertion correction/retraction, while models,
 embeddings, confidence thresholds and dictionary behavior remain unchanged.
+
+## Connected identities
+
+See connected_entities.md for tmp_ handles, Python-owned NEW UUIDs, scoped
+canonical links, source-cited group selection and per-target assertion planning.
+The complete selected group must be supported; weak members cause abstention, not
+partial fanout. This supersedes older partial-group wording above.

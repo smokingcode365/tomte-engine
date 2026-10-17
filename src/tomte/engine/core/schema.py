@@ -22,7 +22,7 @@ from tomte.engine.core.enums import FactStatus, MemoryDomain, Sentiment, Volatil
 
 TAXONOMY_RULE = "MUST strictly use generic snake_case (e.g., use 'vehicle' not 'Sports Car'). No spaces, no capital letters."
 LEXICON_RULE = "MUST preserve the exact capitalization, spelling, and formatting established by the user or the historical dictionary."
-ENTITY_ID_RULE = "MUST generate a unique 3-letter prefix indicating the type, followed by an underscore and a number (e.g., 'veh_01' for a vehicle, 'per_01' for a person, 'loc_01' for a location)."
+ENTITY_ID_RULE = "Compatibility logical label assigned by the application or retained from historical storage; not the authoritative PostgreSQL row UUID."
 ISO_8601_REGEX = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
 
 
@@ -84,8 +84,10 @@ class Fact(BaseModel):
     )
     related_entity_ids: List[str] = Field(
         default_factory=list,
-        description="CRITICAL FOR GRAPH EDGES: If this fact connects this entity to another known entity, put the target entity_id here (e.g., ['per_01'] to link a father to a son). If it is just a standalone attribute, leave empty.",
+        description="Historical opaque relationship annotations only. Never interpret them as canonical UUID references; no automatic migration.",
     )
+    related_entity_uuids: List[str] = Field(default_factory=list,
+        description="Canonical scoped PostgreSQL row UUID references, assigned by Python. Old related_entity_ids are legacy opaque annotations, never UUID authority.")
     confidence: float = Field(
         ge=0.0,
         le=1.0,
@@ -119,7 +121,7 @@ class Entity(BaseModel):
     """A primary node in the Knowledge Graph. The digital anchor for a physical or abstract concept."""
 
     entity_id: str = Field(
-        description=f"The primary key for this entity. {ENTITY_ID_RULE}"
+        description=ENTITY_ID_RULE
     )
     entity_name: str = Field(
         description="The human-friendly name of the entity (e.g., 'aquarium', 'software project', 'electric vehicle')."

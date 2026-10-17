@@ -158,11 +158,11 @@ def test_model_supported_correction_or_abstention_with_real_persistence(mechanic
             return schema()
         if schema is ExtractionMemorySchema:
             source = frozen[0]['item_id'] if legitimate else next(i['item_id'] for i in frozen if 'car I bought in 2024' in i['content'])
-            return schema.model_validate({'assets_and_possessions':[dict(entity_id='temporary', entity_name='Honda Civic',
+            return schema.model_validate({'assets_and_possessions':[dict(entity_id='tmp_temporary', entity_name='Honda Civic',
                 entity_domain='assets_and_possessions', entity_type='vehicle', facts=[dict(attribute_name='purchase_year', value=new_value, confidence=.9, source_chat_id=source)])]})
         if schema.__name__ == 'ResolutionResponse':
-            honda = next(c for c in data['CANDIDATES_BY_OBJECT']['temporary'] if c['name'] == 'Honda Civic')
-            return schema.model_validate({'resolutions':[dict(extracted_entity_id='temporary', kind='MATCH_ONE', reasoning='Recorded wrong extraction still resolves the named Honda.',
+            honda = next(c for c in data['CANDIDATES_BY_OBJECT']['tmp_temporary'] if c['name'] == 'Honda Civic')
+            return schema.model_validate({'resolutions':[dict(extracted_entity_id='tmp_temporary', kind='MATCH_ONE', reasoning='Recorded wrong extraction still resolves the named Honda.',
                 targets=[dict(db_id=honda['id'], resolution_confidence=.99, evidence='EXPLICIT')])]})
         target = data['TARGETS'][0]
         sources = [frozen[0]['item_id']] if legitimate else [i['item_id'] for i in frozen if any(text in i['content'] for text in ('paperwork has the wrong','I mean the Honda','car I bought in 2024'))]

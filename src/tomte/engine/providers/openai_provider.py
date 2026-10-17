@@ -3,13 +3,16 @@ from typing import List, Optional, Type, TypeVar, get_args
 from pydantic_core import ErrorType
 from pydantic_ai.messages import ModelResponse, RetryPromptPart
 from pydantic import BaseModel, ValidationError
-from pydantic_ai import Agent, Embedder, capture_run_messages
+from pydantic_ai import Agent, Embedder, ToolOutput, capture_run_messages
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from tomte.engine.core.schema import TomteMemorySchema
+from tomte.engine.core.assertions import MutationPlanResponse
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.llm.structured import tomte_extractor_agent, junk_filter_agent,TomteDeps
 from tomte.engine.core.config import settings
 from tomte.engine.log import tomtelog
+from tomte.engine.providers.diagnostics import observe_provider, observe_result
+from tomte.engine.llm.trust import TRUST_BOUNDARY
 
 T = TypeVar('T', bound=BaseModel)
 
@@ -94,21 +97,26 @@ class OpenAILLMProvider(LLMProvider):
     def get_vector_dimension(self) -> int:
         return settings.openai.vector_dimension
 
+    @observe_provider("embedder")
     def embed_text(self, text: str) -> List[float]:
         """Synchronously generate a single embedding vector."""
         result = self.embedder.embed_query_sync(text)
+        observe_result(result)
         return list(result.embeddings[0]) #
 
+    @observe_provider("embedder")
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """Synchronously generate multiple embedding vectors."""
         if not texts:
             return []
         result = self.embedder.embed_documents_sync(texts)
+        observe_result(result)
         return [list(e) for e in result.embeddings] #
 
+    @observe_provider("cheap_model")
     def is_junk(self, chat_log: str) -> bool:
         """Runs the junk filter agent with the cheap model."""
-        result = junk_filter_agent.run_sync(
+        result = getattr(self, 'junk_agent', junk_filter_agent).run_sync(
             chat_log, 
             model=self.cheap_model,
             model_settings={"openai_reasoning_effort": "none"}
@@ -116,6 +124,7 @@ class OpenAILLMProvider(LLMProvider):
         return result.output
 
 
+    @observe_provider("strong_model")
     def parse_structured(
         self, 
         system_prompt: str, 
@@ -131,7 +140,7 @@ class OpenAILLMProvider(LLMProvider):
         if isinstance(schema, type) and issubclass(schema, TomteMemorySchema):
             deps = TomteDeps(taxonomy=taxonomy or [], lexicon=lexicon or [])
             result = _run_structured_agent(
-                tomte_extractor_agent, schema, "extraction", user_text,
+                getattr(self, 'extractor_agent', tomte_extractor_agent), schema, "extraction", user_text,
                 model=self.strong_model,
                 output_type=schema,
                 model_settings={"openai_reasoning_effort": "low"},
@@ -144,8 +153,11 @@ class OpenAILLMProvider(LLMProvider):
         else:
             # Spin up a temporary, stateless agent for this specific schema
             dynamic_agent = Agent(
-                output_type=schema,
-                system_prompt=system_prompt or "You are a helpful data extraction assistant."
+                retries=getattr(self, 'agent_retries', 1),
+                # Only mutation planning opts into strict generation. Local
+                # provenance/lifecycle validation still owns acceptance.
+                output_type=ToolOutput(schema, strict=True) if schema is MutationPlanResponse else schema,
+                system_prompt=TRUST_BOUNDARY + (system_prompt or "You are a helpful data extraction assistant.")
             )
             stage = {"MutationPlanResponse": "fact_mutation",
                      "TerminologyAlignmentResponse": "terminology_alignment"}.get(

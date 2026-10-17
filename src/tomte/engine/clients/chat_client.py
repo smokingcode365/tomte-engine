@@ -19,9 +19,28 @@ class TomteChatClient:
 
     @property
     def workflow(self) -> ChatHookWorkflow:
-        if self._workflow is None:
-            self._workflow = ChatHookWorkflow()
-        return self._workflow
+        # Inspecting this legacy property must not switch future managed calls
+        # to a cached workflow holding the global template connection.
+        return self._workflow if self._workflow is not None else ChatHookWorkflow()
+
+    def _on_chat(self, **kwargs):
+        from tomte.engine import Tomte
+        from tomte.engine.workers.control import WorkControl
+        from contextlib import nullcontext
+        from tomte.engine.core.config import settings
+        from tomte.engine.exceptions import TomteInvalidInputError
+        message = kwargs.get('message')
+        if not isinstance(message, str) or not message.strip() or len(message) > settings.max_input_length:
+            raise TomteInvalidInputError('Invalid message length')
+        # Explicitly injected standalone workflows are caller-owned (legacy API).
+        if self._workflow is not None:
+            return self._workflow.on_chat(**kwargs)
+        cache_only = not kwargs.get('user_id') or kwargs.get('sender_type') == ChatSenderRole.ASSISTANT
+        with Tomte.operation_context(WorkControl(timeout=60), cache_only=cache_only) as (db, llm):
+            scope = Tomte._usage.scope(self.tenant_id, kwargs.get('user_id'), 'foreground') if Tomte._usage else nullcontext()
+            with scope:
+                return ChatHookWorkflow(db=db, cache=Tomte.get_cache(), llm=llm,
+                                        cache_only=cache_only).on_chat(**kwargs)
 
     def send_user_message(
         self, 
@@ -41,7 +60,7 @@ class TomteChatClient:
             ChatHookPayload containing the chat history, RAG context string, and sanitized message.
         """
         try:
-            return self.workflow.on_chat(
+            return self._on_chat(
                 tenant_id=self.tenant_id,
                 session_id=session_id,
                 message=message,
@@ -49,10 +68,10 @@ class TomteChatClient:
                 user_id=user_id
             )
         except TomteError as e:
-            tomtelog.error(f"TomteEngine Error during user message: {e}")
-            return ChatHookPayload(error=str(e))
+            tomtelog.error("Tomte memory unavailable during user message")
+            return ChatHookPayload(error="Memory unavailable; continue chat without memory.")
         except Exception as e:
-            tomtelog.error(f"Critical System Error during user message: {e}")
+            tomtelog.error("Tomte memory failed during user message")
             return ChatHookPayload(error="An unexpected system error occurred.")
 
     def log_assistant_response(
@@ -66,7 +85,7 @@ class TomteChatClient:
         Call this immediately after your AI finishes streaming its response to the user.
         """
         try:
-            return self.workflow.on_chat(
+            return self._on_chat(
                 tenant_id=self.tenant_id,
                 session_id=session_id,
                 message=message,
@@ -74,8 +93,8 @@ class TomteChatClient:
                 user_id=user_id
             )
         except TomteError as e:
-            tomtelog.error(f"TomteEngine Error logging assistant response: {e}")
-            return ChatHookPayload(error=str(e))
+            tomtelog.error("Tomte memory unavailable logging assistant response")
+            return ChatHookPayload(error="Memory unavailable; continue chat without memory.")
         except Exception as e:
-            tomtelog.error(f"Critical System Error logging assistant response: {e}")
+            tomtelog.error("Tomte memory failed logging assistant response")
             return ChatHookPayload(error="An unexpected system error occurred.")

@@ -50,8 +50,10 @@ def extraction_response(schema, entity, user_text):
     assert set(data) == {"CURRENT_BATCH", "RECENT_CONTEXT_REFERENCE_ONLY"}
     assert len(data["CURRENT_BATCH"]) == 1
     wire = entity.model_dump(mode="json")
+    wire["entity_id"] = "tmp_" + wire["entity_id"] if not wire["entity_id"].startswith("tmp_") else wire["entity_id"]
     for fact in wire["facts"]:
         fact.pop("last_mentioned_at")
+        fact.pop("related_entity_uuids", None)
         for field in ("fact_id", "assertion_state", "origin", "created_at", "effective_at", "ended_at", "supersedes_fact_id", "corrects_fact_id", "evidence"):
             fact.pop(field, None)
         fact["source_chat_id"] = None
@@ -99,7 +101,7 @@ class DeterministicInsertLLM:
             self.record("dictionary_embed")
             return [self.vector() for _ in texts]
         expected = self.entity.model_dump(mode="json")
-        expected["aliases"] = []  # No resolver alias authorization in this fixture.
+        expected["aliases"] = []
         assert texts == [get_entity_summary(expected)]
         self.record("embed_batch")
         return [self.vector()]
@@ -181,6 +183,10 @@ def mechanics(monkeypatch):
                     for anchor in created_anchors:
                         cursor.execute("DELETE FROM tomte_semantic_anchors WHERE dictionary_id=%s", (anchor,))
             cache.client.delete(*keys)
+            worker_keys = list(cache.client.scan_iter(match=f'Tomte:worker:*:{tenant}:{user}*'))
+            if worker_keys:
+                cache.client.delete(*worker_keys)
+            cache.client.zrem('Tomte:worker:due', generate_session_ref(tenant, session, user))
             cache.client.zrem(get_section_key_active_sessions(), generate_session_ref(tenant, session, user))
         finally:
             observer.close()
@@ -208,6 +214,9 @@ def test_deterministic_insert_is_committed_and_retrievable(mechanics):
     payload=row[0][0]
     expected=case.llm.entity.model_dump(mode="json")
     expected["aliases"] = []
+    expected.pop("mention_context", None)
+    assert payload["entity_id"].startswith("entity_")
+    expected["entity_id"] = payload["entity_id"]
     assert {k:v for k,v in payload.items() if k!="facts"}=={k:v for k,v in expected.items() if k!="facts"}
     stored,=payload["facts"]
     assert stored["value"]=="Python" and stored["assertion_state"]=="ACTIVE"
@@ -219,12 +228,12 @@ def test_deterministic_insert_is_committed_and_retrievable(mechanics):
     }
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, QUESTION, ChatSenderRole.USER, case.user)
     assert "favorite_programming_language: Python" in context["context_text"]
-    assert context["context_text"].count("[[ENTITY: pre_01") == 1
+    assert context["context_text"].count("[[ENTITY: " + payload["entity_id"]) == 1
     assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch", "embed_text"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
-def test_keyword_write_failure_rolls_back_and_retains_retry_queue(mechanics, monkeypatch):
+def test_keyword_write_failure_rolls_back_only_dictionary_and_retains_ack_snapshot(mechanics, monkeypatch):
     case = mechanics
     queue = queued_message(case)
     original = case.db.upsert_dictionary_keyword
@@ -232,10 +241,14 @@ def test_keyword_write_failure_rolls_back_and_retains_retry_queue(mechanics, mon
         # First keyword writes normally; the second causes a real SQL constraint failure.
         return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind)
     monkeypatch.setattr(case.db, "upsert_dictionary_keyword", fail_attribute)
-    with pytest.raises(psycopg.errors.NotNullViolation):
-        ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
+    workflow = ConsolidationWorkflow()
+    assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
+    assert workflow.last_dictionary_feedback == 'failed'
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
-    assert case.db.get_user_graph_skeleton(case.tenant, case.user) == []
+    stored, = case.db.get_user_graph_skeleton(case.tenant, case.user)
+    assert stored['payload']['facts'][0]['value'] == 'Python'
+    assert case.db.is_consolidation_processed(case.tenant, case.user,
+                                              workflow._batch_id(case.tenant, case.user, queue))
     assert len(case.anchors) == 2
     assert all(case.db.get_dictionary_anchor_details(a) is None for a in case.anchors)
     assert all(case.db.get_anchor_keywords(str(a)) == [] for a in case.anchors)
@@ -321,6 +334,7 @@ class LifecycleLLM(DeterministicInsertLLM):
 def lifecycle(case):
     case.llm = LifecycleLLM(case.db, case.llm.index, "synthetic-lifecycle")
     case.llm.prepare("INSERT", "Python", MESSAGE)
+    assert Tomte.shutdown()
     Tomte.init(case.db, case.cache, case.llm, start_daemon_worker=False)
     return case
 
@@ -363,7 +377,7 @@ def acknowledge(case):
 
 def assert_context(case, value):
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, "What programming language do I prefer?", ChatSenderRole.USER, case.user)["context_text"]
-    assert context.count("[[ENTITY: pre_01") == 1
+    assert context.count("[[ENTITY: " + memory_rows(case)[0]["entity_id"]) == 1
     assert "favorite_programming_language: " + value in context
     if value == "Rust":
         assert "favorite_programming_language: Python" not in context
@@ -374,7 +388,7 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     case = lifecycle(mechanics)
     run_message(case)
     inserted, = memory_rows(case)
-    assert inserted["entity_id"] == "pre_01" and inserted["mention_count"] == 1
+    assert inserted["entity_id"].startswith("entity_") and inserted["mention_count"] == 1
     assert language(inserted)["value"] == "Python"
     unrelated = inserted["payload"]["facts"][1]
     acknowledge(case)
@@ -382,12 +396,12 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     case.llm.prepare("REINFORCE", "Python", "I still really like Python.", inserted["id"], 1)
     run_message(case)
     reinforced, = memory_rows(case)
-    assert reinforced["id"] == inserted["id"] and reinforced["entity_id"] == "pre_01"
+    assert reinforced["id"] == inserted["id"] and reinforced["entity_id"] == inserted["entity_id"]
     assert reinforced["mention_count"] == 2
     assert reinforced["created_at"] == inserted["created_at"]
     assert reinforced["last_mentioned_at"] > inserted["last_mentioned_at"]
     assert reinforced["vector"] != inserted["vector"]
-    assert reinforced["importance"] == 4 and language(reinforced)["importance"] == 5
+    assert reinforced["importance"] == 5 and language(reinforced)["importance"] == 5
     assert language(reinforced)["confidence"] == 0.9
     assert language(reinforced)["mention_count"] == 2
     assert language(reinforced)["fact_id"] == language(inserted)["fact_id"]
@@ -402,7 +416,7 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     case.llm.prepare("MUTATE", "Rust", "Actually, I prefer Rust now.", inserted["id"], 2)
     run_message(case)
     mutated, = memory_rows(case)
-    assert mutated["id"] == inserted["id"] and mutated["entity_id"] == "pre_01"
+    assert mutated["id"] == inserted["id"] and mutated["entity_id"] == inserted["entity_id"]
     assert mutated["mention_count"] == 3 and mutated["importance"] == 3
     assert mutated["created_at"] == inserted["created_at"]
     assert mutated["last_mentioned_at"] > reinforced["last_mentioned_at"]
@@ -426,7 +440,7 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
 
 
 @pytest.mark.parametrize("mode,value,step", [("REINFORCE", "Python", 1), ("MUTATE", "Rust", 2)])
-def test_lifecycle_dictionary_failure_rolls_back_existing_memory(mechanics, monkeypatch, mode, value, step):
+def test_lifecycle_dictionary_failure_preserves_committed_memory(mechanics, monkeypatch, mode, value, step):
     case = lifecycle(mechanics)
     run_message(case)
     before = memory_rows(case)
@@ -439,9 +453,15 @@ def test_lifecycle_dictionary_failure_rolls_back_existing_memory(mechanics, monk
     def fail_attribute(anchor, keyword, kind):
         return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind)
     monkeypatch.setattr(case.db, "upsert_dictionary_keyword", fail_attribute)
-    with pytest.raises(psycopg.errors.NotNullViolation):
-        ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert memory_rows(case) == before
+    workflow = ConsolidationWorkflow()
+    assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
+    assert workflow.last_dictionary_feedback == 'failed'
+    after, = memory_rows(case)
+    assert after['id'] == before[0]['id']
+    assert after['mention_count'] == before[0]['mention_count'] + 1
+    assert language(after)['value'] == value
+    assert case.db.is_consolidation_processed(case.tenant, case.user,
+                                              workflow._batch_id(case.tenant, case.user, queue))
     assert dictionary_state(case) == dictionary_before
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
@@ -487,38 +507,40 @@ def test_matched_row_with_new_extraction_id_preserves_golden_identity(mechanics,
         operation, = operations
         assert operation["mode"] == mode
         assert operation["db_id"] == str(inserted["id"])
-        assert operation["entity_id"] == operation["payload"]["entity_id"] == "pre_01"
+        assert operation["entity_id"] == operation["payload"]["entity_id"] == inserted["entity_id"]
         return commit(operations)
     monkeypatch.setattr(case.db, "commit_graph_updates", verify_identity)
     run_message(case)
     updated, = memory_rows(case)
-    assert updated["id"] == inserted["id"] and updated["entity_id"] == "pre_01"
-    assert updated["payload"]["entity_id"] == "pre_01"
+    assert updated["id"] == inserted["id"] and updated["entity_id"] == inserted["entity_id"]
+    assert updated["payload"]["entity_id"] == inserted["entity_id"]
     assert language(updated)["value"] == value
     assert inserted["payload"]["facts"][1] in updated["payload"]["facts"]
     assert set(updated["payload"]["aliases"]) == set()
     for key in ("entity_name", "entity_type", "entity_domain"):
         assert updated["payload"][key] == case.llm.entity.model_dump(mode="json")[key]
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, "What programming language do I prefer?", ChatSenderRole.USER, case.user)["context_text"]
-    assert context.count("[[ENTITY: pre_01") == 1 and "[[ENTITY: pre_99" not in context
+    assert context.count("[[ENTITY: " + inserted["entity_id"]) == 1 and "[[ENTITY: pre_99" not in context
     assert "favorite_programming_language: " + value in context
 
 
-def test_insert_uses_extracted_id_as_new_canonical_identity(mechanics, monkeypatch):
+def test_insert_allocates_identity_independently_of_extraction(mechanics, monkeypatch):
     case = lifecycle(mechanics)
     case.llm.entity = case.llm.entity.model_copy(update={"entity_id": "pre_99"})
     commit = case.db.commit_graph_updates
     def verify_identity(operations):
         operation, = operations
         assert operation["mode"] == "INSERT" and "db_id" not in operation
-        assert operation["entity_id"] == operation["payload"]["entity_id"] == "pre_99"
+        assert operation["entity_id"] == operation["payload"]["entity_id"]
+        assert operation["entity_id"].startswith("entity_") and operation["reserved_id"]
         return commit(operations)
     monkeypatch.setattr(case.db, "commit_graph_updates", verify_identity)
     run_message(case)
     inserted, = memory_rows(case)
-    assert inserted["entity_id"] == inserted["payload"]["entity_id"] == "pre_99"
+    assert inserted["entity_id"] == inserted["payload"]["entity_id"]
+    assert inserted["entity_id"].startswith("entity_")
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, "What programming language do I prefer?", ChatSenderRole.USER, case.user)["context_text"]
-    assert context.count("[[ENTITY: pre_99") == 1
+    assert context.count("[[ENTITY: " + inserted["entity_id"]) == 1
 
 
 @pytest.mark.parametrize("mode", ["MUTATE", "REINFORCE"])
@@ -554,7 +576,7 @@ def processed_count(case):
     return case.observer.execute("SELECT count(*) FROM tomte_processed_consolidations WHERE tenant_id=%s AND user_id=%s", (case.tenant, case.user)).fetchone()[0]
 
 
-def test_failed_batch_has_no_marker_and_retry_can_commit(mechanics, monkeypatch):
+def test_failed_optional_feedback_commits_memory_and_replay_is_noop(mechanics, monkeypatch):
     case = lifecycle(mechanics)
     run_message(case)
     before, = memory_rows(case)
@@ -568,11 +590,13 @@ def test_failed_batch_has_no_marker_and_retry_can_commit(mechanics, monkeypatch)
     def fail_attribute(anchor, keyword, kind):
         return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind)
     monkeypatch.setattr(case.db, "upsert_dictionary_keyword", fail_attribute)
-    with pytest.raises(psycopg.errors.NotNullViolation):
-        ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert not case.db.is_consolidation_processed(case.tenant, case.user, batch_id)
-    assert processed_count(case) == 1
-    assert memory_rows(case) == [before] and dictionary_state(case) == dictionary_before
+    workflow = ConsolidationWorkflow()
+    assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
+    assert workflow.last_dictionary_feedback == 'failed'
+    assert case.db.is_consolidation_processed(case.tenant, case.user, batch_id)
+    assert processed_count(case) == 2
+    updated, = memory_rows(case)
+    assert language(updated)['value'] == 'Rust' and dictionary_state(case) == dictionary_before
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     monkeypatch.setattr(case.db, "upsert_dictionary_keyword", original)
     case.llm.calls = []
@@ -581,7 +605,7 @@ def test_failed_batch_has_no_marker_and_retry_can_commit(mechanics, monkeypatch)
     assert updated["id"] == before["id"] and language(updated)["value"] == "Rust"
     assert updated["mention_count"] == before["mention_count"] + 1
     assert processed_count(case) == 2
-    assert case.llm.calls == ["is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"]
+    assert case.llm.calls == []
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -638,7 +662,7 @@ def test_direct_worker_acknowledges_new_and_replayed_success(mechanics, monkeypa
         ChatHookWorkflow().on_chat(case.tenant, case.session, MESSAGE, ChatSenderRole.USER, case.user)
     sessions = iter([(case.tenant, case.user, case.session), None])
     monkeypatch.setattr(case.cache, "get_next_idle_session_4_consolidation", lambda **kwargs: next(sessions))
-    run_consolidation_job()
+    _direct_worker_pass(case)
     assert len(memory_rows(case)) == 1 and processed_count(case) == 1
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == []
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is None
@@ -646,7 +670,7 @@ def test_direct_worker_acknowledges_new_and_replayed_success(mechanics, monkeypa
 
 
 @pytest.mark.parametrize("raises", [False, True])
-def test_direct_worker_retains_failed_batch(mechanics, monkeypatch, raises):
+def test_direct_worker_skips_definitively_failed_batch(mechanics, monkeypatch, raises):
     from tomte.engine.workers.dictionary_maintenance_worker import run_consolidation_job
     case = lifecycle(mechanics)
     ChatHookWorkflow().on_chat(case.tenant, case.session, MESSAGE, ChatSenderRole.USER, case.user)
@@ -658,11 +682,32 @@ def test_direct_worker_retains_failed_batch(mechanics, monkeypatch, raises):
             raise RuntimeError("Controlled consolidation failure")
         return False
     monkeypatch.setattr(ConsolidationWorkflow, "run_consolidation_cycle", failure)
-    run_consolidation_job()
+    _direct_worker_pass(case)
     assert memory_rows(case) == [] and processed_count(case) == 0
-    assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
+    assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == []
+    batch = ConsolidationWorkflow._batch_id(case.tenant, case.user, queue)
+    terminal = json.loads(case.cache.client.get(f'Tomte:worker:terminal:{case.tenant}:{case.user}:{batch}'))
+    assert terminal['outcome'] == 'skipped' and terminal['attempts'] == 1
     assert case.cache.client.get(f"Tomte:lock:consolidation:{case.tenant}:{case.user}") is None
 
+
+
+def _direct_worker_pass(case):
+    from contextlib import contextmanager
+    from tomte.engine.workers.runner import TomteWorker
+    from tomte.engine.workers.control import WorkControl
+    @contextmanager
+    def factory(control):
+        yield case.db, case.llm  # Single synchronous test operation; no shared threads.
+    worker = TomteWorker(cache=case.cache, operation_factory=factory)
+    key = f'Tomte:lock:consolidation:{case.tenant}:{case.user}'
+    token = uuid4().hex
+    assert case.cache.acquire_lock(key, token, 120)
+    try:
+        worker._attempt(case.tenant, case.user, case.session,
+                        {'key':key, 'token':token, 'control':WorkControl()})
+    finally:
+        worker.stop()
 
 
 def test_concurrent_batch_claim_applies_memory_and_feedback_only_once(mechanics, monkeypatch):

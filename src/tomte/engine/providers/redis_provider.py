@@ -22,7 +22,10 @@ class RedisCacheProvider(CacheProvider):
         Initializes the Redis connection pool. 
         kwargs can be used to pass passwords, SSL certs, etc.
         """
+        kwargs.setdefault('socket_connect_timeout', 2)
+        kwargs.setdefault('socket_timeout', 2)
         self.client = redis.Redis.from_url(url, decode_responses=True, **kwargs)
+        self._scan_offset = 0
 
     def promote_session_entities(self, tenant_id, user_id, session_id, entity_ids,
                                  retention, ttl):
@@ -181,7 +184,7 @@ class RedisCacheProvider(CacheProvider):
                 parsed_history.append(json.loads(item))
             except json.JSONDecodeError as e:
                 # Log the corruption so ops can investigate, but do NOT crash the user's chat
-                tomtelog.error(f"Corrupted JSON in Redis history key: {history_key}", exc=e)
+                tomtelog.error("Corrupted JSON in Redis history")
                 continue
                 
         return parsed_history
@@ -240,7 +243,7 @@ class RedisCacheProvider(CacheProvider):
             try:
                 return json.loads(data)
             except Exception as e:
-                tomtelog.error(f"Failed to decode persona entities for key {key}", exc=e)
+                tomtelog.error("Failed to decode persona entities")
                 return []
         return []
 
@@ -277,7 +280,8 @@ class RedisCacheProvider(CacheProvider):
         end
         local items = redis.call('lrange', KEYS[2], 0, -1)
         for i, raw in ipairs(items) do
-            local item = cjson.decode(raw)
+            local ok, item = pcall(cjson.decode, raw)
+            if not ok or type(item) ~= 'table' then return items end
             -- Upgrade old queues once, storing IDs so retries use the same batch.
             if not item.item_id or not item.session_id then
                 item.item_id = item.item_id or (ARGV[1] .. ':' .. i)
@@ -316,3 +320,97 @@ class RedisCacheProvider(CacheProvider):
         return 1
         """
         return bool(self.client.eval(lua, 3, queue_key, batch_key, get_section_key_active_sessions(), session_ref, json.dumps(ids)))
+
+    def renew_lock(self, lock_key, token, ttl_seconds=120):
+        return bool(self.client.eval("if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('expire',KEYS[1],ARGV[2]) else return 0 end",
+                                     1, lock_key, token, ttl_seconds))
+
+    @staticmethod
+    def worker_state_key(tenant, user):
+        return f'Tomte:worker:state:{tenant}:{user}'
+
+    def worker_state(self, tenant, user):
+        raw = self.client.get(self.worker_state_key(tenant, user))
+        return json.loads(raw) if raw else None
+
+    def worker_terminal(self, tenant, user, batch):
+        raw = self.client.get(f'Tomte:worker:terminal:{tenant}:{user}:{batch}')
+        return json.loads(raw) if raw else None
+
+    def worker_candidates(self, now, idle_seconds, limit=64):
+        # Rotate the bounded idle scan: a locked oldest user cannot starve others.
+        due = self.client.zrangebyscore('Tomte:worker:due', '-inf', now, start=0, num=limit)
+        idle = self.client.zrangebyscore(get_section_key_active_sessions(), '-inf', now-idle_seconds,
+                                        start=self._scan_offset, num=limit)
+        self._scan_offset = self._scan_offset + len(idle) if len(idle) == limit else 0
+        from tomte.engine.utils.keys import validate_id
+        scopes = [tuple(parse_session_ref(ref)) for ref in dict.fromkeys(due + idle)]
+        return [scope for scope in scopes if len(scope) == 3 and all(validate_id(value) for value in scope)]
+
+    def worker_save(self, tenant, user, token, state, due):
+        ref = generate_session_ref(tenant, state['session'], user)
+        lua = """
+        if redis.call('get', KEYS[1]) ~= ARGV[1] then return 0 end
+        redis.call('set', KEYS[2], ARGV[2])
+        redis.call('zadd', KEYS[3], ARGV[3], ARGV[4])
+        return 1
+        """
+        return bool(self.client.eval(lua, 3, f'Tomte:lock:consolidation:{tenant}:{user}',
+            self.worker_state_key(tenant, user), 'Tomte:worker:due', token, json.dumps(state), due, ref))
+
+    def worker_batch(self, tenant, user, session):
+        try:
+            items = self.pop_session_chat_log_4_consolidation(tenant, user, session)
+        except (json.JSONDecodeError, TypeError):
+            items = None
+        raw = self.client.lrange(generate_consolidation_batch_key(tenant, user, session), 0, -1)
+        return items, raw
+
+    def worker_finish(self, tenant, user, token, state, raw_items, outcome):
+        """Token, state and exact frozen snapshot checked in the same ACK/SKIP."""
+        session = state['session']
+        ref = generate_session_ref(tenant, session, user)
+        lua = """
+        if redis.call('get', KEYS[1]) ~= ARGV[1] then return 0 end
+        local state = redis.call('get', KEYS[2])
+        if not state or cjson.decode(state).batch ~= ARGV[2] then return 0 end
+        local expected = cjson.decode(ARGV[3])
+        local actual = redis.call('lrange', KEYS[3], 0, -1)
+        if #expected ~= #actual then return 0 end
+        for i, raw in ipairs(actual) do if raw ~= expected[i] then return 0 end end
+        if ARGV[6] == 'skipped' then
+            if redis.call('exists', KEYS[7]) == 0 then redis.call('set', KEYS[7], ARGV[5]) end
+        else
+            redis.call('set', KEYS[7], ARGV[5], 'EX', 604800)
+        end
+        redis.call('del', KEYS[2], KEYS[3])
+        redis.call('zrem', KEYS[4], ARGV[4])
+        if redis.call('llen', KEYS[5]) == 0 then redis.call('zrem', KEYS[6], ARGV[4]) end
+        return 1
+        """
+        terminal = {'batch': state['batch'], 'outcome': outcome, 'attempts': state['attempts'],
+                    'reason': state.get('reason'), 'finished_at': time.time()}
+        return bool(self.client.eval(lua, 7, f'Tomte:lock:consolidation:{tenant}:{user}',
+            self.worker_state_key(tenant, user), generate_consolidation_batch_key(tenant, user, session),
+            'Tomte:worker:due', generate_consolidation_key(tenant, user, session),
+            get_section_key_active_sessions(), f'Tomte:worker:terminal:{tenant}:{user}:{state["batch"]}',
+            token, state['batch'], json.dumps(raw_items), ref, json.dumps(terminal), outcome))
+
+    def pending_input_chars(self, tenant, user):
+        """Scoped queued + waiting snapshot input. Running work is reported separately."""
+        from tomte.engine.utils.keys import validate_id
+        if not validate_id(tenant) or not validate_id(user):
+            raise ValueError('Invalid usage namespace')
+        state = self.worker_state(tenant, user)
+        total = 0
+        for ref in self.client.zrange(get_section_key_active_sessions(), 0, -1):
+            t, u, s = parse_session_ref(ref)
+            if (t, u) != (tenant, user):
+                continue
+            keys = [generate_consolidation_key(t, u, s)]
+            if not state or state['session'] != s or state['status'] == 'WAIT':
+                keys.append(generate_consolidation_batch_key(t, u, s))
+            for key in keys:
+                for raw in self.client.lrange(key, 0, -1):
+                    total += len(json.loads(raw).get('content', ''))
+        return total

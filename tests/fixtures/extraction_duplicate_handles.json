@@ -1,0 +1,83 @@
+{
+  "activities_and_skills": [
+    {
+      "aliases": [],
+      "entity_domain": "activities_and_skills",
+      "entity_id": "per_01",
+      "entity_name": "Lena",
+      "entity_type": "occupation",
+      "facts": [
+        {
+          "attribute_name": "job_title",
+          "confidence": 1.0,
+          "importance": 4,
+          "mention_count": 1,
+          "related_entity_ids": [
+            "org_01"
+          ],
+          "sentiment": "neutral",
+          "source_chat_id": "face03d7b6bfe07eb7f8f680d642f5413b40308c6f211939c0c1bcf55361f997",
+          "status": "active",
+          "timeline": [],
+          "value": "industrial designer",
+          "volatility": "core"
+        }
+      ]
+    }
+  ],
+  "assets_and_possessions": [],
+  "events_and_logistics": [],
+  "identity_and_demographics": [
+    {
+      "aliases": [],
+      "entity_domain": "identity_and_demographics",
+      "entity_id": "per_01",
+      "entity_name": "Lena",
+      "entity_type": "person",
+      "facts": [
+        {
+          "attribute_name": "name",
+          "confidence": 1.0,
+          "importance": 5,
+          "mention_count": 1,
+          "related_entity_ids": [],
+          "sentiment": "neutral",
+          "source_chat_id": "face03d7b6bfe07eb7f8f680d642f5413b40308c6f211939c0c1bcf55361f997",
+          "status": "active",
+          "timeline": [],
+          "value": "Lena",
+          "volatility": "core"
+        }
+      ]
+    }
+  ],
+  "preferences_and_traits": [],
+  "relationships": [
+    {
+      "aliases": [],
+      "entity_domain": "relationships",
+      "entity_id": "org_01",
+      "entity_name": "Harbor Labs",
+      "entity_type": "employer",
+      "facts": [
+        {
+          "attribute_name": "employment_relationship",
+          "confidence": 1.0,
+          "importance": 4,
+          "mention_count": 1,
+          "related_entity_ids": [
+            "per_01"
+          ],
+          "sentiment": "neutral",
+          "source_chat_id": "face03d7b6bfe07eb7f8f680d642f5413b40308c6f211939c0c1bcf55361f997",
+          "status": "active",
+          "timeline": [],
+          "value": "Lena works at Harbor Labs",
+          "volatility": "core"
+        }
+      ]
+    }
+  ],
+  "system_instructions": [],
+  "unstructured_observations": []
+}

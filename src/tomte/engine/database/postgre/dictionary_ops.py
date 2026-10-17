@@ -194,6 +194,11 @@ def consolidate_duplicate_anchors(
 ) -> None:
     """Atomically commits a cross-anchor merge."""
     with conn.cursor() as cur:
+        if id_a == id_b:
+            raise ValueError('Merge requires two distinct anchors')
+        cur.execute('SELECT dictionary_id FROM tomte_semantic_anchors WHERE dictionary_id IN (%s,%s) FOR UPDATE', (id_a,id_b))
+        if len(cur.fetchall()) != 2:
+            raise ValueError('Dictionary merge anchor missing')
         cur.execute("UPDATE tomte_semantic_anchors SET embedding = %s::vector WHERE dictionary_id = %s", (merged_vector, id_a))
         cur.execute("DELETE FROM tomte_keyword_registry WHERE dictionary_id IN (%s, %s)", (id_a, id_b))
         
@@ -223,10 +228,18 @@ def execute_internal_keyword_merge(
 ) -> None:
     """Updates the survivor's hits and deletes the victim synonyms."""
     with conn.cursor() as cur:
+        names = [survivor, *victims]
+        if len(set(names)) != len(names):
+            raise ValueError('Duplicate dictionary merge members')
+        cur.execute('SELECT keyword FROM tomte_keyword_registry WHERE dictionary_id=%s AND keyword_type=%s AND keyword=ANY(%s) FOR UPDATE', (anchor_id,kw_type,names))
+        if len(cur.fetchall()) != len(names):
+            raise ValueError('Dictionary merge member missing')
         cur.execute("""
             UPDATE tomte_keyword_registry SET hits = %s, last_modified_at = NOW()
             WHERE dictionary_id = %s AND keyword_type = %s AND keyword = %s
         """, (total_hits, anchor_id, kw_type, survivor))
+        if cur.rowcount != 1:
+            raise ValueError('Dictionary survivor missing; merge aborted')
         
         cur.execute("""
             DELETE FROM tomte_keyword_registry 

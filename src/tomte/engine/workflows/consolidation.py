@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from copy import deepcopy
+from uuid import uuid4
 
 from typing import List, Dict, Any
 from tomte.engine.llm.embedder import  get_entity_summary
@@ -22,11 +23,13 @@ from tomte.engine.llm.prompts.consolidation_golden_record import RECONCILER_SYST
 
 class ConsolidationWorkflow:
     def __init__(
-        self
+        self, db=None, llm=None, control=None
     ):
-        self.db = Tomte.get_db()
-        self.llm = Tomte.get_llm()
-        self.dict_service = get_dictionary_service()
+        self.db = db if db is not None else Tomte.get_db()
+        self.llm = llm if llm is not None else Tomte.get_llm()
+        self.control = control
+        from tomte.engine.dictionary.service import DictionaryService
+        self.dict_service = DictionaryService(self.db, self.llm)
     # ==========================================
     # CONSOLIDATION CYCLE
     # ==========================================
@@ -42,6 +45,8 @@ class ConsolidationWorkflow:
             return True  # Idempotent success: the worker may acknowledge Redis.
 
         extraction_input = build_extraction_input(chat_items)
+        from tomte.engine.core.capacity import check_capacity
+        check_capacity(extraction_input)
 
         # Assistant context is not user evidence and needs no embedding.
         user_items = [m for m in chat_items if m["role"] == "user"]
@@ -119,7 +124,7 @@ class ConsolidationWorkflow:
             for i, op in enumerate(refined_ops):
                 op['embedding'] = batch_vectors[i]
                 
-        # Prepared memory writes and dictionary feedback form one PostgreSQL unit.
+        # Memory and its replay marker commit before optional dictionary feedback.
         self._commit_refined_operations(refined_ops, tenant_id, user_id, batch_id)
 
         tomtelog.info(f"Consolidation cycle complete for {user_id}")
@@ -186,11 +191,14 @@ class ConsolidationWorkflow:
         if not operations:
             return []
         prepared = deepcopy(operations)
+        for op in prepared:
+            op['_group_sets'] = [f['_group_targets'] for f in op['extracted_facts'] if f.get('_group_targets')]
+            op['_required_groups'] = {f['_group_key']: f['_group_targets'] for f in op['extracted_facts'] if f.get('_group_key')}
         offered = {}
         targets = []
         for index, operation in enumerate(prepared):
             key = f"target_{index}"
-            scope = operation.get("db_id") or json.dumps([operation["tenant_id"], operation["user_id"], operation["entity_id"]])
+            scope = operation.get("db_id") or operation.get("reserved_id") or json.dumps([operation["tenant_id"], operation["user_id"], operation["entity_id"]])
             assertions = adapt_assertions(operation["payload"].get("facts", []), scope)
             operation["payload"]["facts"] = assertions
             active = project_facts(assertions)
@@ -202,10 +210,12 @@ class ConsolidationWorkflow:
             offered[key] = (operation, scope, {f["fact_id"] for f in selected})
             targets.append({"target_key":key, "identity":{name:operation[name] for name in
                             ("entity_id", "entity_name", "entity_domain", "entity_type")},
-                            "incoming_semantics":[{field:f.get(field) for field in ("attribute_name", "value", "status", "source_chat_id", "confidence")}
+                            "db_uuid": scope,
+                            "mention_context": operation.get('_mention_context'),
+                            "incoming_semantics":[{field:f.get(field) for field in ("attribute_name", "value", "status", "source_chat_id", "confidence", "incoming_fact_key", "evidence_context", "related_entity_uuids", "group_participant_handles", "_group_targets")}
                                                   for f in operation["extracted_facts"]],
                             "assertions":[{name:f.get(name) for name in ("fact_id", "attribute_name", "value",
-                                "assertion_state", "effective_at", "supersedes_fact_id", "corrects_fact_id")}
+                                "assertion_state", "effective_at", "supersedes_fact_id", "corrects_fact_id", "related_entity_uuids", "related_entity_ids")}
                                 for f in selected], "assertions_truncated":len(selected)<len(assertions)})
             if "_contextual_actions" in operation:
                 targets[-1]["contextual_actions"] = operation["_contextual_actions"]
@@ -231,6 +241,39 @@ class ConsolidationWorkflow:
                 if mutation.target_fact_id is not None and mutation.target_fact_id not in ids:
                     raise ValueError("Target fact does not belong to offered entity assertions")
             mutations = [mutation for mutation in proposals if set(mutation.source_chat_ids) <= user_sources]
+            # Never recreate a rejected dependent proposal as an unlinked fact.
+            # Bind new/replacement relationship semantics to one offered template.
+            safe = []
+            for mutation in mutations:
+                if mutation.operation == 'REINFORCE':
+                    old = next(f for f in operation['payload']['facts'] if f['fact_id'] == mutation.target_fact_id)
+                    linked = [f for f in operation['extracted_facts'] if f.get('related_entity_uuids')
+                              and f['attribute_name'] == old['attribute_name'] and f['value'] == old['value']
+                              and f['source_chat_id'] in mutation.source_chat_ids]
+                    if linked and any(set(f['related_entity_uuids']) != set(old.get('related_entity_uuids', [])) for f in linked):
+                        continue  # Equal text does not prove equal relationship endpoints.
+                if mutation.new_value is not None:
+                    candidates = [f for f in operation['extracted_facts'] if
+                        (f.get('incoming_fact_key') == mutation.incoming_fact_key if mutation.incoming_fact_key else
+                         f['value'] == mutation.new_value and (not mutation.attribute_name or canonical_attribute(f['attribute_name']) == canonical_attribute(mutation.attribute_name)))
+                        and f.get('source_chat_id') in mutation.source_chat_ids]
+                    dependent = any(f.get('related_entity_uuids') for f in operation['extracted_facts']) or operation.get('_rejected_facts')
+                    if dependent and len(candidates) != 1:
+                        continue
+                    if mutation.incoming_fact_key and len(candidates) != 1:
+                        continue
+                safe.append(mutation)
+            mutations = safe
+            operation['_accepted_group_keys'] = []
+            for mutation in mutations:
+                for fact in operation['extracted_facts']:
+                    if not fact.get('_group_key') or fact['source_chat_id'] not in mutation.source_chat_ids:
+                        continue
+                    old = next((f for f in operation['payload']['facts'] if f['fact_id'] == mutation.target_fact_id), {})
+                    attribute = mutation.attribute_name or old.get('attribute_name')
+                    value = mutation.new_value if mutation.new_value is not None else old.get('value')
+                    if attribute == fact['attribute_name'] and value == fact['value']:
+                        operation['_accepted_group_keys'].append(fact['_group_key'])
             if not mutations:
                 continue  # No authorization for aliases, row metadata or dictionary feedback.
             operation["payload"]["facts"] = apply_mutations(operation["payload"]["facts"], mutations,
@@ -249,7 +292,18 @@ class ConsolidationWorkflow:
                 if e["keyword_type"] == "ENTITY" or e["keyword"] in accepted_attributes]
             accepted.append(operation)
         # A NEW target with no accepted facts/aliases must not create an empty guessed memory.
-        return [op for op in accepted if op.get("db_id") or op["payload"]["facts"]]
+        # An explicitly introduced NEW endpoint may be a supported graph node
+        # without a redundant name/type fact. Keep it only if an accepted edge
+        # needs it; never persist an unreferenced empty guess.
+        referenced = {uid for op in accepted for f in op['payload']['facts'] for uid in f.get('related_entity_uuids', [])}
+        accepted_ids = {op.get('reserved_id') for op in accepted}
+        for op in prepared:
+            if op.get('reserved_id') in referenced - accepted_ids and not op['extracted_facts'] and not op.get('_rejected_facts'):
+                accepted.append(op)
+        from tomte.engine.core.relationships import prune_missing_new_targets
+        return prune_missing_new_targets(
+            accepted,
+            {uid for op in operations for uid in op.get('_batch_reserved_ids', [op.get('reserved_id')]) if uid})
 
     @staticmethod
     def _batch_id(tenant_id: str, user_id: str, chat_items: List[Dict[str, Any]]) -> str:
@@ -270,14 +324,30 @@ class ConsolidationWorkflow:
         return hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
     def _commit_refined_operations(self, refined_ops: List[Dict[str, Any]], tenant_id: str, user_id: str, batch_id: str) -> None:
-        """Persist batch claim, prepared memory changes and feedback atomically."""
+        """Commit authoritative memory/marker, then best-effort optional feedback."""
         validate_operation_provenance(refined_ops)
+        if getattr(self, 'control', None) is not None:
+            self.control.check()
         with self.db.transaction():
             if not self.db.claim_consolidation_batch(tenant_id, user_id, batch_id):
                 return  # Another attempt committed while model work was prepared.
             if not self.db.commit_graph_updates(refined_ops):
                 raise RuntimeError("Consolidation memory write failed")
+            if getattr(self, 'control', None) is not None:
+                self.control.check()
+        # Its own transaction and bounded dictionary lock protect optional writes.
+        # A failed feedback transaction must never replay already committed memory.
+        try:
+            if getattr(self, 'control', None) is not None:
+                self.control.check()
             self.dict_service.apply_feedback(refined_ops)
+            self.last_dictionary_feedback = 'applied'
+        except Exception:
+            self.last_dictionary_feedback = 'failed'
+            try:
+                tomtelog.warn('Optional dictionary feedback failed; memory remains committed')
+            except Exception:
+                pass  # A failing log sink cannot turn an optional failure into replay.
 
     # ==========================================
     # INTERNAL HELPERS
@@ -340,7 +410,8 @@ class ConsolidationWorkflow:
                   "EXTRACTED_SEMANTIC_INFORMATION": [{
                       "id": e["entity_id"], "name": e.get("entity_name"), "type": e["entity_type"],
                       "domain": e["entity_domain"], "aliases": e.get("aliases", []),
-                      "facts": fact_values(e["facts"]),
+                      "facts": fact_values(e["facts"]), "fact_proposals": e["facts"],
+                      "mention_context": e.get("mention_context"),
                   } for e in entities], "CANDIDATES_BY_OBJECT": candidate_view,
                   "CANDIDATE_SET_TRUNCATED": {eid: any(row.get("identity_matches_total", 0) > CANDIDATE_LIMIT
                                                       for row in candidate_sets.get(eid, [])) for eid in ids}}
@@ -366,7 +437,9 @@ class ConsolidationWorkflow:
                     tomtelog.info("New identity lacks current introduction evidence: no permanent operation")
                     continue
                 aliases = self._approved_aliases(result.accepted_aliases, entity, current, result.alias_evidence)
-                operations.append(self._prepare_operation(tenant_id, user_id, entity, None, aliases))
+                op = self._prepare_operation(tenant_id, user_id, entity, None, aliases)
+                op["_single_handles"] = [entity["entity_id"]]
+                operations.append(op)
                 continue
             offered = {str(row["id"]) for row in candidate_sets.get(entity["entity_id"], [])[:CANDIDATE_LIMIT]}
             for target in result.targets:
@@ -377,6 +450,10 @@ class ConsolidationWorkflow:
                 if target.resolution_confidence >= MIN_RESOLUTION_CONFIDENCE and target.evidence in STRONG_EVIDENCE:
                     targets.append(target)
             if result.kind == "MATCH_MANY" and (not result.applies_equally_to_all or len(targets) < 2
+                                               or len(targets) != len(result.targets)
+                                               or not result.group_evidence_quote
+                                               or not any(item.get("item_id") == result.group_source_chat_id and item["role"] == "user"
+                                                          and result.group_evidence_quote in item["content"] for item in current)
                                                or prompt["CANDIDATE_SET_TRUNCATED"][entity["entity_id"]]):
                 tomtelog.info("Target set/update is uncertain: no permanent memory operation")
                 continue
@@ -394,10 +471,16 @@ class ConsolidationWorkflow:
                                   entity_domain=record["entity_domain"], aliases=record["payload"].get("aliases", []))
                 aliases = self._approved_aliases(result.accepted_aliases, entity, current, result.alias_evidence) if result.kind == "MATCH_ONE" else []
                 op = self._prepare_operation(tenant_id, user_id, update, record, aliases)
+                op["_single_handles"] = [entity["entity_id"]] if result.kind == "MATCH_ONE" else []
+                if result.kind == "MATCH_MANY":
+                    for fact in op["extracted_facts"]:
+                        fact["_group_targets"] = [str(t.db_id) for t in targets]
+                        fact["_group_handles"] = result.group_member_handles
                 if db_id in prepared:
                     previous = prepared[db_id]
                     previous["payload"] = op["payload"]
                     previous["extracted_facts"] += op["extracted_facts"]
+                    previous.setdefault("_single_handles", []).extend(op["_single_handles"])
                     previous.setdefault("_dictionary_evidence", []).extend(op.get("_dictionary_evidence", []))
                     if op["mode"] == "MUTATE":
                         previous["mode"] = "MUTATE"
@@ -406,6 +489,8 @@ class ConsolidationWorkflow:
                 else:
                     operations.append(op)
                     prepared[db_id] = op
+        from tomte.engine.core.relationships import normalize_relationships
+        operations, self.last_identity_map = normalize_relationships(operations)
         return operations
 
     @staticmethod
@@ -433,6 +518,7 @@ class ConsolidationWorkflow:
     def _prepare_operation(tenant_id, user_id, entity, record, approved_aliases=()):
         """Existing fact merge/history semantics; identity decisions never choose a mode."""
         payload = deepcopy(entity)
+        payload.pop("mention_context", None)
         dictionary_evidence = payload.pop("_dictionary_evidence", [])
         incoming = deepcopy(entity.get("facts", []))
         mode = "INSERT"
@@ -459,11 +545,14 @@ class ConsolidationWorkflow:
               "entity_id": payload["entity_id"], "entity_name": payload.get("entity_name") or payload["entity_id"],
               "entity_type": payload["entity_type"], "entity_domain": payload["entity_domain"],
               "payload": payload, "extracted_facts": incoming,
+              "_mention_context": entity.get('mention_context'),
               "_dictionary_evidence": dictionary_evidence,
               "importance": max((f.get("importance", 3) for f in payload.get("facts", [])), default=3)}
         if record is not None:
             op["db_id"] = str(record["id"])
             op["_expected_payload"] = deepcopy(record["payload"])
         else:
+            op["reserved_id"] = str(uuid4())
+            op["entity_id"] = op["payload"]["entity_id"] = "entity_" + uuid4().hex
             op["payload"]["facts"] = []  # NEW still requires validated ADD proposals.
         return op

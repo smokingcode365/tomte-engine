@@ -21,6 +21,8 @@ class GeminiSettings(BaseModel):
     vector_dimension: int = 768  # Standard for Google embeddings
 
 class TomteSettings(BaseSettings):
+    max_model_input_bytes: int = Field(default=65536, ge=1, description="Conservative UTF-8 input capacity per model stage; not a token/context guarantee.")
+    provider_diagnostics_enabled: bool = Field(default=False, description="Emit bounded metadata-only provider diagnostics; no raw payloads.")
     max_keywords_for_llm: int = Field(default=400, description="The maximum number of keywords to send to the LLM for extraction.")
     max_input_length: int = Field(default=4000, description="The maximum length of the input text.")
     enable_pii_scrubbing: bool = Field(default=False)

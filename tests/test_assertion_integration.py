@@ -22,12 +22,12 @@ def assertion_case(mechanics,monkeypatch):
         if schema is ExtractionMemorySchema:
             value=case.plan_value
             return schema.model_validate({"assets_and_possessions":[{
-                "entity_id":"veh_01","entity_name":"Tesla Model Y","entity_type":"vehicle",
+                "entity_id":"tmp_veh_01","entity_name":"Tesla Model Y","entity_type":"vehicle",
                 "entity_domain":"assets_and_possessions","aliases":["Tesla"],
                 "facts":[] if value is None else [{"attribute_name":"ownership_status","value":value,"confidence":1}]}]})
         if schema.__name__=="ResolutionResponse":
-            candidates=data["CANDIDATES_BY_OBJECT"]["veh_01"]
-            return resolution_response(schema,{"mappings":[{"extracted_entity_id":"veh_01",
+            candidates=data["CANDIDATES_BY_OBJECT"]["tmp_veh_01"]
+            return resolution_response(schema,{"mappings":[{"extracted_entity_id":"tmp_veh_01",
                 "mode":"MUTATE" if candidates else "INSERT", "matched_db_id":candidates[0]["id"] if candidates else None,
                 "reasoning":"Deterministic local identity fixture"}]},user_text)
         assert schema.__name__=="MutationPlanResponse"

@@ -1,11 +1,15 @@
 from typing import List, Type, TypeVar, Optional
 from pydantic import BaseModel
 from pydantic_ai import Agent, Embedder
+from pydantic_ai.embeddings.google import GoogleEmbeddingModel
 from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.providers.google import GoogleProvider
 from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.llm.structured import tomte_extractor_agent, junk_filter_agent, TomteDeps
 from tomte.engine.core.config import settings
+from tomte.engine.providers.diagnostics import observe_provider, observe_result
+from tomte.engine.llm.trust import TRUST_BOUNDARY
 
 T = TypeVar('T', bound=BaseModel)
 
@@ -18,45 +22,52 @@ class GeminiLLMProvider(LLMProvider):
         self.api_key = api_key
         
         # Initialize Gemini Chat Models
+        provider = GoogleProvider(api_key=api_key)
         self.strong_model = GoogleModel(
-            settings.gemini.strong_model, 
-            api_key=api_key
+            settings.gemini.strong_model.removeprefix("google-gla:"),
+            provider=provider
         )
         self.cheap_model = GoogleModel(
-            settings.gemini.cheap_model, 
-            api_key=api_key
+            settings.gemini.cheap_model.removeprefix("google-gla:"),
+            provider=provider
         )
         
         # Initialize Google Native Embedder
-        self.embedder = Embedder(
-            settings.gemini.embed_model, 
-            api_key=api_key
-        )
+        self.embedder = Embedder(GoogleEmbeddingModel(
+            settings.gemini.embed_model.removeprefix("google-gla:"),
+            provider=provider
+        ))
 
     def get_vector_dimension(self) -> int:
         """Returns dimensions from config to prevent pgvector mismatch."""
         return settings.gemini.vector_dimension
 
+    @observe_provider("embedder")
     def embed_text(self, text: str) -> List[float]:
         """Generates a single vector for live RAG searches[cite: 248]."""
         result = self.embedder.embed_query_sync(text)
+        observe_result(result)
         return list(result.embeddings[0])
 
+    @observe_provider("embedder")
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """Generates multiple vectors for the Consolidation Loop[cite: 81]."""
         if not texts:
             return []
         result = self.embedder.embed_documents_sync(texts)
+        observe_result(result)
         return [list(e) for e in result.embeddings]
 
+    @observe_provider("cheap_model")
     def is_junk(self, chat_log: str) -> bool:
         """Uses Gemini Flash to quickly filter out irrelevant chat logs [cite: 55-57]."""
         result = junk_filter_agent.run_sync(
             chat_log, 
             model=self.cheap_model
         )
-        return result.data
+        return result.output
 
+    @observe_provider("strong_model")
     def parse_structured(
         self, 
         system_prompt: str, 
@@ -77,17 +88,17 @@ class GeminiLLMProvider(LLMProvider):
                 output_type=schema,
                 deps=deps
             )
-            return result.data
+            return result.output
             
         # Route B: Phase 3 Reconciliation or Generic Tasks (Dynamic Schema)
         else:
             # Spin up a temporary, stateless agent for this specific schema
             dynamic_agent = Agent(
                 output_type=schema,
-                system_prompt=system_prompt or "You are a helpful data extraction assistant."
+                system_prompt=TRUST_BOUNDARY + (system_prompt or "You are a helpful data extraction assistant.")
             )
             result = dynamic_agent.run_sync(
                 user_text,
                 model=self.strong_model
             )
-            return result.data
+            return result.output

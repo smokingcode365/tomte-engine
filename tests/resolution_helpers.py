@@ -13,12 +13,15 @@ def resolution_response(schema, prescribed, user_text):
     results=[]
     for mapping in prescribed["mappings"]:
         new = mapping["mode"] == "INSERT"
-        results.append({"extracted_entity_id":mapping["extracted_entity_id"],
+        handle = mapping["extracted_entity_id"]
+        offered = {e["id"] for e in prompt["EXTRACTED_SEMANTIC_INFORMATION"]}
+        if handle not in offered and "tmp_" + handle in offered: handle = "tmp_" + handle
+        results.append({"extracted_entity_id":handle,
             "kind":"NEW" if new else "MATCH_ONE", "explicitly_new":new,
             "new_entity_evidence":evidence if new else None,
             "targets":[] if new else [{"db_id":mapping["matched_db_id"],
                                       "resolution_confidence":1,"evidence":"EXPLICIT"}],
-            "reasoning":mapping["reasoning"], "accepted_aliases":mapping.get("accepted_aliases", [])})
+            "reasoning":mapping["reasoning"], "accepted_aliases":mapping.get("accepted_aliases", []), "alias_evidence":mapping.get("alias_evidence", [])})
     return schema.model_validate({"resolutions":results})
 
 

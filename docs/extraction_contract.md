@@ -39,7 +39,8 @@ retrieval is a possible later step requiring evaluation, not implemented here.
 timestamps. One-source results may omit the source; code assigns the actual queue
 ID. With multiple sources, every fact/event must select an ID in the current batch.
 Code validates selections and copies each source's actual timestamp as UTC seconds,
-then constructs the unchanged persisted `TomteMemorySchema`.
+then constructs an internal resolved schema retaining ephemeral interpretation context.
+See connected_entities.md for the tmp_ wire and canonical UUID relationship boundary.
 
 Missing/invalid queue timestamps, unknown/invented/historical source selections,
 and model-supplied timestamp fields fail before memory writes or processed markers.
@@ -69,8 +70,9 @@ collisions. Flat non-database entities retain logical-ID merging.
 ## Deterministic identity and state safeguards
 
 Persistence serializes INSERT ID allocation per tenant/user with a transaction-scoped
-advisory lock. An unused extracted label is retained; collisions receive a UUID suffix
-and operation/payload IDs agree. Matched MUTATE/REINFORCE retain the existing identity.
+advisory lock. NEW workflow identities use Python-owned UUIDs and independent logical labels;
+collisions receive a UUID suffix and operation/payload IDs agree. Extraction labels
+never persist. Canonical relationship UUIDs are unaffected by logical collisions. Matched MUTATE/REINFORCE retain the existing identity.
 Bootstrap adds a scoped unique index; historical duplicates fail bootstrap clearly
 without deleting or rewriting data. External writers must respect the same uniqueness.
 

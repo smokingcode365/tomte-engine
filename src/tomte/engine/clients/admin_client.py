@@ -19,11 +19,10 @@ class TomteAdminClient:
         """
         tomtelog.info(f"Admin triggered manual dictionary cleanup for Tenant: {self.tenant_id}")
         try:
-            workflow = MaintenanceWorkflow()
-            workflow.run_midnight_cleanup()
-            return True
+            from tomte.engine.workers.dictionary_maintenance_worker import run_midnight_job
+            return run_midnight_job()
         except Exception as e:
-            tomtelog.error(f"Manual cleanup failed: {e}")
+            tomtelog.error("Manual cleanup failed")
             return False
 
     def get_user_graph_raw(self, user_id: str) -> List[Dict[str, Any]]:
@@ -32,30 +31,31 @@ class TomteAdminClient:
         Useful for debugging or rendering a visual Knowledge Graph in an admin dashboard.
         """
         try:
-            db = Tomte.get_db()
-            # Fetch the skeleton, which includes the payload
-            return db.get_user_graph_skeleton(tenant_id=self.tenant_id, user_id=user_id)
+            with Tomte.operation_context() as (db, _):
+                return db.get_user_graph_skeleton(tenant_id=self.tenant_id, user_id=user_id)
         except TomteError as e:
-            tomtelog.error(f"Failed to fetch graph for user {user_id}: {e}")
+            tomtelog.error("Failed to fetch graph")
             return []
 
     def wipe_user_memory(self, user_id: str) -> bool:
         """
-        Hard-deletes a user from the memory engine and cache. 
-        Crucial for GDPR/CCPA compliance.
+        Deletes durable memory and the legacy persona cache only.
+        This is not a complete erasure API; queue/history erasure is deferred.
         """
         try:
-            db = Tomte.get_db()
             cache = Tomte.get_cache()
-            
-            db.delete_user_memory(self.tenant_id, user_id)
+            with Tomte.operation_context() as (db, _):
+                with db.user_guard(self.tenant_id, user_id) as acquired:
+                    if not acquired:
+                        return False
+                    db.delete_user_memory(self.tenant_id, user_id)
 
             # Clear Persona Cache
             from tomte.engine.utils.keys import generate_persona_key
             cache.client.delete(generate_persona_key(self.tenant_id, user_id))
             
-            tomtelog.info(f"Successfully wiped all memory and cache for user {user_id}")
+            tomtelog.info("Deleted durable memory and persona cache; other queued/history data remains")
             return True
         except Exception as e:
-            tomtelog.error(f"Failed to wipe memory for {user_id}: {e}")
+            tomtelog.error("Failed to delete durable memory")
             return False

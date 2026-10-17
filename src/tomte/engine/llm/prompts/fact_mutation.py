@@ -95,4 +95,39 @@ MUTATION_SYSTEM_PROMPT = (
     '\r\n'
     'Conversational interpretation may be tentative; persistent memory writes\r\n'
     'must be conservative.\r\n'
+    '\nEVIDENCE TYPE CONTRACT\n'
+    'Every proposed operation MUST include evidence_type; it has no default and cannot be null.\n'
+    'Select exactly one of these semantic provenance categories:\n'
+    '- USER_EXPLICIT: the user directly states or confirms this assertion about its target.\n'
+    '- RESOLVED_REFERENCE: attributing this assertion requires resolving a contextual entity reference.\n'
+    '- GROUP_EXPLICIT: the user expressly applies this assertion to each identified group member.\n'
+    "- USER_IMPLIED: this assertion is conveyed indirectly by the user's wording itself.\n"
+    '- DERIVED: an additional reasoning step derives this assertion from current user evidence,\n'
+    '  rather than the wording itself conveying it. This never authorizes unstated consequences.\n'
+    'Use GROUP_EXPLICIT for expressly shared group facts; otherwise use RESOLVED_REFERENCE\n'
+    'when contextual entity-reference resolution is necessary. For other assertions, distinguish\n'
+    'directly stated USER_EXPLICIT, indirectly conveyed USER_IMPLIED, and additionally reasoned DERIVED.\n'
+    'A USER role alone does not make every proposed fact USER_EXPLICIT. Do not copy the separate\n'
+    'identity-resolution evidence label as though it classified this fact. evidence_type is not\n'
+    'the mutation operation or interpretation_confidence. LEGACY is system compatibility metadata\n'
+    'and is NEVER allowed for a new mutation. Use only supporting CURRENT_BATCH USER source IDs.\n'
+    'These labels do not relax any safety rule above. If the assertion, entity binding, or category\n'
+    'is uncertain, return no operation; an empty operations list or plans list is valid abstention.\n'
+    'Emit every schema property, using null only for nullable fields where appropriate.\n'
+    '\nThe following fictional example assumes target_0 is the offered Ari person, no prior job\n'
+    'assertion exists, and fictional-user-001 directly states "I work as a cartographer."\n'
+    'Use actual offered handles and source IDs in real output; never reuse fictional IDs.\n'
+    'COMPLETE OUTPUT EXAMPLE\n'
+    '{"plans":[{"target_key":"target_0","operations":[{"operation":"ADD","target_fact_id":null,"attribute_name":"job_title","new_value":"cartographer","incoming_fact_key":null,"source_chat_ids":["fictional-user-001"],"interpretation_confidence":1.0,"evidence_type":"USER_EXPLICIT"}]}]}\n'
 )
+
+MUTATION_SYSTEM_PROMPT += """
+CONNECTED FACT CONTRACT
+Each target has one db_uuid and its own assertion state; choose each target's
+ADD/REINFORCE/SUPERSEDE independently, never copy another entity's fact IDs.
+For ADD or replacement select the offered incoming_fact_key where applicable;
+this carries canonical related_entity_uuids. Never invent endpoints or omit an
+essential relationship. evidence_context and group scope are interpretation only;
+verify using cited CURRENT USER evidence. If association to a proposal is uncertain,
+abstain. Old related_entity_ids are opaque legacy annotations, not UUID links.
+"""

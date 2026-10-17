@@ -6,7 +6,7 @@ import math
 import re
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 
 from tomte.engine.core.schema import Entity, Fact, TimelineEvent, TomteMemorySchema, ISO_8601_REGEX
 
@@ -27,19 +27,44 @@ def _fields(model, excluded=()):
 # Reuse semantic field definitions, but never request system timestamps from a model.
 ExtractedFact = create_model(
     "ExtractedFact", __config__=ConfigDict(extra="forbid"),
-    **_fields(Fact, ("source_chat_id", "last_mentioned_at", "timeline", "fact_id", "assertion_state", "origin", "created_at", "effective_at", "ended_at", "supersedes_fact_id", "corrects_fact_id", "evidence")),
+    **_fields(Fact, ("source_chat_id", "last_mentioned_at", "timeline", "fact_id", "assertion_state", "origin", "created_at", "effective_at", "ended_at", "supersedes_fact_id", "corrects_fact_id", "evidence", "related_entity_uuids", "related_entity_ids")),
+    related_entity_ids=(List[str], Field(default_factory=list, description="Structured relationship endpoints: exact tmp_ handles of objects in this response. No database UUIDs, names or guesses. Empty for a genuinely standalone fact.")),
+    evidence_context=(Optional[str], Field(default=None, max_length=600, description="Optional untrusted interpretation of referents/time/negation. Supported by this fact's CURRENT USER source; not additional evidence.")),
+    group_participant_handles=(List[str], Field(default_factory=list, description="Exact tmp_ handles of all known participants for an explicitly shared statement; not relationship endpoints.")),
     source_chat_id=(Optional[str], Field(default=None, description="Supporting CURRENT_BATCH item_id; required with multiple messages.")),
     timeline=(List[ExtractedTimelineEvent], deepcopy(Fact.model_fields["timeline"])),
 )
 ExtractedEntity = create_model(
     "ExtractedEntity", __config__=ConfigDict(extra="forbid"),
-    **_fields(Entity, ("facts",)), facts=(List[ExtractedFact], deepcopy(Entity.model_fields["facts"])),
+    **_fields(Entity, ("facts", "entity_id")),
+    entity_id=(str, Field(pattern=r"^tmp_[a-z][a-z0-9_]*$", description="Ephemeral tmp_ object handle, unique across all eight lists, e.g. tmp_per_1. Never a stored identity. Related IDs reference these handles only.")),
+    mention_context=(Optional[str], Field(default=None, max_length=400, description="Optional untrusted reference interpretation, grounded in the cited current user facts. Never a persistent summary.")),
+    facts=(List[ExtractedFact], deepcopy(Entity.model_fields["facts"])),
 )
+
+
+class _ExtractionMemoryBoundary(TomteMemorySchema):
+    @model_validator(mode="after")
+    def unique_object_handles(self):
+        ids = [entity.entity_id for name in TomteMemorySchema.model_fields
+               for entity in getattr(self, name)]
+        if len(set(ids)) != len(ids):
+            raise ValueError("Temporary extraction IDs must be unique within a batch")
+        return self
+
+
 ExtractionMemorySchema = create_model(
-    "ExtractionMemorySchema", __base__=TomteMemorySchema,
+    "ExtractionMemorySchema", __base__=_ExtractionMemoryBoundary,
     **{name: (List[ExtractedEntity], deepcopy(field))
        for name, field in TomteMemorySchema.model_fields.items()},
 )
+
+ResolvedExtractionFact = create_model("ResolvedExtractionFact", __base__=Fact,
+    evidence_context=(Optional[str], None), group_participant_handles=(List[str], Field(default_factory=list)))
+ResolvedExtractionEntity = create_model("ResolvedExtractionEntity", __base__=Entity,
+    mention_context=(Optional[str], None), facts=(List[ResolvedExtractionFact], Field(default_factory=list)))
+ResolvedExtractionMemory = create_model("ResolvedExtractionMemory", __base__=TomteMemorySchema,
+    **{name: (List[ResolvedExtractionEntity], deepcopy(field)) for name, field in TomteMemorySchema.model_fields.items()})
 
 
 def source_timestamps(chat_items):
@@ -100,7 +125,9 @@ def resolve_extraction(extracted, chat_items):
                 if fact["source_chat_id"] in user_sources:
                     user_facts.append(fact)
             entity["facts"] = user_facts
-    return TomteMemorySchema.model_validate(data)
+    # Preserve ephemeral context while adding deterministic timestamps. These
+    # internal models are not the extraction wire or the persistent schema.
+    return ResolvedExtractionMemory.model_validate(data)
 
 
 def validate_operation_provenance(operations):

@@ -42,7 +42,9 @@ def contract(mechanics, monkeypatch):
         case.calls.append(schema.__name__)
         data = json.loads(user_text)
         if schema is ExtractionMemorySchema:
-            return schema.model_validate({"assets_and_possessions": case.extracted})
+            wire = deepcopy(case.extracted)
+            for e in wire: e["entity_id"] = "tmp_" + e["entity_id"]
+            return schema.model_validate({"assets_and_possessions": wire})
         if schema.__name__ == "TerminologyAlignmentResponse":
             return schema()  # KEEP_RAW still exercises real dictionary preparation.
         if schema.__name__ == "ContextualActionResponse":
@@ -50,7 +52,8 @@ def contract(mechanics, monkeypatch):
         if schema.__name__ == "ResolutionResponse":
             resolutions = []
             for entity in data["EXTRACTED_SEMANTIC_INFORMATION"]:
-                name = case.matches.get(entity["id"])
+                fixture_id = entity["id"].removeprefix("tmp_")
+                name = case.matches.get(fixture_id)
                 candidate = next((c for c in data["CANDIDATES_BY_OBJECT"][entity["id"]]
                                   if c["name"] == name), None)
                 if name is not None:
@@ -61,12 +64,12 @@ def contract(mechanics, monkeypatch):
                     "targets": [{"db_id": candidate["id"], "resolution_confidence": 1,
                                  "evidence": "EXPLICIT"}] if candidate else [],
                     "explicitly_new": candidate is None,
-                    "new_entity_evidence": (case.new_evidence.get(entity["id"])
+                    "new_entity_evidence": (case.new_evidence.get(fixture_id)
                         if isinstance(case.new_evidence, dict) else
                         case.new_evidence or data["CURRENT_BATCH"][0]["content"]),
                     "reasoning": "Deterministic contract fixture",
-                    "accepted_aliases": case.accepted_aliases.get(entity["id"], []),
-                    "alias_evidence": case.alias_evidence.get(entity["id"], []),
+                    "accepted_aliases": case.accepted_aliases.get(fixture_id, []),
+                    "alias_evidence": case.alias_evidence.get(fixture_id, []),
                 })
             return schema.model_validate({"resolutions": resolutions})
         assert schema.__name__ == "MutationPlanResponse", "Unexpected model stage"
@@ -688,13 +691,13 @@ def test_model_retraction_of_nonliteral_training_reference_persists_and_acks(con
         data=json.loads(user_text)
         if schema is ExtractionMemorySchema:
             case.calls.append(schema.__name__)
-            return schema.model_validate({"activities_and_skills":[{"entity_id":"temporary","entity_name":"training activity",
+            return schema.model_validate({"activities_and_skills":[{"entity_id":"tmp_temporary","entity_name":"training activity",
                 "entity_type":"marathon_training","entity_domain":"activities_and_skills","aliases":[],"facts":[{
                 "attribute_name":"training_status","value":"not training","source_chat_id":data["CURRENT_BATCH"][0]["item_id"],"confidence":1}]}]})
         if schema.__name__ == "ResolutionResponse":
             case.calls.append(schema.__name__)
-            assert str(prior_id) in {r["id"] for r in data["CANDIDATES_BY_OBJECT"]["temporary"]}
-            return schema.model_validate({"resolutions":[{"extracted_entity_id":"temporary","kind":"MATCH_ONE",
+            assert str(prior_id) in {r["id"] for r in data["CANDIDATES_BY_OBJECT"]["tmp_temporary"]}
+            return schema.model_validate({"resolutions":[{"extracted_entity_id":"tmp_temporary","kind":"MATCH_ONE",
                 "targets":[{"db_id":str(prior_id),"resolution_confidence":.98,"evidence":"RESOLVED_REFERENCE"}],
                 "reasoning":"Prescribed semantic reference", "accepted_aliases":[],"alias_evidence":[]}]})
         return original(system_prompt,user_text,schema,**kwargs)

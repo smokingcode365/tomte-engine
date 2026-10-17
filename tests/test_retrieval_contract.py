@@ -122,11 +122,11 @@ def test_registered_chat_context_equivalent_for_flat_and_postgres_rows(monkeypat
 
         results.append(result)
         llm.embed_text.assert_called_once_with("What language do I like?")
-        adapted=cache.set_persona_entities.call_args.args[2][0]
+        adapted=provider.get_important_entities("synthetic-tenant", "synthetic-user")[0]
         assert adapted["facts"][0]["assertion_state"]=="ACTIVE" and adapted["facts"][0]["fact_id"]
         assert {k:adapted[k] for k in entity if k!="facts"}=={k:entity[k] for k in entity if k!="facts"}
         assert {k:adapted["facts"][0][k] for k in entity["facts"][0]}==entity["facts"][0]
-        cache.set_persona_entities.assert_called_once_with("synthetic-tenant", "synthetic-user", [adapted])
+        cache.set_persona_entities.assert_not_called()
         cache.append_chat_history.assert_called_once()
         cache.enqueue_for_consolidation.assert_called_once()
     assert results[0] == results[1]

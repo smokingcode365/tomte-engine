@@ -25,10 +25,24 @@ class EvidenceType(str, Enum):
     LEGACY = "LEGACY"
 
 
+MUTATION_EVIDENCE_DESCRIPTION = (
+    "Required semantic provenance category, not a role, confidence score or mutation operation. "
+    "USER_EXPLICIT: the user directly states/confirms this assertion about its target. "
+    "RESOLVED_REFERENCE: attributing the assertion requires resolving a contextual entity reference. "
+    "GROUP_EXPLICIT: the user expressly applies this assertion to each identified group member. "
+    "USER_IMPLIED: the assertion is conveyed indirectly by the user's wording. "
+    "DERIVED: an additional reasoning step derives the assertion from current user evidence, "
+    "rather than the wording itself conveying it. USER role alone does not establish USER_EXPLICIT. "
+    "These labels never authorize unsupported inference; abstain if meaning or binding is uncertain. "
+    "LEGACY is forbidden for new mutations."
+)
+
+
 class FactEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
     source_chat_id: str = Field(min_length=1)
-    evidence_type: EvidenceType
+    evidence_type: EvidenceType = Field(description=MUTATION_EVIDENCE_DESCRIPTION +
+        " Stored legacy evidence may use LEGACY; only the system supplies that compatibility label.")
     interpretation_confidence: float = Field(ge=0, le=1)
     recorded_at: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
     operation: Literal["ADD", "REINFORCE", "SUPERSEDE", "RETRACT", "CORRECT"] = "ADD"
@@ -40,9 +54,11 @@ class FactMutation(BaseModel):
     target_fact_id: str | None = None
     attribute_name: str | None = None
     new_value: str | None = None
+    incoming_fact_key: str | None = Field(default=None, description="Exact offered incoming_fact_key for a replacement/ADD semantic proposal, especially relationships. Never invent a link or drop a required endpoint.")
     source_chat_ids: list[str] = Field(min_length=1)
     interpretation_confidence: float = Field(ge=0, le=1)
-    evidence_type: Literal["USER_EXPLICIT", "RESOLVED_REFERENCE", "GROUP_EXPLICIT", "USER_IMPLIED", "DERIVED"]
+    evidence_type: Literal["USER_EXPLICIT", "RESOLVED_REFERENCE", "GROUP_EXPLICIT", "USER_IMPLIED", "DERIVED"] = Field(
+        description=MUTATION_EVIDENCE_DESCRIPTION)
 
     @model_validator(mode="after")
     def validate_shape(self):
@@ -203,8 +219,15 @@ def apply_mutations(facts, operations, chat_items, entity_scope, batch_id, templ
                         op.target_fact_id, attribute, op.new_value, sorted(op.source_chat_ids))
         if fid in by_id:
             raise ValueError("Repeated assertion creation in one plan")
-        template = next((deepcopy(f) for f in templates if canonical_attribute(f["attribute_name"]) == attribute
-                         and f["value"] == op.new_value), {})
+        matches = [deepcopy(f) for f in templates if
+                   (f.get('incoming_fact_key') == op.incoming_fact_key if op.incoming_fact_key is not None else
+                    canonical_attribute(f['attribute_name']) == attribute and f['value'] == op.new_value)
+                   and f.get('source_chat_id') in op.source_chat_ids]
+        if op.incoming_fact_key is not None and len(matches) != 1:
+            raise ValueError('Mutation must select exactly one offered incoming fact')
+        if len(matches) > 1 and any(f.get('related_entity_uuids') for f in matches):
+            raise ValueError('Ambiguous relationship template')
+        template = matches[0] if matches else {}
         stamp = min(sources[s] for s in op.source_chat_ids)
         new = {"attribute_name":attribute, "value":op.new_value, "fact_id":fid,
                "assertion_state":"ACTIVE", "origin":op.evidence_type, "created_at":stamp,
@@ -216,6 +239,7 @@ def apply_mutations(facts, operations, chat_items, entity_scope, batch_id, templ
                "importance":template.get("importance",3), "confidence":template.get("confidence",op.interpretation_confidence),
                "status":template.get("status","active"), "sentiment":template.get("sentiment","neutral"),
                "volatility":template.get("volatility","core"), "related_entity_ids":template.get("related_entity_ids",[]),
+               "related_entity_uuids":template.get("related_entity_uuids",[]),
                "timeline":template.get("timeline",[])}
         _add_evidence(new, op, sources)
         result.append(new)

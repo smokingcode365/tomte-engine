@@ -100,6 +100,7 @@ def live_workflow(monkeypatch):
     below=e('below','Below activation floor')
     below['raw_cosine']=.2
     db=SimpleNamespace(upsert_user_activity=Mock(),get_recent_entities=Mock(return_value=[recent]),
+        get_important_entities=Mock(return_value=[e('p','Persona')]),
         get_raw_semantic_context=Mock(return_value=[e('s','Stale Tesla'),below]),
         get_frequent_entities=Mock(side_effect=AssertionError('Frequent live call')),
         semantic_retrieval=Mock(side_effect=AssertionError('Weighted live call')),

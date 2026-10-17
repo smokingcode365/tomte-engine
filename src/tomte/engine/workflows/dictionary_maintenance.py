@@ -8,11 +8,21 @@ from tomte.engine.log import tomtelog
 class MaintenanceWorkflow:
     """Thin workflow: delegates dictionary maintenance to :class:`DictionaryService`."""
 
-    def __init__(self) -> None:
-        self._dictionary = get_dictionary_service()
+    def __init__(self, db=None, llm=None) -> None:
+        from tomte.engine.dictionary.service import DictionaryService
+        self._dictionary = DictionaryService(db, llm)
 
 
     def run_midnight_cleanup(self):
+        # The global dictionary read/model/write cycle is exclusive with all
+        # compliant dictionary writers. No SQL transaction spans model work.
+        with self._dictionary.db.maintenance_guard() as acquired:
+            if not acquired:
+                return False
+            self._run_cleanup()
+            return True
+
+    def _run_cleanup(self):
         """Executes Phase 5: Midnight Cleanup."""
         tomtelog.info("Starting Phase 5: Midnight Cleanup Workflow")
         

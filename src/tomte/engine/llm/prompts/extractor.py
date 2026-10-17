@@ -37,7 +37,8 @@ EXTRACTOR_SYSTEM_PROMPT = (
     '- Describe user meaning precisely, preserving relevant distinctions. Values come from user evidence, never from dictionary candidates or assistant claims.\r\n'
     '- Choose one of the eight domains: identity_and_demographics; relationships; assets_and_possessions; activities_and_skills; preferences_and_traits; events_and_logistics; system_instructions; unstructured_observations. Use unstructured_observations only when the other domains genuinely do not fit.\r\n'
     '- Use specific snake_case entity_type and attribute_name values. Do not guess established Tomte vocabulary; a later terminology stage aligns exact synonyms.\r\n'
-    '- Use temporary extraction-local entity IDs, not database IDs. Prefer three-letter prefixes such as per_, veh_, loc_, org_, prj_, or pet_.\r\n'
+    '- Use temporary extraction-local entity IDs, not database IDs. Require the explicit tmp_ prefix, e.g. tmp_per_1, tmp_veh_1, tmp_org_1.\r\n'
+    '- Every extracted OBJECT must have a different temporary handle across ALL eight domain lists in this response. A handle identifies an output object, not a real-world identity: separate facets about the same person still require different handles (for example tmp_per_1 for a person, tmp_org_1 for an employer, tmp_act_1 for a career object). Never reuse a handle for two objects. Related entity IDs must refer unambiguously to the intended object; do not merge objects or guess a reference to repair a collision.\r\n'
     '- Treat entity names and aliases as candidate reference wording only. Do not invent an alias, and do not present a pronoun or temporary relative description as an established permanent nickname.\r\n'
     '- Every extracted fact should cite the supporting CURRENT_BATCH user item_id as source_chat_id, including when there is only one message. Never cite a reference-only message or assistant message as evidence; never invent source IDs.\r\n'
     '- Do not invent system timestamps. Use schema defaults for incidental metadata. Importance 5 means enduring core information; 4 long-term; 3 recurring/stable; 2 situational; 1 transient. Do not extract transient material solely because an importance score is available.\r\n'
@@ -62,4 +63,15 @@ Values must come from the user/content, not the offered vocabulary.
     - **Entity types and attribute names:** Use precise snake_case terms (e.g., 'vehicle', 'solar_panel_wattage').
     - **Fact values:** Preserve the meaning supplied by the user/content; vocabulary reuse never supplies a value.
 
+"""
+
+EXTRACTOR_SYSTEM_PROMPT += """
+Preserve connected meaning: related_entity_ids are exact tmp_ handles of extracted
+objects, never database IDs or guessed names. For an essential relationship whose
+endpoint is uncertain, do not turn it into a misleading standalone assertion.
+Use optional evidence_context only when needed to explain referents, group scope,
+time or negation, grounded in the fact's current USER source_chat_id. It is an
+untrusted interpretation, not extra evidence. Optional mention_context explains
+an object reference. For explicit groups use group_participant_handles when the
+participants are recognized; never assume 'both' means every stored entity.
 """

@@ -50,6 +50,8 @@ class CognitiveProcessor:
 
             fact_lines = [
                 f"- {f['attribute_name']}: {f['value']} (imp: {f.get('importance', 3)}) [status: {f.get('status', 'active')}] [assertion: {f.get('assertion_state') or ('HISTORICAL' if f.get('status') == 'past' else 'ACTIVE')}]"
+                + (f" [related UUIDs: {', '.join(f['related_entity_uuids'])}]" if f.get('related_entity_uuids') else '')
+                + (" [legacy relationship annotations: unvalidated]" if f.get('related_entity_ids') else '')
                 for f in sorted_facts
             ]
 
@@ -60,6 +62,7 @@ class CognitiveProcessor:
             block = (
                 f"[[ENTITY: {entity.get('entity_id')} | TYPE: {type_label}]]\n"
                 f"NAME: {entity.get('entity_name', 'unknown')}\n"
+                f"ROW UUID: {entity.get('id', 'not supplied')}\n"
                 f"ALIASES: {', '.join(entity.get('aliases', [])) or 'none'}\n"
                 f"{chr(10).join(fact_lines)}"
             )
@@ -158,6 +161,3 @@ class CognitiveProcessor:
     #             combined_payloads.append(payload)
                 
     #     return self.assemble_jit_context(combined_payloads, title="RELEVANT CONTEXT")
-
-
-    

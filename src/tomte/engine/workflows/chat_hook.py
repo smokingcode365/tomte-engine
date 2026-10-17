@@ -14,11 +14,11 @@ from tomte.engine.utils.cognitive import CognitiveProcessor
 
 class ChatHookWorkflow: 
     def __init__(
-        self, 
+        self, db=None, cache=None, llm=None, *, cache_only=False,
     ):
-        self.db: DatabaseProvider = Tomte.get_db()
-        self.cache: CacheProvider = Tomte.get_cache()
-        self.llm: LLMProvider = Tomte.get_llm()
+        self.db: DatabaseProvider = None if cache_only else (db if db is not None else Tomte.get_db())
+        self.cache: CacheProvider = cache if cache is not None else Tomte.get_cache()
+        self.llm: LLMProvider = None if cache_only else (llm if llm is not None else Tomte.get_llm())
         self.cog: CognitiveProcessor = CognitiveProcessor()
         self.security: SecurityGuard = get_security_guard()
 
@@ -53,6 +53,8 @@ class ChatHookWorkflow:
             raise TomteInvalidIdError(f"Invalid ID: {tenant_id}, {session_id}, {user_id}")
         if not message or len(message.strip()) == 0:
             raise TomteInvalidInputError("Message cannot be empty.")
+        if len(message) > settings.max_input_length:
+            raise TomteInvalidInputError(f"Message exceeds {settings.max_input_length} characters.")
         if sender_type not in [ChatSenderRole.ASSISTANT, ChatSenderRole.USER]:
             raise TomteInvalidInputError(f"Invalid sender type: {sender_type}")
     # ==========================================
@@ -128,13 +130,9 @@ class ChatHookWorkflow:
     # ==========================================
 
     def _get_or_refresh_persona(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
-        """Handles cache-first lookup for the user's permanent identity."""
-        entities = self.cache.get_persona_entities(tenant_id, user_id)
-        if not entities:
-            tomtelog.info(f"Cache Miss: Fetching Persona from DB for {user_id}")
-            entities = self.db.get_important_entities(tenant_id, user_id,domain=MemoryDomain.IDENTITY)
-            self.cache.set_persona_entities(tenant_id, user_id, entities)
-        return entities
+        """Read current identity facts; cached full payloads may be stale."""
+        # Full cached payloads can resurrect corrected/retracted assertions.
+        return self.db.get_important_entities(tenant_id, user_id, domain=MemoryDomain.IDENTITY)
 
     def _fetch_live_pulse(self, tenant_id: str, user_id: str, query_vector: List[float]) -> tuple:
         """Fetch recent continuity and ungated long-term semantic context."""

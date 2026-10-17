@@ -142,7 +142,7 @@ def test_mutation_value_source_constraints_and_one_to_one_requirements():
     assert "MISSING_REQUIRED_MUTATION" in support.score(mutation_case(required=required * 2), mutation_output())["failures"]
 
 
-def extracted_output(source="s", entity_id="arbitrary"):
+def extracted_output(source="s", entity_id="tmp_arbitrary"):
     return {"assets_and_possessions": [{"entity_id": entity_id, "entity_name": "Token", "entity_domain": "assets_and_possessions",
         "entity_type": "token", "facts": [{"attribute_name": "token", "value": "a", "source_chat_id": source, "confidence": .01}]}]}
 
@@ -152,7 +152,7 @@ def test_extraction_required_forbidden_and_source_constraints():
     expected = {**SMOKE["extraction"]["expected"], "required_facts": [rule], "exact_entity_count": 1, "exact_fact_count": 1}
     c = case("extraction", expected, {**SMOKE["extraction"]["input"], "CURRENT_BATCH": [{"item_id": "s"}]})
     assert support.score(c, extracted_output())["passed"]
-    assert support.score(c, extracted_output(entity_id="different-temporary-id"))["passed"]
+    assert support.score(c, extracted_output(entity_id="tmp_different"))["passed"]
     assert "MISSING_FACT" in support.score(c, {})["failures"]
     assert "WRONG_FACT_SOURCE" in support.score(c, extracted_output("other"))["failures"]
     expected["forbidden_facts"] = [rule]

@@ -33,12 +33,12 @@ def record(name, aliases=()):
 
 
 def entity():
-    return {"entity_id":"veh_01","entity_name":"Weak vehicle reference","entity_type":"vehicle",
+    return {"entity_id":"tmp_veh_01","entity_name":"Weak vehicle reference","entity_type":"vehicle",
             "entity_domain":"assets_and_possessions","aliases":[],"facts":[fact()]}
 
 
 def decision(kind, targets=(), evidence="EXPLICIT", confidence=1, equal=False, new_quote=None, accepted_aliases=()):
-    return {"extracted_entity_id":"veh_01","kind":kind,"reasoning":"Prescribed synthetic evidence",
+    return {"extracted_entity_id":"tmp_veh_01","kind":kind,"reasoning":"Prescribed synthetic evidence",
             "targets":[{"db_id":str(row["id"]),"resolution_confidence":confidence,"evidence":evidence} for row in targets],
             "applies_equally_to_all":equal,"explicitly_new":new_quote is not None,"new_entity_evidence":new_quote,
             "accepted_aliases":list(accepted_aliases)}
@@ -57,6 +57,8 @@ def resolve(monkeypatch, records, message, result, recent=(), incoming=None):
     workflow=ConsolidationWorkflow()
     source = (incoming or entity()).get("facts", [{}])[0].get("source_chat_id") or "current-source"
     result = deepcopy(result)
+    if result.get("kind") == "MATCH_MANY":
+        result.update(group_source_chat_id=source, group_evidence_quote=message)
     if result.get("accepted_aliases") and "alias_evidence" not in result:
         result["alias_evidence"] = [{"alias": alias, "source_chat_id": source, "evidence_quote": message}
                                     for alias in result["accepted_aliases"]]
@@ -93,7 +95,7 @@ def test_one_target_contract_does_not_merge_similar_vehicles(monkeypatch,scenari
     assert len(ops)==1 and ops[0]["db_id"]==str(target["id"])
     assert ops[0]["entity_id"]==target["entity_id"]
     assert calls[0]["CURRENT_BATCH"][0]["content"]==message
-    assert len(calls[0]["CANDIDATES_BY_OBJECT"]["veh_01"])==2
+    assert len(calls[0]["CANDIDATES_BY_OBJECT"]["tmp_veh_01"])==2
 
 
 def test_explicit_plural_expands_only_strong_active_targets(monkeypatch):
@@ -122,8 +124,7 @@ def test_my_cars_preserves_uncertainty_for_unmentioned_honda(monkeypatch):
     incoming=entity();incoming["facts"][0].update(attribute_name="paint_color",value="red")
     ops,_,_=resolve(monkeypatch,[tesla,truck,honda],"I painted my cars red. I like red.",result,
                     ["We discussed Tesla and truck."],incoming)
-    assert {op["db_id"] for op in ops}=={str(tesla["id"]),str(truck["id"])}
-    assert all(any(f["attribute_name"]=="paint_color" and f["value"]=="red" for f in op["payload"]["facts"]) for op in ops)
+    assert ops == []  # Incomplete selected groups abstain rather than partial fanout.
 
 
 @pytest.mark.parametrize("message",["One of my cars has a broken window.","I sold both vehicles.","I painted Little Dog red."])
@@ -149,7 +150,7 @@ def test_plural_requires_model_shared_update_approval(monkeypatch,safe,active):
 
 @pytest.mark.parametrize("evidence,confidence",[("SEMANTIC_CANDIDATE",1),("GROUP_INFERRED",1),("EXPLICIT",0.5)])
 def test_similarity_temporary_id_and_weak_confidence_do_not_license_writes(monkeypatch,evidence,confidence):
-    row=record("Tesla");row["entity_id"]="veh_01"
+    row=record("Tesla");row["entity_id"]="tmp_veh_01"
     ops,_,_=resolve(monkeypatch,[row],"I painted Little Dog red.",decision("MATCH_ONE",[row],evidence,confidence))
     assert ops==[]  # Fact.confidence=1 and matching bookkeeping strings cannot bypass identity policy.
 
@@ -160,7 +161,8 @@ def test_new_requires_explicit_current_introduction(monkeypatch):
     incoming.update(entity_name="BMW", entity_type="car", aliases=["my new BMW"])
     ops,_,_=resolve(monkeypatch,[],message,decision("NEW",new_quote=message),incoming=incoming)
     assert len(ops)==1 and ops[0]["mode"]=="INSERT" and "db_id" not in ops[0]
-    for key in ("entity_id", "entity_name", "entity_type", "entity_domain"):
+    assert ops[0]["entity_id"].startswith("entity_") and ops[0]["entity_id"] != incoming["entity_id"]
+    for key in ("entity_name", "entity_type", "entity_domain"):
         assert ops[0][key]==ops[0]["payload"][key]==incoming[key]
     assert ops[0]["payload"]["aliases"]==[]
     ops,_,_=resolve(monkeypatch,[],message,decision("NEW",new_quote="I bought a Tesla."))
@@ -185,7 +187,7 @@ def test_truncated_explicit_set_cannot_receive_partial_group_write(monkeypatch):
     for row in records:row["identity_matches_total"]=6
     ops,calls,_=resolve(monkeypatch,records,"I sold all of them.",decision("MATCH_MANY",records,"GROUP_EXPLICIT",equal=True),
                     ["Tesla truck Honda BMW Volvo and Audi"])
-    assert ops==[] and calls[0]["CANDIDATE_SET_TRUNCATED"]["veh_01"]
+    assert ops==[] and calls[0]["CANDIDATE_SET_TRUNCATED"]["tmp_veh_01"]
 
 
 def test_response_cardinality_is_strict_and_fact_confidence_separate():
@@ -229,13 +231,14 @@ def test_real_group_update_replay_and_uncertainty_leave_honda_untouched(mechanic
     def model(system_prompt,user_text,schema,taxonomy=None,lexicon=None):
         data=json.loads(user_text);calls.append(data)
         if schema is ExtractionMemorySchema:
-            return schema.model_validate({"assets_and_possessions":[{"entity_id":"veh_01","entity_name":"both cars",
+            return schema.model_validate({"assets_and_possessions":[{"entity_id":"tmp_veh_01","entity_name":"both cars",
                 "entity_type":"vehicle","entity_domain":"assets_and_possessions","facts":[{
                 "attribute_name":"ownership_status","value":"Sold","confidence":1}]}]})
-        candidates=data["CANDIDATES_BY_OBJECT"]["veh_01"]
+        candidates=data["CANDIDATES_BY_OBJECT"]["tmp_veh_01"]
         selected=[row for row in candidates if row["name"] in {"Tesla","truck"}]
         assert len(selected)==2 and all(row["name"]!="Honda" for row in selected)
         result=decision("MATCH_MANY",[{"id":row["id"]} for row in selected],"GROUP_EXPLICIT",equal=True)
+        result.update(group_source_chat_id=data["CURRENT_BATCH"][0]["item_id"], group_evidence_quote=message)
         return schema.model_validate({"resolutions":[result]})
     monkeypatch.setattr(case.llm,"parse_structured",mutation_aware(model))
     monkeypatch.setattr(case.llm,"is_junk",lambda text:False)

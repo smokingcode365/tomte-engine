@@ -11,7 +11,7 @@ CANDIDATE_LIMIT = 5
 
 class ResolvedTarget(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    db_id: UUID
+    db_id: UUID = Field(description="The offered candidate's id UUID, never its entity_id or an extraction handle.")
     resolution_confidence: float = Field(ge=0, le=1)
     evidence: Evidence
 
@@ -26,12 +26,12 @@ class AliasEvidence(BaseModel):
 
 class EntityResolution(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    extracted_entity_id: str  # Correlation only, never evidence.
+    extracted_entity_id: str = Field(description="Exact temporary id from EXTRACTED_SEMANTIC_INFORMATION; correlation only, never identity evidence.")
     kind: Literal["MATCH_ONE", "MATCH_MANY", "NEW", "UNRESOLVED"]
     targets: list[ResolvedTarget] = Field(default_factory=list)
-    applies_equally_to_all: bool = False
+    applies_equally_to_all: bool = Field(default=False, description="For MATCH_MANY, true only if all proposed facts apply equally to every selected target.")
     new_entity_evidence: str | None = None  # Verbatim CURRENT_BATCH introduction.
-    explicitly_new: bool = False
+    explicitly_new: bool = Field(default=False, description="For NEW, explicitly set true only for a current USER introduction, and supply new_entity_evidence as a verbatim quote. False abstains.")
     reasoning: str
     accepted_aliases: list[str] = Field(
         default_factory=list,
@@ -39,6 +39,9 @@ class EntityResolution(BaseModel):
     )
 
     alias_evidence: list[AliasEvidence] = Field(default_factory=list)
+    group_source_chat_id: str | None = Field(default=None, description="CURRENT USER source explicitly applying this claim to the complete group.")
+    group_evidence_quote: str | None = Field(default=None, description="Exact quote from group_source_chat_id establishing shared applicability. Context must identify every member; similarity/type alone is insufficient.")
+    group_member_handles: list[str] = Field(default_factory=list, description="When extraction names participants, exact tmp_ handles whose single-target mappings equal the complete selected group.")
 
     @model_validator(mode="after")
     def check_cardinality(self):
@@ -54,6 +57,8 @@ class EntityResolution(BaseModel):
             raise ValueError("MATCH_MANY requires multiple targets")
         if self.kind == "NEW" and self.targets:
             raise ValueError("NEW cannot reference an existing target")
+        if self.kind == "UNRESOLVED" and self.targets:
+            raise ValueError("UNRESOLVED cannot authorize targets")
         return self
 
 

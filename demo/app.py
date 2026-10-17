@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+from time import monotonic
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -49,7 +50,7 @@ def active_entity(row):
                 type=payload.get('entity_type', row.get('entity_type')),
                 aliases=payload.get('aliases', []),
                 facts=[{k: f.get(k) for k in ('fact_id', 'attribute_name', 'value', 'assertion_state',
-                                             'source_chat_id', 'evidence')}
+                                             'source_chat_id', 'evidence', 'related_entity_uuids')}
                        for f in project_facts(payload.get('facts', []))])
 
 
@@ -175,6 +176,27 @@ def handler_for(demo, token, port):
         def do_POST(self):
             if (not self.trusted_host() or self.headers.get('Origin') != origin
                     or not secrets.compare_digest(self.headers.get('X-Demo-Token', ''), token)):
+                # Closing with an unread POST body can reset the Windows socket
+                # before the client receives 403. Discard only a bounded body;
+                # never parse it or dispatch unauthorized work.
+                try:
+                    size = int(self.headers.get('Content-Length', '0'))
+                except ValueError:
+                    size = 0
+                if 0 < size <= 20000 and not self.headers.get('Transfer-Encoding'):
+                    deadline = monotonic() + 2
+                    try:
+                        while size:
+                            remaining = deadline - monotonic()
+                            if remaining <= 0:
+                                break
+                            self.connection.settimeout(remaining)
+                            chunk = self.rfile.read1(size)
+                            if not chunk:
+                                break
+                            size -= len(chunk)
+                    except TimeoutError:
+                        pass  # Still reject an incomplete body; never wait forever.
                 return self.respond(403, dict(error='Same-origin demo request required.'))
             try:
                 size = int(self.headers.get('Content-Length', '0'))

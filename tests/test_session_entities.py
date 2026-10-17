@@ -299,6 +299,7 @@ def test_optional_failures_preserve_existing_context_and_scope_errors_propagate(
     from tomte.engine.core.enums import ChatSenderRole
     entity = dict(entity_id="a", entity_name="Tesla", tenant_id="t", user_id="u", aliases=[], facts=[])
     db = SimpleNamespace(upsert_user_activity=Mock(), get_recent_entities=Mock(return_value=[entity]),
+        get_important_entities=Mock(return_value=[entity]),
         get_raw_semantic_context=Mock(return_value=[]),
         find_session_entity_mentions=Mock(side_effect=TomteSessionStateUnavailable()),
         discover_session_entities=Mock(return_value=[entity]), get_entities_by_ids=Mock(return_value=[entity]))

@@ -170,7 +170,9 @@ def test_inspector_projects_only_active_assertions(wired):
     wired.db.get_user_graph_skeleton.assert_called_once_with(wired.tenant, wired.user)
 
 
-def test_local_http_page_and_origin_token_boundary(wired):
+@pytest.mark.parametrize('invalid_header', ['missing', 'Origin', 'X-Demo-Token', 'Host'])
+@pytest.mark.parametrize('padding', [0, 16000])
+def test_local_http_page_and_origin_token_boundary(wired, invalid_header, padding):
     server = HTTPServer(('127.0.0.1', 0), Mock())
     port = server.server_address[1]
     server.RequestHandlerClass = handler_for(wired, 'test-token', port)
@@ -180,15 +182,49 @@ def test_local_http_page_and_origin_token_boundary(wired):
     try:
         with urlopen(origin + '/', timeout=5) as reply:
             assert 'Tomte V1' in reply.read().decode()
-        raw = json.dumps(dict(session=wired.sessions[0])).encode()
+        raw = json.dumps(dict(session=wired.sessions[0], padding='x' * padding)).encode()
+        headers = {'Origin': origin, 'X-Demo-Token': 'test-token'}
+        if invalid_header == 'missing':
+            headers = {}
+        else:
+            headers[invalid_header] = 'wrong'
         with pytest.raises(HTTPError) as caught:
-            urlopen(Request(origin + '/api/inspect', data=raw), timeout=5)
+            urlopen(Request(origin + '/api/inspect', data=raw, headers=headers), timeout=5)
         assert caught.value.code == 403
+        assert json.load(caught.value) == {'error': 'Same-origin demo request required.'}
+        wired.db.get_user_graph_skeleton.assert_not_called()
         request = Request(origin + '/api/inspect', data=raw,
                           headers={'Origin': origin, 'X-Demo-Token': 'test-token'})
         with urlopen(request, timeout=5) as reply: assert json.load(reply) == {'entities': []}
     finally:
         server.shutdown(); server.server_close(); thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('length', ['invalid', '-1', '20001'])
+def test_unauthorized_body_discard_rejects_unbounded_lengths(wired, length):
+    cls = handler_for(wired, 'test-token', 8765)
+    handler = cls.__new__(cls)
+    handler.headers = {'Content-Length': length}
+    handler.rfile = Mock()
+    handler.respond = Mock()
+    handler.do_POST()
+    handler.rfile.read1.assert_not_called()
+    handler.respond.assert_called_once_with(403, {'error': 'Same-origin demo request required.'})
+    wired.db.get_user_graph_skeleton.assert_not_called()
+
+
+def test_unauthorized_incomplete_body_still_rejected_on_timeout(wired):
+    cls = handler_for(wired, 'test-token', 8765)
+    handler = cls.__new__(cls)
+    handler.headers = {'Content-Length': '100'}
+    handler.connection = Mock()
+    handler.rfile = Mock()
+    handler.rfile.read1.side_effect = TimeoutError
+    handler.respond = Mock()
+    handler.do_POST()
+    assert 0 < handler.connection.settimeout.call_args.args[0] <= 2
+    handler.respond.assert_called_once_with(403, {'error': 'Same-origin demo request required.'})
+    wired.db.get_user_graph_skeleton.assert_not_called()
 
 
 def test_idle_browser_preconnection_does_not_block_next_request(wired):

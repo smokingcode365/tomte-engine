@@ -157,6 +157,10 @@ def align_terms(raw, current_batch, llm, db):
         aligned, evidence = apply_decisions(raw, targets, response)
         return AlignmentResult(aligned, evidence, metrics)
     except Exception as exc:
+        from tomte.engine.workers.control import WorkStopped
+        from tomte.engine.core.capacity import CapacityExceeded
+        if isinstance(exc, (WorkStopped, CapacityExceeded)):
+            raise
         metrics["raw_fallback"] = True
         # Never log payloads, source text, values, provider exceptions or credentials.
         try:

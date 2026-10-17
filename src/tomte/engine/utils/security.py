@@ -49,7 +49,7 @@ class SecurityGuard:
                 "Please install them using: pip install presidio-analyzer presidio-anonymizer"
             )
         except Exception as e:
-            tomtelog.warn(f"Failed to load Presidio NLP models. Error: {e}")
+            tomtelog.warn("Failed to load Presidio NLP models")
             self.analyzer = None # Fallback to prevent crashing
 
 
@@ -73,8 +73,10 @@ class SecurityGuard:
         """Masks sensitive data (e.g., replaces SSN with <US_SSN>)."""
         if not settings.enable_pii_scrubbing:
             return text
-        if not self.analyzer or not text:
+        if not text:
             return text
+        if not self.analyzer or not self.anonymizer:
+            return "[TEXT WITHHELD DUE TO SCRUBBER FAILURE]"
         sensitive_entities = [
             "CREDIT_CARD", "CRYPTO", "EMAIL_ADDRESS", "IBAN_CODE", 
             "IP_ADDRESS", "PHONE_NUMBER", "US_SSN", "US_BANK_NUMBER"
@@ -85,7 +87,7 @@ class SecurityGuard:
             anonymized_result = self.anonymizer.anonymize(text=text, analyzer_results=results)
             return anonymized_result.text
         except Exception as e:
-            tomtelog.error(f"PII Scrubbing failed. Error: {e}")
+            tomtelog.error("PII Scrubbing failed")
             # If the scrubber crashes, drop the text entirely for absolute safety
             return "[TEXT WITHHELD DUE TO SCRUBBER FAILURE]"
 
@@ -103,4 +105,3 @@ def get_security_guard():
     if _security_guard_instance is None:
         _security_guard_instance = SecurityGuard()
     return _security_guard_instance
-     

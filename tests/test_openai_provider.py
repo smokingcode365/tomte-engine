@@ -64,7 +64,9 @@ def test_generic_reconciliation_returns_typed_output(provider, monkeypatch):
     construct = Mock(return_value=agent)
     monkeypatch.setattr(openai_provider, "Agent", construct)
     assert provider.parse_structured("Synthetic reconciliation instructions", "Synthetic input", Reconciliation) is expected
-    construct.assert_called_once_with(output_type=Reconciliation, system_prompt="Synthetic reconciliation instructions")
+    from tomte.engine.llm.trust import TRUST_BOUNDARY
+    construct.assert_called_once_with(output_type=Reconciliation, retries=1,
+                                     system_prompt=TRUST_BOUNDARY + "Synthetic reconciliation instructions")
     agent.run_sync.assert_called_once_with("Synthetic input", model=provider.strong_model,
                                           model_settings={"openai_reasoning_effort": "low"})
 

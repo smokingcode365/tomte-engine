@@ -27,7 +27,7 @@ def example(attribute="exterior_vehicle_colour", value="dark blue", entity_type=
              {"item_id": "source-2", "timestamp": 1791547210,
               "content": "Unrelated synthetic context must not be included.", "role": "user"}]
     wire = ExtractionMemorySchema.model_validate({"assets_and_possessions": [{
-        "entity_id": "veh_99", "entity_name": "Tesla", "entity_domain": "assets_and_possessions",
+        "entity_id": "tmp_vehicle", "entity_name": "Tesla", "entity_domain": "assets_and_possessions",
         "entity_type": entity_type, "aliases": ["my Tesla"],
         "facts": [{"attribute_name": attribute, "value": value, "confidence": .9,
                    "source_chat_id": "source-1"}]}]})

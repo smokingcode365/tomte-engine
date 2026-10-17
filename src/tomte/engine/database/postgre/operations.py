@@ -231,7 +231,38 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                         (op["db_id"], op["tenant_id"], op["user_id"]))
             current = cur.fetchone()
             if current is None or current["payload"] != op["_expected_payload"]:
-                raise ValueError("Stale assertion snapshot; retry the frozen batch")
+                from tomte.engine.workers.control import StaleSnapshot
+                raise StaleSnapshot("Stale assertion snapshot; retry the frozen batch")
+        # Reserve every INSERT UUID before validating links, including forward
+        # references. No inference from extraction or legacy logical labels.
+        for op in updates:
+            if op.get('mode') == 'INSERT':
+                op.setdefault('reserved_id', str(uuid4()))
+                UUID(op['reserved_id'])
+            if op['entity_id'].startswith('tmp_'):
+                raise ValueError('Temporary handles cannot be stored identities')
+        reserved = {(op['tenant_id'], op['user_id'], str(op['reserved_id']))
+                    for op in updates if op.get('mode') == 'INSERT'}
+        if len(reserved) != sum(op.get('mode') == 'INSERT' for op in updates):
+            raise ValueError('Duplicate reserved entity UUID')
+        for op in updates:
+            old_facts = op.get('_expected_payload', {}).get('facts', [])
+            for fact in op['payload'].get('facts', []):
+                legacy = fact.get('related_entity_ids', [])
+                if legacy and not any(old.get('related_entity_ids', []) == legacy
+                                      and old.get('source_chat_id') == fact.get('source_chat_id')
+                                      and old.get('attribute_name') == fact.get('attribute_name')
+                                      and old.get('value') == fact.get('value') for old in old_facts):
+                    raise ValueError('New legacy relationship annotations are not supported')
+                for target in fact.get('related_entity_uuids', []):
+                    if str(UUID(target)) != target:
+                        raise ValueError('Relationship target must be a canonical UUID')
+                    if (op['tenant_id'], op['user_id'], target) in reserved:
+                        continue
+                    cur.execute('SELECT id FROM tomte_memory_engine WHERE id=%s AND tenant_id=%s AND user_id=%s FOR KEY SHARE',
+                                (target, op['tenant_id'], op['user_id']))
+                    if cur.fetchone() is None:
+                        raise ValueError('Relationship endpoint missing or outside user scope')
         for op in updates:
             mode = op.get('mode')
             if mode == 'INSERT':
@@ -247,11 +278,11 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                 op['payload']['entity_id'] = canonical
                 cur.execute("""
                     INSERT INTO tomte_memory_engine (
-                        tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload, embedding, importance
+                        id, tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload, embedding, importance
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::vector, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::vector, %s);
                 """, (
-                    op['tenant_id'], op['user_id'], op['entity_id'], op['entity_name'],
+                    op['reserved_id'], op['tenant_id'], op['user_id'], op['entity_id'], op['entity_name'],
                     op['entity_domain'], op['entity_type'],
                     json.dumps(op['payload']), op['embedding'], op.get('importance', 3)
                 ))
@@ -284,11 +315,12 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                     UPDATE tomte_memory_engine
                     SET payload = %s::jsonb,
                         embedding = %s::vector,
+                        importance = %s,
                         mention_count = mention_count + 1,
                         last_mentioned_at = NOW()
                     WHERE id = %s AND tenant_id = %s AND user_id = %s;
                 """, (
-                    json.dumps(op['payload']), op['embedding'],
+                    json.dumps(op['payload']), op['embedding'], op.get('importance', 3),
                     op['db_id'], op['tenant_id'], op['user_id']
                 ))
 

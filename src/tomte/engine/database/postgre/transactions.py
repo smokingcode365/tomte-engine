@@ -33,7 +33,7 @@ _scope_lock = RLock()
 
 def connect(connection_string: str) -> psycopg.Connection:
     """Create an IDLE provider connection; close it if vector setup fails."""
-    conn = psycopg.connect(connection_string, autocommit=True, row_factory=dict_row)
+    conn = psycopg.connect(connection_string, autocommit=True, row_factory=dict_row, connect_timeout=5)
     try:
         register_vector(conn)
     except BaseException:

@@ -255,7 +255,7 @@ def test_failed_bulk_write_in_outer_scope_propagates_and_rolls_back(local_db):
     idle(db)
 
 
-def test_dictionary_feedback_failure_rolls_back_consolidation_memory(local_db, monkeypatch):
+def test_dictionary_feedback_failure_preserves_committed_memory(local_db, monkeypatch):
     db, tenant, user = local_db.db, local_db.tenant, local_db.users[0]
     service = DictionaryService.__new__(DictionaryService)
     service.db = db
@@ -274,12 +274,51 @@ def test_dictionary_feedback_failure_rolls_back_consolidation_memory(local_db, m
     operation = memory_update(tenant, user)
     operation["_dictionary_evidence"] = [{"keyword": operation["entity_type"],
         "keyword_type": "ENTITY", "vector": operation["embedding"], "dictionary_id": None}]
-    with pytest.raises(RuntimeError, match="forced feedback failure"):
-        workflow._commit_refined_operations([operation], tenant, user, "synthetic-failure-batch")
+    workflow._commit_refined_operations([operation], tenant, user, "synthetic-failure-batch")
     assert anchor_ids
-    assert db.get_recent_entities(tenant, user) == []
+    assert len(db.get_recent_entities(tenant, user)) == 1
+    assert db.is_consolidation_processed(tenant, user, 'synthetic-failure-batch')
+    assert workflow.last_dictionary_feedback == 'failed'
     assert all(db.get_dictionary_anchor_details(a) is None for a in anchor_ids)
     idle(db)
+
+
+def test_maintenance_contention_does_not_block_memory_commit(local_db):
+    from unittest.mock import Mock
+    db, tenant, user = local_db.db, local_db.tenant, local_db.users[0]
+    other = db.fork()
+    workflow = ConsolidationWorkflow(db=db, llm=Mock())
+    operation = memory_update(tenant,user)
+    operation['_dictionary_evidence'] = [{'keyword':'synthetic', 'keyword_type':'ENTITY',
+        'vector':operation['embedding'], 'dictionary_id':None}]
+    try:
+        with other.maintenance_guard() as acquired:
+            assert acquired
+            workflow._commit_refined_operations([operation],tenant,user,'synthetic-contention')
+            assert db.is_consolidation_processed(tenant,user,'synthetic-contention')
+            assert len(db.get_recent_entities(tenant,user)) == 1
+            assert workflow.last_dictionary_feedback == 'failed'
+        idle(db)
+    finally:
+        other.close()
+
+
+def test_core_memory_failure_rolls_back_marker_and_memory(local_db, monkeypatch):
+    from unittest.mock import Mock
+    db, tenant, user = local_db.db, local_db.tenant, local_db.users[0]
+    workflow = ConsolidationWorkflow(db=db,llm=Mock())
+    feedback = Mock()
+    workflow.dict_service.apply_feedback = feedback
+    commit = db.commit_graph_updates
+    def fail_after_write(operations):
+        commit(operations)
+        raise RuntimeError('synthetic mandatory failure')
+    monkeypatch.setattr(db,'commit_graph_updates',fail_after_write)
+    with pytest.raises(RuntimeError,match='mandatory failure'):
+        workflow._commit_refined_operations([memory_update(tenant,user)],tenant,user,'failed-core')
+    assert not db.is_consolidation_processed(tenant,user,'failed-core')
+    assert db.get_recent_entities(tenant,user) == []
+    feedback.assert_not_called()
 
 
 def test_internal_merges_and_cooldown_are_atomic(local_db, monkeypatch):

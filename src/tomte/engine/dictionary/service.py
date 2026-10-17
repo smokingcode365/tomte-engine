@@ -3,7 +3,7 @@
 import math
 from typing import List, Dict, Any, Set, Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from uuid import UUID
 
 from tomte.engine.core.config import settings
@@ -19,16 +19,33 @@ from tomte.engine.llm.prompts.dictionary_maintenance import (
 
 class SynonymGroup(BaseModel):
     words: List[str]
-    confidence_score: float
+    confidence_score: float = Field(ge=0, le=1, allow_inf_nan=False)
+
+    @model_validator(mode='after')
+    def distinct_words(self):
+        if len(self.words) != len(set(self.words)):
+            raise ValueError('Duplicate synonym member')
+        return self
 
 
 class InternalMergeResponse(BaseModel):
     groups: List[SynonymGroup]
 
+    @model_validator(mode='after')
+    def disjoint_groups(self):
+        words = [word for group in self.groups for word in group.words]
+        if len(words) != len(set(words)):
+            raise ValueError('Overlapping synonym groups')
+        return self
+
 
 class DictionaryService:
-    def __init__(self):
-        self.db = Tomte.get_db()
+    def __init__(self, db=None, llm=None):
+        self.db = db if db is not None else Tomte.get_db()
+        self.llm = llm
+
+    def _llm(self):
+        return self.llm if self.llm is not None else Tomte.get_llm()
 
     def bootstrap(self, chat_vectors: List[List[float]]) -> Dict[DictionaryKeywordType, List[str]]:
         """
@@ -97,11 +114,14 @@ class DictionaryService:
     def apply_feedback(self, refined_ops: List[Dict[str, Any]]) -> None:
         """Persist prepared focused evidence; never infer synonymy from similarity.
 
-        Joins the memory/claim transaction. No embedding or model calls occur here.
+        Uses a separate optional transaction. No embedding or model calls occur here.
         Missing/deleted accepted anchors abort atomically rather than redirecting
         feedback to a different concept. Stage fallback supplies no evidence.
         """
         with self.db.transaction():
+            guard = getattr(self.db, 'dictionary_write_guard', None)
+            if guard is not None:
+                guard()
             for op in refined_ops:
                 for evidence in op.get("_dictionary_evidence", []):
                     kind = evidence["keyword_type"]
@@ -141,7 +161,7 @@ class DictionaryService:
             words_b = [k["keyword"] for k in kw_b]
             prompt = f"Group A: {words_a}\nGroup B: {words_b}\nAre these exact synonyms?"
 
-            is_synonym = Tomte.get_llm().parse_structured(
+            is_synonym = self._llm().parse_structured(
                 system_prompt=CROSS_ANCHOR_MERGE_PROMPT,
                 user_text=prompt,
                 schema=bool,
@@ -231,12 +251,16 @@ class DictionaryService:
 
             prompt = f"Keywords: {[w['keyword'] for w in words_of_type]}"
 
-            response: InternalMergeResponse = Tomte.get_llm().parse_structured(
+            response: InternalMergeResponse = self._llm().parse_structured(
                 system_prompt=INTERNAL_KEYWORD_MERGE_PROMPT,
                 user_text=prompt,
                 schema=InternalMergeResponse,
             )
 
+            response = InternalMergeResponse.model_validate(response.model_dump())
+            offered = {w['keyword'] for w in words_of_type}
+            if any(not set(g.words) <= offered for g in response.groups):
+                raise ValueError('Unoffered synonym member')
             for group in response.groups:
                 if group.confidence_score > 0.9 and len(group.words) > 1:
                     valid_words = [
@@ -271,6 +295,6 @@ _dictionary_service_instance: DictionaryService | None = None
 def get_dictionary_service() -> DictionaryService:
     """Returns the shared :class:`DictionaryService` instance for the process."""
     global _dictionary_service_instance
-    if _dictionary_service_instance is None:
+    if _dictionary_service_instance is None or _dictionary_service_instance.db is not Tomte.get_db():
         _dictionary_service_instance = DictionaryService()
     return _dictionary_service_instance

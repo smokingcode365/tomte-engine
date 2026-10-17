@@ -26,7 +26,7 @@ def item(source="current-1", timestamp=1791547200, content="I named it Little Do
 
 def extracted(source=None, timeline=False):
     return ExtractionMemorySchema.model_validate({"assets_and_possessions": [{
-        "entity_id": "veh_99", "entity_name": "Tesla Model Y", "entity_type": "vehicle",
+        "entity_id": "tmp_veh_99", "entity_name": "Tesla Model Y", "entity_type": "vehicle",
         "entity_domain": "assets_and_possessions", "aliases": ["Little Dog"],
         "facts": [{"attribute_name": "nickname", "value": "Little Dog", "confidence": 1.0,
                    "source_chat_id": source,
@@ -126,7 +126,7 @@ def test_reconciler_can_use_aliases_and_actual_old_new_values(monkeypatch, color
                  "entity_type": "vehicle", "entity_domain": "assets_and_possessions",
                  "payload": {"aliases": ["my car", "Little Dog"],
                  "facts": [{"attribute_name": "paint_color", "value": "red"}]}}]
-    new = {"entity_id": "veh_99", "entity_name": "Little Dog", "entity_type": "vehicle",
+    new = {"entity_id": "tmp_veh_99", "entity_name": "Little Dog", "entity_type": "vehicle",
            "entity_domain": "assets_and_possessions", "aliases": ["Little Dog"],
            "facts": [{"attribute_name": "paint_color", "value": color}]}
     calls = []

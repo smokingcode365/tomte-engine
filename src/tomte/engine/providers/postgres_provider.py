@@ -1,6 +1,9 @@
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 import psycopg
+import json
+from contextlib import contextmanager
+from functools import wraps
 from tomte.engine.exceptions import TomteSessionStateUnavailable
 from tomte.engine.utils.keys import validate_id
 
@@ -15,18 +18,56 @@ from tomte.engine import tomtelog
 from tomte.engine.database.postgre import dictionary_ops, schema
 from tomte.engine.database.postgre import operations, transactions
 
+def dictionary_writer(method):
+    @wraps(method)
+    def guarded(self, *args, **kwargs):
+        with self.transaction():
+            self.dictionary_write_guard()
+            return method(self, *args, **kwargs)
+    return guarded
+
+
 class PostgresProvider(DatabaseProvider):
     def __init__(self, connection_string: str):
+        self._connection_string = connection_string
         try:
             self.conn = transactions.connect(connection_string)
+            self.conn.execute("SET statement_timeout = '15s'")
+            self.conn.execute("SET lock_timeout = '2s'")
             tomtelog.info("PostgreSQL Provider initialized.")
         except Exception as e:
-            tomtelog.error("Database connection failed", exc=e)
-            raise TomteDatabaseConnectionError(f"PG Connection Failed: {e}")
+            tomtelog.error("Database connection failed")
+            raise TomteDatabaseConnectionError("PG Connection Failed") from e
 
     def transaction(self):
         """Join nested scopes; any failed child rolls back the whole unit of work."""
         return transactions.transaction(self.conn)
+
+    def fork(self):
+        """A new owned connection; never copy an existing connection object."""
+        return type(self)(self._connection_string)
+
+    @contextmanager
+    def user_guard(self, tenant_id, user_id):
+        key = json.dumps(['tomte:user-execution:v1', tenant_id, user_id])
+        acquired = self.conn.execute('SELECT pg_try_advisory_lock(hashtextextended(%s, 0)) AS locked', (key,)).fetchone()['locked']
+        try:
+            yield acquired
+        finally:
+            if acquired and not self.conn.closed:
+                self.conn.execute('SELECT pg_advisory_unlock(hashtextextended(%s, 0))', (key,))
+
+    def dictionary_write_guard(self):
+        self.conn.execute("SELECT pg_advisory_xact_lock(hashtextextended('tomte:dictionary-write:v1', 0))")
+
+    @contextmanager
+    def maintenance_guard(self):
+        acquired = self.conn.execute("SELECT pg_try_advisory_lock(hashtextextended('tomte:dictionary-write:v1', 0)) AS locked").fetchone()['locked']
+        try:
+            yield acquired
+        finally:
+            if acquired and not self.conn.closed:
+                self.conn.execute("SELECT pg_advisory_unlock(hashtextextended('tomte:dictionary-write:v1', 0))")
 
     def close(self) -> None:
         transactions.close(self.conn)
@@ -156,7 +197,7 @@ class PostgresProvider(DatabaseProvider):
         except Exception as e:
             if transactions.in_transaction(self.conn):
                 raise
-            tomtelog.error("Bulk commit failed", exc=e)
+            tomtelog.error("Bulk commit failed")
             return False
 
     # --- Dictionary semantic anchors (bootstrap + feedback) ---
@@ -175,12 +216,15 @@ class PostgresProvider(DatabaseProvider):
     def get_dictionary_anchor_details(self, dictionary_id: UUID) -> Optional[Dict[str, Any]]:
         return dictionary_ops.get_anchor_details(self.conn, dictionary_id)
 
+    @dictionary_writer
     def update_dictionary_anchor_vector(self, dictionary_id: UUID, new_vector: List[float]) -> None:
         dictionary_ops.update_anchor_vector(self.conn, dictionary_id, new_vector)
 
+    @dictionary_writer
     def upsert_dictionary_keyword(self, dictionary_id: UUID, keyword: str, keyword_type: str) -> None:
         dictionary_ops.upsert_keyword(self.conn, dictionary_id, keyword, keyword_type)
 
+    @dictionary_writer
     def create_dictionary_anchor(self, vector: List[float]) -> UUID:
         return dictionary_ops.create_new_anchor(self.conn, vector)
 
@@ -192,12 +236,14 @@ class PostgresProvider(DatabaseProvider):
     # ==========================================
     # DICTIONARY MAINTENANCE
     # ==========================================
+    @dictionary_writer
     def execute_dictionary_trim(self) -> int:
         return dictionary_ops.execute_trim_job(self.conn)
 
     def get_cross_anchor_merge_candidates(self) -> List[Dict[str, Any]]:
         return dictionary_ops.get_cross_anchor_merge_candidates(self.conn)
 
+    @dictionary_writer
     def consolidate_duplicate_anchors(self, id_a: str, id_b: str, merged_vector: List[float], merged_kws: Dict) -> bool:
         try:
             dictionary_ops.consolidate_duplicate_anchors(self.conn, id_a, id_b, merged_vector, merged_kws)
@@ -205,14 +251,16 @@ class PostgresProvider(DatabaseProvider):
         except Exception as e:
             if transactions.in_transaction(self.conn):
                 raise
-            tomtelog.error(f"Cross-anchor merge DB commit failed: {e}")
+            tomtelog.error("Cross-anchor merge DB commit failed")
             return False
 
     def get_anchors_for_internal_merge(self) -> List[str]:
         return dictionary_ops.get_anchors_for_internal_merge(self.conn)
 
+    @dictionary_writer
     def apply_internal_merges(self, anchor_id: str, merges: List[Dict[str, Any]]) -> None:
         dictionary_ops.apply_internal_merges(self.conn, anchor_id, merges)
 
+    @dictionary_writer
     def mark_anchor_internal_merge_complete(self, anchor_id: str) -> None:
         dictionary_ops.mark_anchor_internal_merge_complete(self.conn, anchor_id)

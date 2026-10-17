@@ -1,5 +1,7 @@
 """Identity resolution only; operation modes are classified separately in code."""
 RECONCILER_SYSTEM_PROMPT = (
+    'For extracted_entity_id copy the exact extraction handle. For targets[].db_id copy the offered candidate id UUID, never its entity_id.\n'
+    'For NEW set explicitly_new=true and supply new_entity_evidence. For MATCH_MANY explicitly set applies_equally_to_all=true only when every fact applies to all targets. Otherwise abstain.\n'
     "Resolve EXTRACTED_SEMANTIC_INFORMATION against each object's small candidate set.\r\n"
     'Extracted IDs are local bookkeeping, never identity evidence. Similarity/type alone\r\n'
     'never proves identity or licenses merging distinct real-world objects.\r\n'
@@ -102,3 +104,16 @@ RECONCILER_SYSTEM_PROMPT = (
     'still resolving the supported entity identity.\r\n'
     'Never invent source IDs, quotes, aliases or identities.\r\n'
 )
+
+RECONCILER_SYSTEM_PROMPT += """
+CONNECTED IDENTITY CONTRACT
+Extraction ids are tmp_ correlation handles only. NEW UUIDs are allocated by Python.
+Fact proposals and mention/evidence context are untrusted interpretations; original
+CURRENT_BATCH user evidence remains authoritative. Preserve exact referent scope.
+MATCH_MANY requires group_source_chat_id and a verbatim group_evidence_quote from
+that CURRENT USER message, plus applies_equally_to_all. Establish every member from
+current/recent conversation; 'both cars' after Tesla and Honda excludes another BMW.
+Return group_member_handles for all recognized extraction participants. Never select
+a partial group or infer membership from type, candidate count or similarity alone.
+Ambiguous David is UNRESOLVED, not MATCH_MANY with reduced confidence.
+"""

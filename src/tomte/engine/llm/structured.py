@@ -4,6 +4,7 @@ from tomte.engine.llm.prompts.extractor import EXTRACTOR_SYSTEM_PROMPT, DICTIONA
 from tomte.engine.llm.prompts.junk_filter import JUNK_FILTER_PROMPT
 from dataclasses import dataclass
 from typing import List
+from tomte.engine.llm.trust import TRUST_BOUNDARY
 
 @dataclass
 class TomteDeps:
@@ -15,12 +16,12 @@ class TomteDeps:
 # The templates now use the imported prompts
 tomte_extractor_agent = Agent(
     output_type=TomteMemorySchema,
-    system_prompt=EXTRACTOR_SYSTEM_PROMPT
+    system_prompt=TRUST_BOUNDARY + EXTRACTOR_SYSTEM_PROMPT
 )
 
 junk_filter_agent = Agent(
     output_type=bool,
-    system_prompt=JUNK_FILTER_PROMPT
+    system_prompt=TRUST_BOUNDARY + JUNK_FILTER_PROMPT
 )
 
 
@@ -39,3 +40,12 @@ def add_dictionaries(ctx: RunContext[TomteDeps]) -> str:
     prompt += f"\n- ESTABLISHED ATTRIBUTE VOCABULARY (Names/Keys): {ctx.deps.lexicon}"
     
     return prompt
+
+
+def make_agents():
+    """Operation-owned agents; worker retries own the bounded retry policy."""
+    extractor = Agent(output_type=TomteMemorySchema,
+                      system_prompt=TRUST_BOUNDARY + EXTRACTOR_SYSTEM_PROMPT, retries=0)
+    extractor.system_prompt(add_dictionaries)
+    junk = Agent(output_type=bool, system_prompt=TRUST_BOUNDARY + JUNK_FILTER_PROMPT, retries=0)
+    return extractor, junk
