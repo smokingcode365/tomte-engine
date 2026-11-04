@@ -73,6 +73,34 @@ def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
             CREATE UNIQUE INDEX IF NOT EXISTS uq_mem_canonical_identity
             ON tomte_memory_engine (tenant_id, user_id, entity_id);
         """)
+        # Existing test memories are reset explicitly during rollout. NOT VALID
+        # protects new writes without silently rewriting incompatible old data.
+        cur.execute("""
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_mem_uuid_identity'
+                    AND conrelid='tomte_memory_engine'::regclass) THEN
+                    ALTER TABLE tomte_memory_engine ADD CONSTRAINT ck_mem_uuid_identity
+                    CHECK (entity_id=id::text AND COALESCE(payload->>'entity_id','')=id::text) NOT VALID;
+                END IF;
+            END $$;
+        """)
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_mem_owner_uuid ON tomte_memory_engine(id,tenant_id,user_id)")
+        cur.execute(f"""
+            CREATE TABLE IF NOT EXISTS tomte_memory_search (
+                entity_uuid UUID NOT NULL,
+                tenant_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                fact_id UUID NOT NULL,
+                history_index INT NOT NULL CHECK(history_index >= -1),
+                field_name TEXT NOT NULL,
+                chunk_index INT NOT NULL CHECK(chunk_index >= 0),
+                embedding vector({safe_dim}) NOT NULL,
+                PRIMARY KEY(entity_uuid,fact_id,history_index,field_name,chunk_index),
+                FOREIGN KEY(entity_uuid,tenant_id,user_id)
+                    REFERENCES tomte_memory_engine(id,tenant_id,user_id) ON DELETE CASCADE
+            );
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_search_owner ON tomte_memory_search(tenant_id,user_id)")
 
         # Performance Indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_importance ON tomte_memory_engine (importance DESC);")
@@ -135,6 +163,12 @@ def ensure_dictionary_infrastructure(conn: psycopg.Connection, vector_dimension:
         """)
 
         # Performance Indexes for the Dictionary
+        # Add context without discarding existing vocabulary. Empty context is
+        # retained for ENTITY/ATTRIBUTE; FIELD is scoped to its canonical parent.
+        cur.execute("ALTER TABLE tomte_keyword_registry ADD COLUMN IF NOT EXISTS keyword_context TEXT NOT NULL DEFAULT ''")
+        cur.execute("ALTER TABLE tomte_keyword_audit_log ADD COLUMN IF NOT EXISTS keyword_context TEXT NOT NULL DEFAULT ''")
+        cur.execute("ALTER TABLE tomte_keyword_registry DROP CONSTRAINT IF EXISTS tomte_keyword_registry_dictionary_id_keyword_keyword_type_key")
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_dict_context ON tomte_keyword_registry(dictionary_id,keyword,keyword_type,keyword_context)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_dict_hits ON tomte_keyword_registry (hits DESC);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_dict_keyword ON tomte_keyword_registry (keyword);")
         cur.execute("""

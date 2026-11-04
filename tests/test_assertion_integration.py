@@ -3,7 +3,7 @@ from copy import deepcopy
 import json
 from types import SimpleNamespace
 import pytest
-from tomte.engine.core.assertions import project_facts
+from memory_fixtures import field_entries, fact_text, prepare_write
 from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.workflows.chat_hook import ChatHookWorkflow
 from tomte.engine.workflows.consolidation import ConsolidationWorkflow
@@ -16,15 +16,17 @@ from resolution_helpers import resolution_response
 @pytest.fixture
 def assertion_case(mechanics,monkeypatch):
     case=mechanics
-    case.plan_kind="ADD";case.plan_value="owned";case.fail_plan=False
+    case.plan_kind="ADD";case.plan_value="owned";case.fail_plan=False;case.change_type="enrichment"
     def model(system_prompt,user_text,schema,**kwargs):
         data=json.loads(user_text)
+        if schema.__name__ in {"TerminologyAlignmentResponse", "FieldAlignmentResponse", "ContextualActionResponse"}:
+            return schema()
         if schema is ExtractionMemorySchema:
             value=case.plan_value
             return schema.model_validate({"assets_and_possessions":[{
                 "entity_id":"tmp_veh_01","entity_name":"Tesla Model Y","entity_type":"vehicle",
                 "entity_domain":"assets_and_possessions","aliases":["Tesla"],
-                "facts":[] if value is None else [{"attribute_name":"ownership_status","value":value,"confidence":1}]}]})
+                "facts":[{"attribute_name":"ownership_status","value":field_entries(value or "owned")}]}]})
         if schema.__name__=="ResolutionResponse":
             candidates=data["CANDIDATES_BY_OBJECT"]["tmp_veh_01"]
             return resolution_response(schema,{"mappings":[{"extracted_entity_id":"tmp_veh_01",
@@ -32,15 +34,17 @@ def assertion_case(mechanics,monkeypatch):
                 "reasoning":"Deterministic local identity fixture"}]},user_text)
         assert schema.__name__=="MutationPlanResponse"
         target,=data["TARGETS"]
-        active=next((f for f in target["assertions"] if f["assertion_state"]=="ACTIVE"),None)
+        active=next(iter(target["facts"]),None)
         current=data["CURRENT_BATCH"][0]["item_id"]
         operation={"operation":case.plan_kind,"target_fact_id":None if case.plan_kind=="ADD" else active["fact_id"],
-            "attribute_name":"ownership_status","new_value":case.plan_value,
-            "source_chat_ids":[current],"interpretation_confidence":0.96,"evidence_type":"USER_EXPLICIT"}
+            "attribute_name":"ownership_status","fields":field_entries(case.plan_value) if case.plan_value else [],
+            "source_chat_ids":[current]}
+        if case.plan_kind == "UPDATE":
+            operation.update(change_type=case.change_type, update_mode="replace_value")
         operations=[operation]
         if case.fail_plan:
-            operations=[{"operation":"ADD","attribute_name":"color","new_value":"red",
-                         "source_chat_ids":[current],"interpretation_confidence":1,"evidence_type":"USER_EXPLICIT"},
+            operations=[{"operation":"ADD","attribute_name":"color","fields":field_entries("red"),
+                         "source_chat_ids":[current]},
                          {**operation,"target_fact_id":"foreign-or-invented-fact"}]
         return schema.model_validate({"plans":[{"target_key":target["target_key"],"operations":operations}]})
     monkeypatch.setattr(case.llm,"parse_structured",model)
@@ -62,47 +66,54 @@ def cycle(case,message):
     return before[0]
 
 
-def test_real_all_five_operations_replay_projection_and_original_truth(assertion_case):
+def test_real_value_lifecycle_keeps_one_fact_immutable_history_and_replay(assertion_case):
     case=assertion_case
     created=cycle(case,"I bought a Tesla.")
     original=created["payload"]["facts"][0]
-    case.plan_kind="REINFORCE";case.plan_value=None
+    case.plan_kind="MENTION";case.plan_value=None
     reinforced=cycle(case,"I still own my Tesla.")
     reinforced_fact,=reinforced["payload"]["facts"]
-    assert reinforced_fact["fact_id"]==original["fact_id"] and reinforced_fact["mention_count"]==2
-    assert len(reinforced_fact["evidence"])==2
-    case.plan_kind="SUPERSEDE";case.plan_value="sold"
+    assert reinforced_fact["fact_id"]==original["fact_id"] and reinforced_fact["_mention_count"]==2
+    assert reinforced_fact["value"] == original["value"]
+    case.plan_kind="UPDATE";case.plan_value="sold";case.change_type="real_change"
     sold=cycle(case,"I sold my Tesla.")
-    old,current=sold["payload"]["facts"]
-    assert old["value"]=="owned" and old["assertion_state"]=="HISTORICAL"
-    assert current["value"]=="sold" and current["supersedes_fact_id"]==old["fact_id"]
-    assert current["fact_id"]!=old["fact_id"]
-    case.plan_kind="CORRECT";case.plan_value="owned"
+    current,=sold["payload"]["facts"]
+    assert fact_text(current)=="sold" and current["fact_id"]==original["fact_id"]
+    assert current["history_values"][0]["value"]==original["value"]
+    case.plan_value="owned";case.change_type="correction"
     corrected=cycle(case,"No, I never sold it. I still own the Tesla.")
-    assertions=corrected["payload"]["facts"]
-    invalid=next(f for f in assertions if f["fact_id"]==current["fact_id"])
-    replacement,=project_facts(assertions)
-    assert invalid["assertion_state"]=="CORRECTED_INVALID"
-    assert replacement["value"]=="owned" and replacement["corrects_fact_id"]==invalid["fact_id"]
-    assert all(f["value"]!="sold" for f in project_facts(assertions,"history"))
-    case.plan_kind="RETRACT";case.plan_value=None
-    final=cycle(case,"I no longer want you to treat that ownership assertion as current.")
-    assert project_facts(final["payload"]["facts"])==[]
-    assert len(final["payload"]["facts"])==3 and processed_count(case)==5
+    replacement,=corrected["payload"]["facts"]
+    assert fact_text(replacement)=="owned" and replacement["fact_id"]==original["fact_id"]
+    assert replacement["history_values"]==current["history_values"]
+    case.plan_value="No longer owned";case.change_type="real_change"
+    final=cycle(case,"I no longer own that Tesla.")
+    final_fact,=final["payload"]["facts"]
+    assert fact_text(final_fact)=="No longer owned" and len(final_fact["history_values"])==2
+    assert final_fact["_mention_count"]==5 and processed_count(case)==5
     assert {row["id"] for row in [created,reinforced,sold,corrected,final]}=={created["id"]}
     assert all(row["payload"]["entity_name"]=="Tesla Model Y" for row in [created,reinforced,sold,corrected,final])
 
 
-def test_invalid_later_mutation_rolls_back_whole_batch_and_retains_snapshot(assertion_case):
+def test_invalid_later_mutation_isolated_while_valid_sibling_commits_once(assertion_case):
     case=assertion_case
     cycle(case,"I bought a Tesla.")
     before=memory_rows(case);markers=processed_count(case)
-    case.plan_kind="RETRACT";case.plan_value=None;case.fail_plan=True
-    ChatHookWorkflow().on_chat(case.tenant,case.session,"Ignore current ownership.",ChatSenderRole.USER,case.user)
+    case.plan_kind="MENTION";case.plan_value=None;case.fail_plan=True
+    ChatHookWorkflow().on_chat(case.tenant,case.session,"I painted my Tesla red.",ChatSenderRole.USER,case.user)
     queue=case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)
-    with pytest.raises(ValueError,match="offered entity"):
-        ConsolidationWorkflow().run_consolidation_cycle(case.tenant,case.user,queue)
-    assert memory_rows(case)==before and processed_count(case)==markers
+    workflow=ConsolidationWorkflow()
+    assert workflow.run_consolidation_cycle(case.tenant,case.user,queue)
+    after=memory_rows(case)
+    assert len(after)==len(before)==1 and after[0]["id"]==before[0]["id"]
+    old,=before[0]["payload"]["facts"]
+    kept,color=after[0]["payload"]["facts"]
+    assert kept==old
+    assert color["attribute_name"]=="color" and fact_text(color)=="red"
+    assert color["fact_id"]!=old["fact_id"] and color["_mention_count"]==1
+    assert workflow.last_mutation_recovery["skipped_units"]==1
+    assert processed_count(case)==markers+1
+    assert workflow.run_consolidation_cycle(case.tenant,case.user,queue)
+    assert memory_rows(case)==after and processed_count(case)==markers+1
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)==queue
 
 
@@ -110,11 +121,10 @@ def test_stale_preparation_rejects_batch_and_cannot_overwrite_concurrent_asserti
     case=local_db;op=memory_update(case.tenant,case.users[0])
     assert case.db.commit_graph_updates([op])
     record,=case.db.get_user_graph_skeleton(case.tenant,case.users[0])
-    stale={**op,"mode":"MUTATE","db_id":str(record["id"]),"_expected_payload":deepcopy(record["payload"])}
-    concurrent={**op,"mode":"MUTATE","db_id":str(record["id"]),
-                "payload":{**op["payload"],"aliases":["concurrent alias"]}}
+    stale=prepare_write(case.tenant,case.users[0],record["payload"],old=record["payload"])
+    concurrent=prepare_write(case.tenant,case.users[0],{**record["payload"],"aliases":["concurrent alias"]},old=record["payload"])
     assert case.db.commit_graph_updates([concurrent])
-    with pytest.raises(ValueError,match="Stale assertion"):
+    with pytest.raises(ValueError,match="Stale"):
         with case.db.transaction():
             case.db.claim_consolidation_batch(case.tenant,case.users[0],"stale-batch")
             case.db.commit_graph_updates([stale])

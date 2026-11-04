@@ -1,6 +1,7 @@
 # tomte/engine/dictionary/service.py
 
 import math
+import json
 from typing import List, Dict, Any, Set, Tuple
 
 from pydantic import BaseModel, Field, model_validator
@@ -135,7 +136,7 @@ class DictionaryService:
                             raise ValueError("Accepted dictionary anchor no longer exists")
                         self.db.update_dictionary_anchor_vector(anchor, logic.nudge_vector(
                             details["embedding"], vector, details["total_hits"]))
-                    self.db.upsert_dictionary_keyword(anchor, evidence["keyword"], kind)
+                    self.db.upsert_dictionary_keyword(anchor, evidence["keyword"], kind, evidence.get("keyword_context", ""))
 
     def dictionary_trim(self) -> int:
         return self.db.execute_dictionary_trim()
@@ -157,8 +158,12 @@ class DictionaryService:
             kw_a = self.db.get_anchor_keywords(str(id_a))
             kw_b = self.db.get_anchor_keywords(str(id_b))
 
-            words_a = [k["keyword"] for k in kw_a]
-            words_b = [k["keyword"] for k in kw_b]
+            roles_a = {(k["keyword_type"], k.get("keyword_context", "")) for k in kw_a}
+            roles_b = {(k["keyword_type"], k.get("keyword_context", "")) for k in kw_b}
+            if roles_a != roles_b or len(roles_a) != 1:
+                continue
+            words_a = [{name: k.get(name, "") for name in ("keyword", "keyword_type", "keyword_context")} for k in kw_a]
+            words_b = [{name: k.get(name, "") for name in ("keyword", "keyword_type", "keyword_context")} for k in kw_b]
             prompt = f"Group A: {words_a}\nGroup B: {words_b}\nAre these exact synonyms?"
 
             is_synonym = self._llm().parse_structured(
@@ -196,7 +201,7 @@ class DictionaryService:
 
         merged_kws: Dict[Any, Dict[str, Any]] = {}
         for k in kw_a + kw_b:
-            key = (k["keyword"], k["keyword_type"])
+            key = (k["keyword"], k["keyword_type"], k.get("keyword_context", ""))
             if key not in merged_kws:
                 merged_kws[key] = {
                     "hits": k["hits"],
@@ -243,13 +248,13 @@ class DictionaryService:
         """LLM-driven synonym grouping; results are applied by the DB provider callback."""
         approved_merges: List[Dict[str, Any]] = []
 
-        types = {k["keyword_type"] for k in raw_kws}
-        for kw_type in types:
-            words_of_type = [k for k in raw_kws if k["keyword_type"] == kw_type]
+        types = {(k["keyword_type"], k.get("keyword_context", "")) for k in raw_kws}
+        for kw_type, keyword_context in types:
+            words_of_type = [k for k in raw_kws if (k["keyword_type"], k.get("keyword_context", "")) == (kw_type, keyword_context)]
             if len(words_of_type) < 2:
                 continue
 
-            prompt = f"Keywords: {[w['keyword'] for w in words_of_type]}"
+            prompt = json.dumps({"keyword_type": kw_type, "keyword_context": keyword_context, "keywords": [w["keyword"] for w in words_of_type]}, ensure_ascii=False)
 
             response: InternalMergeResponse = self._llm().parse_structured(
                 system_prompt=INTERNAL_KEYWORD_MERGE_PROMPT,
@@ -280,6 +285,7 @@ class DictionaryService:
                         approved_merges.append(
                             {
                                 "kw_type": kw_type,
+                                "keyword_context": keyword_context,
                                 "survivor": survivor_str,
                                 "victims": victims,
                                 "total_hits": total_hits,

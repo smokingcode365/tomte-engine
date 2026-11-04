@@ -38,11 +38,13 @@ def metrics(rows,policy):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--output-dir',default='log/real_world');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--output-dir',default='log/real_world_v2');args=parser.parse_args()
     global OUT
     OUT=(ROOT/args.output_dir).resolve()
     assert OUT.is_relative_to(ROOT/'log')
     original=json.loads((OUT/'report.json').read_text(encoding='utf-8'))
+    if original.get('memory_format')!=2:
+        raise ValueError('This scorer requires memory-format v2 evidence; use the historical Git revision for v1 reports')
     calls=json.loads((OUT/'model_calls.json').read_text(encoding='utf-8'))
     usage=json.loads((OUT/'api_usage.json').read_text(encoding='utf-8'))
     runs=original['runs'];sources={};severity=[];resolution=[];mutation=Counter();dictionary=Counter();value_mutation_fields=0
@@ -53,16 +55,16 @@ def main():
             sources[item['item_id']]=dict(role=item['role'],content=item['content'],filler=item['content'].lower() in filler_texts)
         if call['stage']=='MutationPlanResponse':
             mutation.update(m['operation'] for p in call.get('output',{}).get('plans',[]) for m in p['operations'])
-        if call['stage']=='TerminologyAlignmentResponse':
-            dictionary.update(d['decision'] for field in ('entity_type_decisions','attribute_decisions') for d in call.get('output',{}).get(field,[]))
-            value_mutation_fields+=sum('value' in d for field in ('entity_type_decisions','attribute_decisions') for d in call.get('output',{}).get(field,[]))
+        if call['stage'] in ('TerminologyAlignmentResponse','FieldAlignmentResponse'):
+            dictionary.update(d['decision'] for field in ('entity_type_decisions','attribute_decisions','field_decisions') for d in call.get('output',{}).get(field,[]))
+            value_mutation_fields+=sum('value' in d for field in ('entity_type_decisions','attribute_decisions','field_decisions') for d in call.get('output',{}).get(field,[]))
     # Domain-qualified identity prevents an event named Honda Civic sale from
     # being scored as a duplicate Honda vehicle. Events remain legitimate extras.
     import evaluate_real_world_conversations as harness
     old=harness.entity_key;harness.entity_key=identify
     try:
         for run in runs:
-            truth=next(t for t in json.loads((ROOT/'evals/real_world/truth.json').read_text(encoding='utf-8')) if t['trace_id']==run['trace_id']);run['hidden_truth']=truth;final=run['final_records'];byid={r['entity_id']:r for r in final}
+            truth=next(t for t in json.loads((ROOT/'evals/real_world/truth_v2.json').read_text(encoding='utf-8'))['traces'] if t['trace_id']==run['trace_id']);run['hidden_truth']=truth;final=run['final_records'];byid={r['entity_id']:r for r in final}
             run['state_score']=evaluate_state(final,truth,sources)
             previous=None;prior=set();prior_session=None;new_filler=[];annotations={a['turn_id']:a for a in truth['turn_annotations']}
             turns={t['turn_id']:t for t in run['turns']}
@@ -98,17 +100,10 @@ def main():
             if score['duplicate_entities']:add('HIGH','duplicate_identity_candidate',score['duplicate_entities'])
             if score['forbidden_active']:add('HIGH','missed_correction_or_retraction',score['forbidden_active'])
             if score['unsupported_provenance']:add('HIGH','unsupported_provenance',score['unsupported_provenance'])
+            # Corrections overwrite current values in-place. A final snapshot
+            # cannot establish which absent fact was wrongly corrected. Compare
+            # captured plans and before/after write evidence during human review.
             destructive=[]
-            for spec in score['missing_facts']:
-                if spec['state']!='ACTIVE':continue
-                for record in final:
-                    if identify(record,truth)!=spec['entity']:continue
-                    facts=record['payload']['facts']
-                    invalid=[f for f in facts if f.get('assertion_state')=='CORRECTED_INVALID' and fact_matches(f,spec)]
-                    replacements=[f for f in facts if f.get('assertion_state')=='ACTIVE' and any(k in f['attribute_name'].lower() for k in spec['attribute_contains']) and not fact_matches(f,spec)]
-                    if invalid and replacements:
-                        detail=dict(entity=record['entity_name'],expected=spec,invalidated=invalid,replacements=replacements)
-                        destructive.append(spec);add('CRITICAL','destructive_incorrect_correction',detail)
             ordinary=[s for s in score['missing_facts'] if s not in destructive]
             if ordinary:add('MEDIUM','missing_checklist_facts',ordinary)
             processed={item for b in run['batches'] if b.get('success') for item in b['items']}

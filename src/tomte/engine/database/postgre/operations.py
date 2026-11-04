@@ -68,48 +68,66 @@ def get_recent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, 
         cur.execute(sql, (tenant_id, user_id, limit))
         return cur.fetchall()
 
-@transactional
-def get_semantic_context(conn: psycopg.Connection, tenant_id: str, user_id: str, vector: List[float], limit: int) -> List[Dict[str, Any]]:
-    limit=limit if limit else settings.semantic_retrieval_limit
-    sql = """
-        SELECT id, tenant_id, user_id, entity_id, payload,
-        (1 - (embedding <=> %s::vector)) * (mention_count * exp(-0.0001 * extract(epoch from (now() - last_mentioned_at)))) as relevance_score 
-        FROM tomte_memory_engine 
-        WHERE tenant_id = %s AND user_id = %s 
-        ORDER BY relevance_score DESC LIMIT %s;
-    """
+def _semantic_rows(conn, tenant_id, user_id, vector, limit, *, threshold=None, exclude_identity=False, weighted=False):
+    """Best matching current/history chunk discovers its owning scoped entity."""
     with conn.cursor() as cur:
-        cur.execute(sql, (vector, tenant_id, user_id, limit))
+        cur.execute("""
+            WITH scored AS (
+                SELECT m.id,m.tenant_id,m.user_id,m.entity_id,m.payload,m.mention_count,m.last_mentioned_at,
+                    NULLIF(GREATEST(1-(m.embedding <=> %(vector)s::vector),
+                        (SELECT max(1-(s.embedding <=> %(vector)s::vector)) FROM tomte_memory_search s
+                         WHERE s.entity_uuid=m.id AND s.tenant_id=m.tenant_id AND s.user_id=m.user_id)),
+                        'NaN'::double precision) AS raw_cosine
+                FROM tomte_memory_engine m
+                WHERE m.tenant_id=%(tenant)s AND m.user_id=%(user)s
+                  AND (NOT %(exclude)s OR m.entity_domain<>%(identity)s)
+            ), ranked AS (
+                SELECT *, CASE WHEN %(weighted)s THEN
+                    raw_cosine * (mention_count * exp(-0.0001 * extract(epoch from (now()-last_mentioned_at))))
+                    ELSE raw_cosine END AS relevance_score
+                FROM scored WHERE %(threshold)s::double precision IS NULL OR raw_cosine >= %(threshold)s
+            )
+            SELECT id,tenant_id,user_id,entity_id,payload,raw_cosine,relevance_score FROM ranked
+            ORDER BY relevance_score DESC NULLS LAST, entity_id,id LIMIT %(limit)s
+        """, {"vector": vector, "tenant": tenant_id, "user": user_id, "exclude": exclude_identity,
+              "identity": MemoryDomain.IDENTITY.value, "weighted": weighted, "threshold": threshold, "limit": limit})
         return cur.fetchall()
+
+
+@transactional
+def get_semantic_context(conn, tenant_id, user_id, vector, limit):
+    return _semantic_rows(conn, tenant_id, user_id, vector, limit or settings.semantic_retrieval_limit, weighted=True)
+
 
 @transactional
 def get_raw_semantic_context(conn, tenant_id, user_id, vector, limit):
-    """Ungated long-term context; unlike activation, includes persona memories."""
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT id, tenant_id, user_id, entity_id, payload,
-                   NULLIF(1 - (embedding <=> %s::vector), 'NaN'::double precision) AS raw_cosine
-            FROM tomte_memory_engine
-            WHERE tenant_id = %s AND user_id = %s
-            ORDER BY raw_cosine DESC NULLS LAST, entity_id ASC, id ASC LIMIT %s
-        """, (vector, tenant_id, user_id, limit))
-        return cur.fetchall()
+    return _semantic_rows(conn, tenant_id, user_id, vector, limit or settings.semantic_retrieval_limit)
 
 
 @transactional
 def discover_session_entities(conn, tenant_id, user_id, vector, threshold, limit):
-    """Separate raw-cosine activation; never update frequency/recency statistics."""
+    return _semantic_rows(conn, tenant_id, user_id, vector, limit, threshold=threshold, exclude_identity=True)
+
+
+@transactional
+def get_history_candidates(conn, tenant_id, user_id, entity_ids, vector, limit):
+    """Return bounded positional handles; memory text comes from canonical JSON."""
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT id, tenant_id, user_id, entity_id, payload,
-                   1 - (embedding <=> %s::vector) AS raw_cosine
-            FROM tomte_memory_engine
-            WHERE tenant_id = %s AND user_id = %s
-              AND entity_domain <> %s
-              AND 1 - (embedding <=> %s::vector) >= %s
-            ORDER BY raw_cosine DESC, entity_id ASC, id ASC LIMIT %s
-        """, (vector, tenant_id, user_id, MemoryDomain.IDENTITY.value, vector, threshold, limit))
+            WITH scored AS (
+                SELECT entity_uuid,fact_id,history_index,max(1-(embedding <=> %s::vector)) AS similarity
+                FROM tomte_memory_search WHERE tenant_id=%s AND user_id=%s
+                    AND entity_uuid=ANY(%s::uuid[]) AND history_index>=0
+                GROUP BY entity_uuid,fact_id,history_index
+            ), ranked AS (
+                SELECT *,row_number() OVER (PARTITION BY entity_uuid ORDER BY similarity DESC, fact_id,history_index) AS rank
+                FROM scored
+            )
+            SELECT entity_uuid,fact_id,history_index,similarity FROM ranked WHERE rank<=%s
+            ORDER BY entity_uuid,rank
+        """, (vector, tenant_id, user_id, entity_ids, limit))
         return cur.fetchall()
+
 
 
 @transactional
@@ -218,117 +236,99 @@ def find_exact_fact(conn: psycopg.Connection, tenant_id: str, user_id: str, enti
 
 @transactional
 def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]]) -> bool:
+    """Atomic scoped writes with canonical UUIDs and immutable history prefixes."""
+    from tomte.engine.core.extraction import validate_operation_provenance
+    from tomte.engine.core.memory import public_entity
+    from tomte.engine.llm.embedder import get_search_entries, changed_search_entries, search_entry_key
+    from tomte.engine.workers.control import StaleSnapshot
+    import math
+    validate_operation_provenance(updates)
+    identities = [(op["tenant_id"], op["user_id"], op["entity_id"]) for op in updates]
+    if len(set(identities)) != len(identities):
+        raise ValueError("Duplicate entity operation")
+    for op in updates:
+        if op["mode"] not in {"INSERT", "MUTATE", "REINFORCE"}:
+            raise ValueError("Unknown memory operation")
+        if not op["payload"]["facts"]:
+            raise ValueError("Cannot persist an empty entity")
+        if any(op[key] != op["payload"][key] for key in ("entity_name", "entity_type", "entity_domain")):
+            raise ValueError("Row identity metadata disagrees with payload")
+        if op["mode"] != "INSERT" and "_expected_payload" not in op:
+            raise ValueError("Updates require an expected payload")
+        old = op.get("_expected_payload")
+        if old:
+            current = {f["fact_id"]: f for f in op["payload"]["facts"]}
+            for fact in old["facts"]:
+                new = current.get(fact["fact_id"])
+                if new is None or new["attribute_name"] != fact["attribute_name"]:
+                    raise ValueError("Existing fact identity cannot be removed or changed")
+                if new["history_values"][:len(fact["history_values"])] != fact["history_values"]:
+                    raise ValueError("Existing history is immutable")
+        changed = old is None or public_entity(old) != public_entity(op["payload"])
+        if changed:
+            expected = [{k: v for k, v in entry.items() if k != "text"} for entry in changed_search_entries(op["payload"], old)]
+            entries = op.get("search_entries", [])
+            if [{k: v for k, v in entry.items() if k != "embedding"} for entry in entries] != expected:
+                raise ValueError("Search entries must cover every changed current and historical item")
+            vectors = [op.get("embedding"), *[entry.get("embedding") for entry in entries]]
+            if any(not isinstance(v, list) or not v or not any(v) or
+                   any(type(x) not in (int, float) or not math.isfinite(x) for x in v) for v in vectors):
+                raise ValueError("Missing or invalid memory embedding")
+            if any(len(v) != len(vectors[0]) for v in vectors):
+                raise ValueError("Memory embedding dimensions differ")
+        op["_write_search_entries"] = changed
     with conn.cursor() as cur:
-        # Stable lock order also supports batches spanning multiple namespaces.
-        namespaces = sorted({json.dumps([op['tenant_id'], op['user_id']])
-                             for op in updates if op.get('mode') == 'INSERT'})
+        namespaces = sorted({json.dumps([op["tenant_id"], op["user_id"]]) for op in updates if op["mode"] == "INSERT"})
         for namespace in namespaces:
             cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (namespace,))
-        matched = sorted((op for op in updates if "_expected_payload" in op),
-                         key=lambda op:(op["tenant_id"], op["user_id"], str(op["db_id"])))
-        for op in matched:
+        for op in sorted((o for o in updates if o["mode"] != "INSERT"), key=lambda o: (o["tenant_id"], o["user_id"], o["entity_id"])):
             cur.execute("SELECT payload FROM tomte_memory_engine WHERE id=%s AND tenant_id=%s AND user_id=%s FOR UPDATE",
                         (op["db_id"], op["tenant_id"], op["user_id"]))
             current = cur.fetchone()
             if current is None or current["payload"] != op["_expected_payload"]:
-                from tomte.engine.workers.control import StaleSnapshot
-                raise StaleSnapshot("Stale assertion snapshot; retry the frozen batch")
-        # Reserve every INSERT UUID before validating links, including forward
-        # references. No inference from extraction or legacy logical labels.
+                raise StaleSnapshot("Stale fact snapshot; retry the frozen batch")
         for op in updates:
-            if op.get('mode') == 'INSERT':
-                op.setdefault('reserved_id', str(uuid4()))
-                UUID(op['reserved_id'])
-            if op['entity_id'].startswith('tmp_'):
-                raise ValueError('Temporary handles cannot be stored identities')
-        reserved = {(op['tenant_id'], op['user_id'], str(op['reserved_id']))
-                    for op in updates if op.get('mode') == 'INSERT'}
-        if len(reserved) != sum(op.get('mode') == 'INSERT' for op in updates):
-            raise ValueError('Duplicate reserved entity UUID')
-        for op in updates:
-            old_facts = op.get('_expected_payload', {}).get('facts', [])
-            for fact in op['payload'].get('facts', []):
-                legacy = fact.get('related_entity_ids', [])
-                if legacy and not any(old.get('related_entity_ids', []) == legacy
-                                      and old.get('source_chat_id') == fact.get('source_chat_id')
-                                      and old.get('attribute_name') == fact.get('attribute_name')
-                                      and old.get('value') == fact.get('value') for old in old_facts):
-                    raise ValueError('New legacy relationship annotations are not supported')
-                for target in fact.get('related_entity_uuids', []):
-                    if str(UUID(target)) != target:
-                        raise ValueError('Relationship target must be a canonical UUID')
-                    if (op['tenant_id'], op['user_id'], target) in reserved:
-                        continue
-                    cur.execute('SELECT id FROM tomte_memory_engine WHERE id=%s AND tenant_id=%s AND user_id=%s FOR KEY SHARE',
-                                (target, op['tenant_id'], op['user_id']))
-                    if cur.fetchone() is None:
-                        raise ValueError('Relationship endpoint missing or outside user scope')
-        for op in updates:
-            mode = op.get('mode')
-            if mode == 'INSERT':
-                # Allocation remains inside the write transaction and its namespace lock.
-                canonical = op['entity_id']
-                while True:
-                    cur.execute("SELECT 1 FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",
-                                (op['tenant_id'], op['user_id'], canonical))
-                    if not cur.fetchone():
-                        break
-                    canonical = f"{op['entity_id']}_{uuid4().hex}"
-                op['entity_id'] = canonical
-                op['payload']['entity_id'] = canonical
+            facts = op["payload"]["facts"]
+            mentions = sum(f["_mention_count"] for f in facts)
+            last_mentioned = max(f["_last_mentioned_at"] for f in facts)
+            importance = max(f["_importance"] for f in facts)
+            if op["mode"] == "INSERT":
                 cur.execute("""
-                    INSERT INTO tomte_memory_engine (
-                        id, tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload, embedding, importance
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::vector, %s);
-                """, (
-                    op['reserved_id'], op['tenant_id'], op['user_id'], op['entity_id'], op['entity_name'],
-                    op['entity_domain'], op['entity_type'],
-                    json.dumps(op['payload']), op['embedding'], op.get('importance', 3)
-                ))
-
-            elif mode == 'MUTATE':
+                    INSERT INTO tomte_memory_engine
+                    (id,tenant_id,user_id,entity_id,entity_name,entity_domain,entity_type,payload,embedding,importance,mention_count,last_mentioned_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::vector,%s,%s,%s::timestamptz)
+                """, (op["reserved_id"], op["tenant_id"], op["user_id"], op["entity_id"], op["entity_name"],
+                      op["entity_domain"], op["entity_type"], json.dumps(op["payload"]), op["embedding"],
+                      importance, mentions, last_mentioned))
+            else:
                 cur.execute("""
-                    UPDATE tomte_memory_engine SET
-                        payload = %s::jsonb,
-                        embedding = %s::vector,
-                        importance = %s,
-                        entity_name = %s,
-                        entity_domain = %s,
-                        entity_type = %s,
-                        last_mentioned_at = NOW(),
-                        mention_count = mention_count + 1
-                    WHERE id = %s AND tenant_id = %s AND user_id = %s;
-                """, (
-                    json.dumps(op['payload']), op['embedding'], op.get('importance', 3),
-                    op['entity_name'], op['entity_domain'], op['entity_type'],
-                    op['db_id'], op['tenant_id'], op['user_id']
-                ))
-                
-                # Prevent silent database failures if the ID doesn't actually exist
-                if cur.rowcount == 0:
-                    raise ValueError(f"MUTATE failed: Record {op.get('db_id')} not found or namespace mismatch.")
+                    UPDATE tomte_memory_engine SET payload=%s::jsonb,
+                        embedding=CASE WHEN %s THEN %s::vector ELSE embedding END,
+                        importance=%s,mention_count=%s,last_mentioned_at=%s::timestamptz,
+                        entity_name=%s,entity_domain=%s,entity_type=%s
+                    WHERE id=%s AND tenant_id=%s AND user_id=%s
+                """, (json.dumps(op["payload"]), op["_write_search_entries"], op.get("embedding"),
+                      importance, mentions, last_mentioned, op["entity_name"], op["entity_domain"], op["entity_type"],
+                      op["db_id"], op["tenant_id"], op["user_id"]))
+                if cur.rowcount != 1:
+                    raise ValueError("Memory update target absent or outside namespace")
+            if op["_write_search_entries"]:
+                old_keys = {search_entry_key(e) for e in get_search_entries(op["_expected_payload"])} if op.get("_expected_payload") else set()
+                new_keys = {search_entry_key(e) for e in get_search_entries(op["payload"])}
+                for key in old_keys - new_keys:
+                    cur.execute("""DELETE FROM tomte_memory_search WHERE entity_uuid=%s AND tenant_id=%s AND user_id=%s
+                        AND fact_id=%s AND history_index=%s AND field_name=%s AND chunk_index=%s""",
+                        (op["entity_id"], op["tenant_id"], op["user_id"], *key))
+                for entry in op["search_entries"]:
+                    cur.execute("""
+                        INSERT INTO tomte_memory_search (entity_uuid,tenant_id,user_id,fact_id,history_index,field_name,chunk_index,embedding)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s::vector)
+                        ON CONFLICT(entity_uuid,fact_id,history_index,field_name,chunk_index)
+                        DO UPDATE SET embedding=EXCLUDED.embedding
+                    """, (op["entity_id"], op["tenant_id"], op["user_id"], entry["fact_id"], entry["history_index"],
+                          entry["field_name"], entry["chunk_index"], entry["embedding"]))
+    return True
 
-            elif mode == 'REINFORCE':
-                # CRITICAL FIX: Save the updated payload and embedding alongside the mention_count bump
-                cur.execute("""
-                    UPDATE tomte_memory_engine
-                    SET payload = %s::jsonb,
-                        embedding = %s::vector,
-                        importance = %s,
-                        mention_count = mention_count + 1,
-                        last_mentioned_at = NOW()
-                    WHERE id = %s AND tenant_id = %s AND user_id = %s;
-                """, (
-                    json.dumps(op['payload']), op['embedding'], op.get('importance', 3),
-                    op['db_id'], op['tenant_id'], op['user_id']
-                ))
-
-                # Prevent silent database failures if the ID doesn't actually exist
-                if cur.rowcount == 0:
-                    raise ValueError(f"REINFORCE failed: Record {op.get('db_id')} not found or namespace mismatch.")
-                    
-        return True
 
 
 @transactional
@@ -365,7 +365,10 @@ def get_resolution_candidates(conn, tenant_id, user_id, names, domain, vector, c
                     OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(payload->'aliases','[]'::jsonb)) a
                         WHERE length(a)>2 AND strpos(lower(%(context)s),lower(a))>0) AS context_match,
                     entity_domain=%(domain)s AS domain_match,
-                    (1 - (embedding <=> %(vector)s::vector)) AS similarity
+                    GREATEST(1 - (embedding <=> %(vector)s::vector),
+                        (SELECT max(1-(s.embedding <=> %(vector)s::vector)) FROM tomte_memory_search s
+                         WHERE s.entity_uuid=tomte_memory_engine.id AND s.tenant_id=tomte_memory_engine.tenant_id
+                         AND s.user_id=tomte_memory_engine.user_id)) AS similarity
                 FROM tomte_memory_engine WHERE tenant_id=%(tenant)s AND user_id=%(user)s
             ) SELECT *, sum((exact_match OR context_match)::int) OVER () AS identity_matches_total FROM scored
             ORDER BY exact_match DESC, (context_match AND domain_match) DESC, domain_match DESC,

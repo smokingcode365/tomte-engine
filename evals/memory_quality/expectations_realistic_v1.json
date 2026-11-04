@@ -1,0 +1,138 @@
+{
+  "dataset_version": "memory-realistic-conversations-1",
+  "adjudication": "LLM-assisted manual review against all user messages, model-stage outputs, every current/history value item, identity metadata and query-relevant retrieval; not blinded independent human review.",
+  "wrong_memory_weight": 5,
+  "missed_requirement_weight": 1,
+  "satisfactory_gate": "All five conversations complete; all required meanings, structural and checkpoint requirements and query-relevant retrieval checks pass; no wrong fact values, misleading identity metadata, unresolved judgments or protected-state changes. Optional detail omissions are reported but do not fail this gate. Only after this gate passes run the full deterministic regression suite.",
+  "rules": [
+    "Freeze inputs, gold and engine/prompts before live execution. Gold never enters engine/model input. Preserve the first attempt and all failures.",
+    "Judge semantics rather than exact field names, words, entity names or language. Different supported groupings of descriptive facts are acceptable unless a structural requirement says otherwise.",
+    "Check every batch, not only final memory: later clarification cannot hide an earlier unsupported attribution. Full snapshots and model outputs must support the verdicts.",
+    "Record every stored current/history value-item occurrence with source and snapshot pointers. Also review entity names, types, aliases and extra claims. Missing required meanings count even after abstention or errors.",
+    "Uncertainty can be conveyed by explicit qualified text or lower fact_confidence. An approximate date may have high confidence that the approximation was stated; it must not become a precise invented date.",
+    "A correction fixes current information without manufacturing a historical episode. A real change preserves meaningful earlier values in the same fact. Existing history is immutable in this version.",
+    "For a genuinely unresolved person reference, abstention or a clearly unresolved observation is acceptable; assigning the claim to one or both named people without support is wrong memory.",
+    "Review query_relevant_memories independently of storage and background_memories. Retrieval must contain evidence answering the query; an entity name alone is not an answer. No answering agent is evaluated.",
+    "Weighted fact error units = 5 * wrong propositions + missed required meanings. Structural/checkpoint/naming failures are separate. These counts are not an accuracy percentage or calibrated utility metric.",
+    "A failed gate warrants focused investigation. Do not weaken the gold, force writes, add Python language heuristics or spend beyond the whole-task ceiling to obtain a pass. Any revised run must be separately identified and preserve the original failure."
+  ],
+  "cases": {
+    "similar_cars": {
+      "required": [
+        "The user owns two distinct Honda Civics, Harbour and Meadow.",
+        "Harbour is the 2018 Civic and Meadow is the 2022 Civic.",
+        "Harbour is currently white and was previously blue.",
+        "Harbour currently has Pirelli tyres and previously had Michelin tyres.",
+        "Meadow remains red and has Continental tyres.",
+        "Harbour is normally parked in the garage and Meadow on the street."
+      ],
+      "structure": [
+        "Two distinct car entities survive across batches with stable entity UUIDs; neither repaint nor tyre replacement creates a third car or merges the two.",
+        "Each changed fact keeps its UUID and archives its previous value; Harbour's updates do not change Meadow's facts.",
+        "Canonical names and aliases are durable supported labels or genuine nicknames, without stale current-colour descriptions."
+      ],
+      "checkpoints": [],
+      "retrieval": [
+        "Query 0 returns Harbour's current white/Pirelli and previous blue/Michelin values with clear temporal placement.",
+        "Query 1 returns Meadow's 2022 model year, red colour, Continental tyres and street parking without mixing Harbour details."
+      ],
+      "optional": [],
+      "forbidden_examples": ["Meadow became white or got Pirelli tyres.", "2018 or 2022 is invented as a purchase year rather than the car's model year."]
+    },
+    "ambiguous_brothers": {
+      "required": [
+        "Leon and Felix are two different brothers of the user.",
+        "Leon is a software developer at Maple Systems and continues that employment.",
+        "Felix is a software developer at River Systems and continues that employment.",
+        "Leon now lives in Leeds and previously lived in Bristol.",
+        "Felix still lives in Bristol; he did not move to Leeds.",
+        "Leon's new home is near the railway station; no street address is known.",
+        "Felix mostly works from home and goes to the River Systems office every Monday."
+      ],
+      "structure": [
+        "The two person entities keep their separate UUIDs through the conversation; jobs/workplaces remain descriptive facts of the brothers.",
+        "After clarification, only Leon's residence changes; Felix's residence and both employments retain their meanings. Leon's actual earlier Bristol residence remains retrievable as history."
+      ],
+      "checkpoints": [
+        {"after_batch": 1, "requirement": "The unresolved Leeds move is not attributed as fact to Leon, Felix or both. Abstention or a clearly unresolved observation is acceptable."}
+      ],
+      "retrieval": [
+        "Query 0 distinguishes Leon in Leeds, formerly Bristol, from Felix still in Bristol.",
+        "Query 1 returns Felix's River Systems job and mostly-home/Monday-office arrangement."
+      ],
+      "optional": ["The user visited Leon last weekend."],
+      "forbidden_examples": ["Felix moved to Leeds.", "A precise address near the railway station is invented."]
+    },
+    "correction_then_change": {
+      "required": [
+        "Maya is the user's friend.",
+        "Maya is a researcher at Oak Research; the relocation did not change her employment.",
+        "Maya started at Oak Research in 2022.",
+        "Maya works Tuesdays and Thursdays.",
+        "Her current workplace address is 8 Willow Lane.",
+        "Her actual earlier workplace address is 41 Cedar Road.",
+        "14 Cedar Road is not represented as an actual former workplace. An explicit record that it was an error is acceptable."
+      ],
+      "structure": [
+        "Maya keeps the same entity UUID; workplace details do not require new organization entities.",
+        "The actual relocation updates the existing relevant fact UUID and preserves 41 Cedar Road in that fact's history; unrelated employment details survive."
+      ],
+      "checkpoints": [
+        {"after_batch": 1, "requirement": "Current workplace is corrected to 41 Cedar Road. No archived value presents 14 Cedar Road as a real previous workplace and no relocation is asserted for this correction."},
+        {"after_batch": 2, "requirement": "The real move has current address 8 Willow Lane and prior address 41 Cedar Road; it does not change employer, role, start year or work days."}
+      ],
+      "retrieval": [
+        "Query 0 returns 8 Willow Lane current and 41 Cedar Road historical, without presenting 14 as a real prior workplace.",
+        "Query 1 returns Oak Research, researcher, 2022 and Tuesdays/Thursdays."
+      ],
+      "optional": ["Maya's desk at the new workplace is by a window."],
+      "forbidden_examples": ["Maya moved from 14 to 41 Cedar Road.", "Maya changed employer during the relocation."]
+    },
+    "mixed_topics": {
+      "required": [
+        "Nori is the user's cat.",
+        "Nori eats Paws Kitchen's salmon recipe and that food has not changed.",
+        "Nori is allergic to chicken and needs food without chicken.",
+        "The user attends a pottery class at Clay House.",
+        "The class is currently on Friday evenings and was previously on Wednesday evenings.",
+        "Priya teaches that pottery class."
+      ],
+      "structure": [
+        "The cat and pottery class remain distinct user-relevant subjects with stable entity UUIDs; food/class details stay on their supported subjects.",
+        "The class schedule change keeps the relevant fact UUID and preserves Wednesday in history. Repeated food information does not create duplicate facts or invented food changes.",
+        "Pleasantries do not produce unsupported personal facts; no cat detail leaks into the class or vice versa."
+      ],
+      "checkpoints": [],
+      "retrieval": [
+        "Query 0 returns Nori's salmon recipe and chicken allergy/avoidance.",
+        "Query 1 returns Friday evenings at Clay House, previous Wednesday evenings and teacher Priya."
+      ],
+      "optional": ["The user enjoys making bowls in the pottery class."],
+      "forbidden_examples": ["Nori is allergic to salmon.", "The current class remains Wednesday."]
+    },
+    "multilingual_uncertainty": {
+      "required": [
+        "Lin Yue and 林悦 refer to the same sister of the user.",
+        "She is a nurse at 松林诊所, also referred to by the user as Pine Grove Clinic.",
+        "Her job start is approximately early 2025, not a known exact date.",
+        "She is now confirmed to live in Suzhou/苏州 and previously lived in Nanjing/南京.",
+        "The move was recent, with no precise date known.",
+        "She usually works four days per week; the days vary and are not fixed Monday through Thursday."
+      ],
+      "structure": [
+        "Chinese and English mentions retain one sister entity and its UUID; translated employer names do not create conflicting separate employments.",
+        "Current residence reflects the later confirmation; earlier uncertainty may remain explicitly uncertain history but cannot become a fabricated confirmed past event.",
+        "The vague job-start date and variable schedule remain textual qualified information, without invented precision."
+      ],
+      "checkpoints": [
+        {"after_batch": 1, "requirement": "Before confirmation, a stored Suzhou move/residence is explicitly uncertain in text or fact_confidence, or omitted; it is not represented as an unqualified high-confidence fact."}
+      ],
+      "retrieval": [
+        "Query 0 returns the same sister in Suzhou now, Nanjing previously, working as a nurse at the same clinic.",
+        "Query 1 returns approximately early 2025 with uncertainty and usually four variable work days weekly."
+      ],
+      "optional": ["She likes the team at her clinic."],
+      "forbidden_examples": ["She started on 2025-01-01.", "Her working days are definitely Monday through Thursday.", "Lin Yue and 林悦 are different sisters."]
+    }
+  }
+}

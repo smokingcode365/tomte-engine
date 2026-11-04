@@ -1,5 +1,6 @@
 """Session continuity unit tests; real-service cases require explicit local flags."""
 import pytest
+from memory_fixtures import fixture_id, simple_entity, simple_fact, prepare_write, fact_text
 from test_postgres_transactions import local_db
 from tomte.engine.core.config import TomteSettings
 from tomte.engine.utils.keys import generate_session_entity_key
@@ -109,6 +110,7 @@ def local_session_db(local_session):
     if not url or urlsplit(url).hostname not in ("localhost", "127.0.0.1", "::1"):
         pytest.fail("Session tests require local PostgreSQL", pytrace=False)
     db = PostgresProvider(url)
+    db.ensure_infrastructure(1536)
     cache, tenant = local_session
     class Rollback(Exception):
         pass
@@ -124,47 +126,47 @@ def local_session_db(local_session):
 
 
 def insert_entity(db, tenant, user, eid, name, aliases=(), vector=None, facts=()):
+    from datetime import datetime, timezone
     vector = vector or [1.0] + [0.0] * 1535
-    payload = dict(entity_id=eid, entity_name=name, entity_domain="assets_and_possessions",
-                   entity_type="vehicle", aliases=list(aliases), facts=list(facts))
-    assert db.commit_graph_updates([dict(mode="INSERT", tenant_id=tenant, user_id=user,
-        entity_id=eid, entity_name=name, entity_domain=payload["entity_domain"],
-        entity_type=payload["entity_type"], payload=payload, embedding=vector)])
+    payload=simple_entity(name,entity_id=fixture_id(tenant,user,eid),kind="vehicle",domain="assets_and_possessions",
+        aliases=aliases,facts=list(facts) or [simple_fact("description",name,stamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))])
+    assert db.commit_graph_updates([prepare_write(tenant,user,payload,vector=vector)])
+    return payload["entity_id"]
 
 
 def test_scoped_discovery_lexical_boundaries_and_current_ordered_fetch(local_session_db):
     import json
     db, cache, tenant = local_session_db
-    insert_entity(db, tenant, "u", "a", "Tesla Model Y", ["Little Dog"])
-    insert_entity(db, tenant, "u", "b", "Terry", vector=[0.5, 0.8660254] + [0.0] * 1534)
+    insert_entity(db, tenant, "u", fixture_id(tenant,"u",'a'), "Tesla Model Y", ["Little Dog"])
+    insert_entity(db, tenant, "u", fixture_id(tenant,"u",'b'), "Terry", vector=[0.5, 0.8660254] + [0.0] * 1534)
     insert_entity(db, tenant, "other", "a", "Tesla Model Y", ["Little Dog"])
     insert_entity(db, tenant + "-other", "u", "a", "Tesla Model Y", ["Little Dog"])
-    assert db.find_session_entity_mentions(tenant, "u", "I named LITTLE DOG.", [1.0] + [0.0] * 1535, 5)[0]["entity_id"] == "a"
+    assert db.find_session_entity_mentions(tenant, "u", "I named LITTLE DOG.", [1.0] + [0.0] * 1535, 5)[0]["entity_id"] == fixture_id(tenant,"u",'a')
     assert db.find_session_entity_mentions(tenant, "u", "Ter", [1.0] + [0.0] * 1535, 5) == []
-    assert db.find_session_entity_mentions(tenant, "u", "TERRY!", [1.0] + [0.0] * 1535, 5)[0]["entity_id"] == "b"
+    assert db.find_session_entity_mentions(tenant, "u", "TERRY!", [1.0] + [0.0] * 1535, 5)[0]["entity_id"] == fixture_id(tenant,"u",'b')
     assert db.find_session_entity_mentions(tenant, "absent", "Little Dog", [1.0] + [0.0] * 1535, 5) == []
     with db.conn.cursor() as cur:
-        cur.execute("UPDATE tomte_memory_engine SET mention_count=10000 WHERE tenant_id=%s AND user_id=%s AND entity_id='b'", (tenant, "u"))
-        cur.execute("UPDATE tomte_memory_engine SET last_mentioned_at=NOW()-INTERVAL '1 day' WHERE tenant_id=%s AND user_id=%s AND entity_id='a'", (tenant, "u"))
+        cur.execute("UPDATE tomte_memory_engine SET mention_count=10000 WHERE tenant_id=%s AND user_id=%s AND entity_id=%s", (tenant, "u", fixture_id(tenant,"u","b")))
+        cur.execute("UPDATE tomte_memory_engine SET last_mentioned_at=NOW()-INTERVAL '1 day' WHERE tenant_id=%s AND user_id=%s AND entity_id=%s", (tenant, "u", fixture_id(tenant,"u","a")))
     vector = [1.0] + [0.0] * 1535
-    assert db.semantic_retrieval(tenant, "u", vector)[0]["entity_id"] == "b"
+    assert db.semantic_retrieval(tenant, "u", vector)[0]["entity_id"] == fixture_id(tenant,"u",'b')
     rows = db.discover_session_entities(tenant, "u", vector, 0.25, 5)
-    assert [r["entity_id"] for r in rows] == ["a", "b"]
+    assert [r["entity_id"] for r in rows] == [fixture_id(tenant,"u",'a'), fixture_id(tenant,"u",'b')]
     assert rows[0]["raw_cosine"] == pytest.approx(1)
-    assert [r["entity_id"] for r in db.discover_session_entities(tenant, "u", vector, 0.75, 5)] == ["a"]
-    assert [r["entity_id"] for r in db.get_entities_by_ids(tenant, "u", ["b", "missing", "a", "a"])] == ["b", "a"]
-    assert db.get_entities_by_ids(tenant, "absent", ["a"]) == []
+    assert [r["entity_id"] for r in db.discover_session_entities(tenant, "u", vector, 0.75, 5)] == [fixture_id(tenant,"u",'a')]
+    assert [r["entity_id"] for r in db.get_entities_by_ids(tenant, "u", [fixture_id(tenant,"u",'b'), "missing", fixture_id(tenant,"u",'a'), fixture_id(tenant,"u",'a')])] == [fixture_id(tenant,"u",'b'), fixture_id(tenant,"u",'a')]
+    assert db.get_entities_by_ids(tenant, "absent", [fixture_id(tenant,"u",'a')]) == []
     assert all(r["tenant_id"] == tenant and r["user_id"] == "u" for r in rows)
     with db.conn.cursor() as cur:
-        cur.execute("UPDATE tomte_memory_engine SET payload=jsonb_set(payload, '{entity_name}', %s::jsonb) WHERE tenant_id=%s AND user_id=%s AND entity_id='a'", (json.dumps("Current Tesla"), tenant, "u"))
-    assert db.get_entities_by_ids(tenant, "u", ["a"])[0]["entity_name"] == "Current Tesla"
+        cur.execute("UPDATE tomte_memory_engine SET payload=jsonb_set(payload, '{entity_name}', %s::jsonb) WHERE tenant_id=%s AND user_id=%s AND entity_id=%s", (json.dumps("Current Tesla"), tenant, "u", fixture_id(tenant,"u","a")))
+    assert db.get_entities_by_ids(tenant, "u", [fixture_id(tenant,"u",'a')])[0]["entity_name"] == "Current Tesla"
 
 
 def test_raw_cosine_ties_have_stable_entity_order(local_session_db):
     db, _, tenant = local_session_db
-    for eid in ["c", "a", "b"]:
+    for eid in [fixture_id(tenant,"u",'c'), fixture_id(tenant,"u",'a'), fixture_id(tenant,"u",'b')]:
         insert_entity(db, tenant, "u", eid, eid)
-    assert [r["entity_id"] for r in db.discover_session_entities(tenant, "u", [1.0] + [0.0] * 1535, 0.25, 2)] == ["a", "b"]
+    assert [r["entity_id"] for r in db.discover_session_entities(tenant, "u", [1.0] + [0.0] * 1535, 0.25, 2)] == sorted(fixture_id(tenant,"u",k) for k in ("a","b","c"))[:2]
 
 
 def test_persona_does_not_consume_session_caps(session_workflow):
@@ -181,7 +183,7 @@ def test_persona_does_not_consume_session_caps(session_workflow):
     for i in range(5):
         insert_entity(db, tenant, "u", "vehicle-" + str(i), "Tesla Vehicle " + str(i), ["Tesla"],
                       vector=[0.5, 0.8660254] + [0.0] * 1534)
-    expected = ["vehicle-" + str(i) for i in range(5)]
+    expected = sorted(fixture_id(tenant,"u","vehicle-"+str(i)) for i in range(5))
     assert [r["entity_id"] for r in db.find_session_entity_mentions(tenant, "u", "Tesla", vector, 5)] == expected
     assert [r["entity_id"] for r in db.discover_session_entities(tenant, "u", vector, 0.25, 5)] == expected
     result = workflow.on_chat(tenant, "s", "My Tesla needs an oil change.", ChatSenderRole.USER, "u")
@@ -195,23 +197,23 @@ def test_fresh_session_payload_wins_over_earlier_live_retrieval(session_workflow
     from copy import deepcopy
     from tomte.engine.core.enums import ChatSenderRole
     workflow, db, _, tenant, _ = session_workflow
-    insert_entity(db, tenant, "u", "tesla", "Old Tesla", ["Tesla"],
-                  facts=[dict(attribute_name="paint", value="blue", importance=4)])
+    insert_entity(db, tenant, "u", fixture_id(tenant,"u",'tesla'), "Old Tesla", ["Tesla"],
+                  facts=[simple_fact("paint","blue",importance=4)])
     semantic = db.get_raw_semantic_context
     def update_after_old_reads(*args, **kwargs):
         old = semantic(*args, **kwargs)
-        fresh = deepcopy({k: v for k, v in old[0].items() if k not in ("id", "tenant_id", "user_id", "relevance_score")})
+        fresh = deepcopy({k: v for k, v in old[0].items() if k in ("entity_id","entity_name","entity_domain","entity_type","aliases","facts")})
         fresh["entity_name"] = "Fresh Tesla"
-        fresh["facts"][0]["value"] = "red"
+        fresh["facts"][0]["value"]["detail"]["text"] = "red"
         with db.conn.cursor() as cur:
-            cur.execute("UPDATE tomte_memory_engine SET payload=%s::jsonb WHERE tenant_id=%s AND user_id=%s AND entity_id='tesla'",
-                        (json.dumps(fresh), tenant, "u"))
+            cur.execute("UPDATE tomte_memory_engine SET payload=%s::jsonb WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",
+                        (json.dumps(fresh), tenant, "u", fixture_id(tenant,"u","tesla")))
         return old
     monkeypatch.setattr(db, "get_raw_semantic_context", update_after_old_reads)
     result = workflow.on_chat(tenant, "s", "My Tesla needs an oil change.", ChatSenderRole.USER, "u")["context_text"]
-    assert "Fresh Tesla" in result and "paint: red" in result
-    assert "Old Tesla" not in result and "paint: blue" not in result
-    assert result.count("[[ENTITY: tesla |") == 1
+    assert "Fresh Tesla" in result and '"text": "red"' in result
+    assert "Old Tesla" not in result and '"text": "blue"' not in result
+    assert result.count(fixture_id(tenant,"u","tesla")) == 1
 
 
 @pytest.fixture
@@ -237,30 +239,30 @@ def test_workflow_continuity_topic_switch_assistant_and_fresh_values(session_wor
     import json
     from tomte.engine.core.enums import ChatSenderRole
     workflow, db, cache, tenant, calls = session_workflow
-    insert_entity(db, tenant, "u", "tesla", "Tesla Model Y", ["Tesla"])
-    insert_entity(db, tenant, "u", "dog", "Milo", ["my dog"], vector=[0.0, 1.0] + [0.0] * 1534)
+    insert_entity(db, tenant, "u", fixture_id(tenant,"u",'tesla'), "Tesla Model Y", ["Tesla"])
+    insert_entity(db, tenant, "u", fixture_id(tenant,"u",'dog'), "Milo", ["my dog"], vector=[0.0, 1.0] + [0.0] * 1534)
     # Isolate continuity evidence from the still-preserved old retrieval streams.
     for name in ("get_recent_entities", "get_raw_semantic_context", "get_important_entities"):
         monkeypatch.setattr(db, name, lambda *args, **kwargs: [])
     def send(text, role=ChatSenderRole.USER, session="s", user="u", t=tenant):
         return workflow.on_chat(t, session, text, role, user)["context_text"]
     assert "Tesla Model Y" in send("My Tesla needs an oil change.")
-    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == ["tesla"]
+    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == [fixture_id(tenant,"u",'tesla')]
     for text in ("What kind should I use?", "Is synthetic better?"):
         send("Tesla Tesla Tesla", ChatSenderRole.ASSISTANT)
         assert "Tesla Model Y" in send(text)
-        assert cache.get_session_entity_ids(tenant, "u", "s", 10) == ["tesla"]
+        assert cache.get_session_entity_ids(tenant, "u", "s", 10) == [fixture_id(tenant,"u",'tesla')]
     assert "Milo" in send("My dog has been scratching.")
-    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == ["dog", "tesla"]
+    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == [fixture_id(tenant,"u",'dog'), fixture_id(tenant,"u",'tesla')]
     key = generate_session_entity_key(tenant, "u", "s")
     cache.client.expire(key, 30)
     send("Tesla Tesla Tesla", ChatSenderRole.ASSISTANT)
-    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == ["dog", "tesla"]
+    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == [fixture_id(tenant,"u",'dog'), fixture_id(tenant,"u",'tesla')]
     assert 86390 <= cache.client.ttl(key) <= 86400
     assert "Tesla Model Y" in send("What is the weather like?")
-    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == ["dog", "tesla"]
+    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == [fixture_id(tenant,"u",'dog'), fixture_id(tenant,"u",'tesla')]
     with db.conn.cursor() as cur:
-        cur.execute("UPDATE tomte_memory_engine SET payload=jsonb_set(payload, '{entity_name}', %s::jsonb) WHERE tenant_id=%s AND user_id=%s AND entity_id='tesla'", (json.dumps("Fresh Tesla"), tenant, "u"))
+        cur.execute("UPDATE tomte_memory_engine SET payload=jsonb_set(payload, '{entity_name}', %s::jsonb) WHERE tenant_id=%s AND user_id=%s AND entity_id=%s", (json.dumps("Fresh Tesla"), tenant, "u", fixture_id(tenant,"u","tesla")))
     assert "Fresh Tesla" in send("What kind should I use?")
     for t, u, s in [(tenant, "u", "other"), (tenant, "other", "s"), (tenant + "-other", "u", "s")]:
         assert send("What kind should I use?", t=t, user=u, session=s) == ""
@@ -268,7 +270,7 @@ def test_workflow_continuity_topic_switch_assistant_and_fresh_values(session_wor
     assert len(calls) == 9
     # Missing/deleted IDs are ignored, without returning a stale cached snapshot.
     with db.conn.cursor() as cur:
-        cur.execute("DELETE FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s AND entity_id='tesla'", (tenant, "u"))
+        cur.execute("DELETE FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s AND entity_id=%s", (tenant, "u", fixture_id(tenant,"u","tesla")))
     assert "Tesla" not in send("What kind should I use?")
 
 
@@ -279,15 +281,19 @@ def test_workflow_activation_priority_cap_and_dedup(session_workflow):
     for i in range(8):
         insert_entity(db, tenant, "u", str(i), "Object " + str(i))
     workflow.on_chat(tenant, "s", "Object 7", ChatSenderRole.USER, "u")
-    # Lexical 7 first, then cosine ties by canonical ID. Final cap is five.
-    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == ["7", "0", "1", "2", "3"]
+    ordered=sorted(fixture_id(tenant,"u",str(i)) for i in range(8))
+    seven,six=fixture_id(tenant,"u","7"),fixture_id(tenant,"u","6")
+    first=list(dict.fromkeys([seven,*ordered[:5]]))[:5]
+    assert cache.get_session_entity_ids(tenant,"u","s",10)==first
     payload = workflow.on_chat(tenant, "s", "Object 6", ChatSenderRole.USER, "u")
     ids = cache.get_session_entity_ids(tenant, "u", "s", 10)
-    assert ids == ["6", "0", "1", "2", "3", "7"]
+    promoted=list(dict.fromkeys([six,*ordered[:5]]))[:5]
+    second=list(dict.fromkeys([*promoted,*first]))[:10]
+    assert ids==second
     assert len(cache.get_session_entity_ids(tenant, "u", "s", 5)) == 5
-    assert payload["context_text"].count("[[ENTITY: 0 ") == 1
+    assert payload["context_text"].count(ordered[0]) == 1
     workflow.on_chat(tenant, "s", "Object 7", ChatSenderRole.USER, "u")
-    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == ["7", "0", "1", "2", "3", "6"]
+    assert cache.get_session_entity_ids(tenant,"u","s",10)==list(dict.fromkeys([*first,*second]))[:10]
 
 
 def test_optional_failures_preserve_existing_context_and_scope_errors_propagate(monkeypatch):
@@ -297,7 +303,7 @@ def test_optional_failures_preserve_existing_context_and_scope_errors_propagate(
     from tomte.engine.exceptions import TomteSessionStateUnavailable, TomteSecurityViolationError
     from tomte.engine.workflows.chat_hook import ChatHookWorkflow
     from tomte.engine.core.enums import ChatSenderRole
-    entity = dict(entity_id="a", entity_name="Tesla", tenant_id="t", user_id="u", aliases=[], facts=[])
+    entity = {**simple_entity("Tesla",entity_id=fixture_id("t","u","a")),"tenant_id":"t","user_id":"u"}
     db = SimpleNamespace(upsert_user_activity=Mock(), get_recent_entities=Mock(return_value=[entity]),
         get_important_entities=Mock(return_value=[entity]),
         get_raw_semantic_context=Mock(return_value=[]),
@@ -306,13 +312,13 @@ def test_optional_failures_preserve_existing_context_and_scope_errors_propagate(
     cache = SimpleNamespace(get_persona_entities=Mock(return_value=[entity]), get_chat_history=Mock(return_value=[]),
         append_chat_history=Mock(), enqueue_for_consolidation=Mock(),
         promote_session_entities=Mock(side_effect=TomteSessionStateUnavailable()),
-        get_session_entity_ids=Mock(return_value=["a"]), touch_session_entities=Mock())
+        get_session_entity_ids=Mock(return_value=[entity["entity_id"]]), touch_session_entities=Mock())
     for name, value in [("_db", db), ("_cache", cache), ("_llm", SimpleNamespace(embed_text=Mock(return_value=[1.0])))]:
         monkeypatch.setattr(Tomte, name, value)
     workflow = ChatHookWorkflow()
     assert "Tesla" in workflow.on_chat("t", "s", "hello", ChatSenderRole.USER, "u")["context_text"]
     cache.promote_session_entities.assert_called_once()
-    assert cache.promote_session_entities.call_args.args[3] == ["a"]
+    assert cache.promote_session_entities.call_args.args[3] == [entity["entity_id"]]
     cache.get_session_entity_ids.side_effect = TomteSessionStateUnavailable()
     assert "Tesla" in workflow.on_chat("t", "s", "hello", ChatSenderRole.USER, "u")["context_text"]
     cache.get_session_entity_ids.side_effect = None
@@ -323,7 +329,7 @@ def test_optional_failures_preserve_existing_context_and_scope_errors_propagate(
     db.find_session_entity_mentions.return_value = [entity]
     db.discover_session_entities.side_effect = TomteSessionStateUnavailable()
     assert "Tesla" in workflow.on_chat("t", "s", "hello", ChatSenderRole.USER, "u")["context_text"]
-    assert cache.promote_session_entities.call_args.args[3] == ["a"]
+    assert cache.promote_session_entities.call_args.args[3] == [entity["entity_id"]]
     cache.touch_session_entities.side_effect = TomteSessionStateUnavailable()
     workflow.on_chat("t", "s", "Tesla Tesla", ChatSenderRole.ASSISTANT, "u")
     cache.touch_session_entities.assert_called_once()
@@ -336,18 +342,18 @@ def test_optional_failures_preserve_existing_context_and_scope_errors_propagate(
         workflow.on_chat("t", "s", "hello", ChatSenderRole.USER, "u")
 
 
-def test_workflow_same_names_and_ids_in_other_namespaces_do_not_leak(session_workflow):
+def test_workflow_same_names_with_scoped_uuids_do_not_leak(session_workflow):
     from tomte.engine.core.enums import ChatSenderRole
     workflow, db, cache, tenant, _ = session_workflow
     for t, u, value in [(tenant, "u", "one"), (tenant, "other", "two"), (tenant + "-other", "u", "three")]:
         insert_entity(db, t, u, "tesla", "Tesla Model Y", ["Tesla"],
-                      facts=[dict(attribute_name="synthetic_marker", value=value, importance=4)])
+                      facts=[simple_fact("synthetic_marker",value,importance=4)])
     for t, u, value in [(tenant, "u", "one"), (tenant, "other", "two"), (tenant + "-other", "u", "three")]:
         result = workflow.on_chat(t, "s", "My Tesla needs an oil change.", ChatSenderRole.USER, u)
-        assert "synthetic_marker: " + value in result["context_text"]
+        assert '"text": "' + value + '"' in result["context_text"]
         for other in {"one", "two", "three"} - {value}:
-            assert "synthetic_marker: " + other not in result["context_text"]
-        assert cache.get_session_entity_ids(t, u, "s", 10) == ["tesla"]
+            assert '"text": "' + other + '"' not in result["context_text"]
+        assert cache.get_session_entity_ids(t, u, "s", 10) == [fixture_id(t,u,"tesla")]
 
 
 def test_redis_session_expires_without_close(local_session):
@@ -363,12 +369,12 @@ def test_redis_session_expires_without_close(local_session):
 def test_exact_alias_can_activate_below_cosine_floor(session_workflow):
     from tomte.engine.core.enums import ChatSenderRole
     workflow, db, cache, tenant, _ = session_workflow
-    insert_entity(db, tenant, "u", "tesla", "Tesla Model Y", ["Little Dog"],
+    insert_entity(db, tenant, "u", fixture_id(tenant,"u",'tesla'), "Tesla Model Y", ["Little Dog"],
                   vector=[0.0, 1.0] + [0.0] * 1534)
     workflow.llm.embed_text = lambda text: [1.0] + [0.0] * 1535
     assert db.discover_session_entities(tenant, "u", [1.0] + [0.0] * 1535, 0.25, 5) == []
     workflow.on_chat(tenant, "s", "LITTLE DOG needs service.", ChatSenderRole.USER, "u")
-    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == ["tesla"]
+    assert cache.get_session_entity_ids(tenant, "u", "s", 10) == [fixture_id(tenant,"u",'tesla')]
     assert db.find_session_entity_mentions(tenant, "u", "Little Doggie", [1.0] + [0.0] * 1535, 5) == []
 
 

@@ -6,10 +6,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from memory_fixtures import field_entries, value as item_value
 from scripts import prompt_eval_support as support
 from scripts import evaluate_prompts as cli
 
-FIXTURE = support.ROOT / "evals/prompts/fixtures/harness_smoke.json"
+FIXTURE = support.ROOT / "evals/prompts/fixtures/harness_smoke_v2.json"
 DOCUMENT = json.loads(FIXTURE.read_text(encoding="utf-8"))
 SMOKE = {c["stage"]: c for c in DOCUMENT["cases"]}
 UUID = "00000000-0000-0000-0000-000000000001"
@@ -31,7 +32,7 @@ def files(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "ROOT", tmp_path)
     def write(cases, name="cases.json"):
         path = tmp_path / name
-        path.write_text(json.dumps({"schema_version": 1, "cases": cases}), encoding="utf-8")
+        path.write_text(json.dumps({"schema_version": 2, "cases": cases}), encoding="utf-8")
         return path
     return write
 
@@ -44,7 +45,7 @@ def test_duplicate_ids_rejected_across_files_before_filtering(files):
 
 
 @pytest.mark.parametrize("field,value", [("partition", "heldout"), ("severity", "URGENT"),
-    ("stage", "invented"), ("schema_version", 2), ("schema_version", True), ("tags", "text")])
+    ("stage", "invented"), ("schema_version", 1), ("schema_version", True), ("tags", "text")])
 def test_bad_case_metadata_rejected(field, value):
     data = deepcopy(SMOKE["junk"])
     data[field] = value
@@ -82,13 +83,25 @@ def test_every_stage_pass_example(stage):
     ("contextual_action", {"actions": [{"action_type": "CLARIFICATION", "reference_hint": "token",
         "source_chat_ids": ["s"], "interpretation_confidence": .1}]}),
     ("fact_mutation", {"plans": [{"target_key": "unknown", "operations": [{"operation": "ADD",
-        "attribute_name": "token", "new_value": "a", "source_chat_ids": ["s"],
+        "attribute_name": "token", "fields": item_value("a"), "source_chat_ids": ["s"],
         "interpretation_confidence": .1, "evidence_type": "USER_EXPLICIT"}]}]}),
     ("internal_keyword_merge", {"groups": [{"words": ["invented"], "confidence_score": .1}]}),
+    ("field_terminology", {"field_decisions": [{"entity_handle": "unknown", "fact_handle": "f", "field_handle": "x", "decision": "KEEP_RAW"}]}),
+    ("history_selection", {"choices": [{"fact_id": "unknown", "history_indices": [0]}]}),
 ])
 def test_every_stage_fail_example(stage, output):
     result = support.score(case(stage), output)
     assert not result["passed"] and result["failures"]
+
+
+def test_rejected_proposals_cannot_pass_after_provider_normalization():
+    schema = support.STAGES["extraction"][1]
+    parsed = schema.model_validate({"relationships": [{"entity_id": "invalid"}]})
+    assert parsed.rejected_items()
+    assert parsed.model_dump(mode="json") == schema().model_dump(mode="json")
+    assert support.score(case("extraction"), schema())["passed"]
+    result = support.score(case("extraction"), parsed)
+    assert not result["passed"] and "INVALID_STRUCTURED_OUTPUT" in result["failures"]
 
 
 def term(expected="KEEP_RAW"):
@@ -116,13 +129,13 @@ def test_identity_target_contract_ignores_reasoning_and_confidence():
 
 def mutation_case(required=None, forbidden=None, **extra):
     return case("fact_mutation", {"required_operations": required or [], "forbidden_operations": forbidden or [],
-        "allow_noop": True, **extra}, {**SMOKE["fact_mutation"]["input"], "TARGETS": [{"target_key": "t", "assertions": []}],
+        "allow_noop": True, **extra}, {**SMOKE["fact_mutation"]["input"], "TARGETS": [{"target_key": "t", "facts": []}],
         "CURRENT_BATCH": [{"item_id": "s", "role": "USER"}, {"item_id": "bad", "role": "ASSISTANT"}]})
 
 
 def mutation_output(value="a", sources=None):
     return {"plans": [{"target_key": "t", "operations": [{"operation": "ADD", "attribute_name": "token",
-        "new_value": value, "source_chat_ids": sources or ["s"], "interpretation_confidence": .01, "evidence_type": "USER_EXPLICIT"}]}]}
+        "fields": field_entries(value), "source_chat_ids": sources or ["s"]}]}]}
 
 
 def test_mutation_forbidden_extra_and_missing_required_reasons():
@@ -134,8 +147,8 @@ def test_mutation_forbidden_extra_and_missing_required_reasons():
 
 
 def test_mutation_value_source_constraints_and_one_to_one_requirements():
-    required = [{"target_key": "t", "operation": "ADD", "new_value": "a", "required_source_ids": ["s"],
-                 "forbidden_source_ids": ["bad"], "allowed_evidence_types": ["USER_EXPLICIT"]}]
+    required = [{"target_key": "t", "operation": "ADD", "fields": item_value("a"), "required_source_ids": ["s"],
+                 "forbidden_source_ids": ["bad"]}]
     assert support.score(mutation_case(required=required), mutation_output())["passed"]
     assert "WRONG_MUTATION_VALUE" in support.score(mutation_case(required=required), mutation_output("b"))["failures"]
     assert "WRONG_MUTATION_SOURCE" in support.score(mutation_case(required=required), mutation_output(sources=["bad"]))["failures"]
@@ -144,11 +157,11 @@ def test_mutation_value_source_constraints_and_one_to_one_requirements():
 
 def extracted_output(source="s", entity_id="tmp_arbitrary"):
     return {"assets_and_possessions": [{"entity_id": entity_id, "entity_name": "Token", "entity_domain": "assets_and_possessions",
-        "entity_type": "token", "facts": [{"attribute_name": "token", "value": "a", "source_chat_id": source, "confidence": .01}]}]}
+        "entity_type": "token", "facts": [{"attribute_name": "token", "value": field_entries("a"), "source_chat_id": source}]}]}
 
 
 def test_extraction_required_forbidden_and_source_constraints():
-    rule = {"entity_name": "Token", "attribute_name": "token", "value": "a", "required_source_chat_id": "s"}
+    rule = {"entity_name": "Token", "attribute_name": "token", "value": item_value("a"), "required_source_chat_id": "s"}
     expected = {**SMOKE["extraction"]["expected"], "required_facts": [rule], "exact_entity_count": 1, "exact_fact_count": 1}
     c = case("extraction", expected, {**SMOKE["extraction"]["input"], "CURRENT_BATCH": [{"item_id": "s"}]})
     assert support.score(c, extracted_output())["passed"]
@@ -160,7 +173,7 @@ def test_extraction_required_forbidden_and_source_constraints():
 
 
 def test_internal_merge_pairs_order_text_and_invented_words():
-    c = case("internal_keyword_merge", {"required_pairs": [["a", "b"]], "forbidden_pairs": [["b", "c"]]}, "Keywords: ['a', 'b', 'c']")
+    c = case("internal_keyword_merge", {"required_pairs": [["a", "b"]], "forbidden_pairs": [["b", "c"]]}, json.dumps({"keyword_type":"ATTRIBUTE", "keyword_context":"", "keywords":["a", "b", "c"]}))
     assert support.score(c, {"groups": [{"words": ["b", "a"], "confidence_score": .01}]})["passed"]
     bad = support.score(c, {"groups": [{"words": ["a", "b", "c", "A"], "confidence_score": 1}]})
     assert {"FALSE_SYNONYM_GROUP", "INVENTED_KEYWORD"} <= set(bad["failures"])
@@ -199,7 +212,7 @@ def test_default_cli_makes_no_provider_or_network_calls(files, monkeypatch, caps
     path = files(DOCUMENT["cases"])
     assert cli.main(["--cases", str(path)]) == 0
     forbidden.assert_not_called()
-    assert json.loads(capsys.readouterr().out)["selected_cases"] == 8
+    assert json.loads(capsys.readouterr().out)["selected_cases"] == len(support.STAGES)
     assert not (path.parent / "log").exists()
 
 
@@ -260,10 +273,10 @@ def test_override_agent_and_logging_restored_even_on_exception():
 
 
 def test_contextual_count_target_source_and_unresolved_matching():
-    payload = {**SMOKE["contextual_action"]["input"], "CANDIDATES": [{"db_id": UUID, "assertions": [{"fact_id": "f"}]}],
+    payload = {**SMOKE["contextual_action"]["input"], "CANDIDATES": [{"db_id": UUID, "facts": [{"fact_id": "f"}]}],
         "CURRENT_BATCH": [{"item_id": "s", "role": "USER"}, {"item_id": "bad", "role": "ASSISTANT"}]}
     output = {"actions": [{"action_type": "CONFIRMATION", "reference_hint": "Arbitrary wording",
-        "source_chat_ids": ["s"], "interpretation_confidence": .01,
+        "source_chat_ids": ["s"], "evidence_quote": "Synthetic confirmation",
         "target": {"db_id": UUID, "resolution_confidence": .01, "evidence": "EXPLICIT"}, "target_fact_id": "f"}]}
     expected = {"expected_action_count": {"minimum": 1, "maximum": 2}, "required_actions": [{
         "action_type": "CONFIRMATION", "required_target_db_id": UUID, "required_target_fact_id": "f",
@@ -307,8 +320,8 @@ def test_strict_boolean_and_nonfinite_output_rejected():
 
 
 def test_maximum_matching_does_not_greedily_steal_specific_result():
-    rules = [support.MutationRule(operation="ADD"), support.MutationRule(operation="ADD", new_value="a")]
-    outputs = [{"operation": "ADD", "new_value": "a"}, {"operation": "ADD", "new_value": "b"}]
+    rules = [support.MutationRule(operation="ADD"), support.MutationRule(operation="ADD", fields=item_value("a"))]
+    outputs = [{"operation": "ADD", "fields": item_value("a")}, {"operation": "ADD", "fields": item_value("b")}]
     assert support.assignment(rules, outputs, support.matches) == ({0, 1}, {0, 1})
 
 
@@ -393,11 +406,11 @@ def reference_data(stage):
     data = deepcopy(SMOKE[stage])
     data["input"]["CURRENT_BATCH"] = [{"item_id": "s", "role": "ASSISTANT"}, {"item_id": "other-source", "role": "USER"}]
     if stage == "fact_mutation":
-        data["input"]["TARGETS"] = [{"target_key": "t", "assertions": [{"fact_id": "f"}]},
-                                   {"target_key": "other", "assertions": [{"fact_id": "other-f"}]}]
+        data["input"]["TARGETS"] = [{"target_key": "t", "facts": [{"fact_id": "f"}]},
+                                   {"target_key": "other", "facts": [{"fact_id": "other-f"}]}]
     elif stage == "contextual_action":
-        data["input"]["CANDIDATES"] = [{"db_id": UUID, "assertions": [{"fact_id": "f"}]},
-                                       {"db_id": "other", "assertions": [{"fact_id": "other-f"}]}]
+        data["input"]["CANDIDATES"] = [{"db_id": UUID, "facts": [{"fact_id": "f"}]},
+                                       {"db_id": "other", "facts": [{"fact_id": "other-f"}]}]
         data["expected"] = {"expected_action_count": 1, "required_actions": []}
     return data
 
@@ -458,7 +471,7 @@ def test_extraction_valid_assistant_source_reference_accepted(collection):
 
 def test_internal_extra_pairs_fail_closed_with_explicit_opt_out():
     expected = {"required_pairs": [["a", "b"]], "forbidden_pairs": []}
-    c = case("internal_keyword_merge", expected, "Keywords: ['a', 'b', 'c']")
+    c = case("internal_keyword_merge", expected, json.dumps({"keyword_type":"ATTRIBUTE", "keyword_context":"", "keywords":["a", "b", "c"]}))
     required_only = {"groups": [{"words": ["a", "b"], "confidence_score": .5}]}
     assert support.score(c, required_only)["passed"]
     extra = {"groups": [{"words": ["a", "b", "c"], "confidence_score": .5}]}
@@ -505,5 +518,5 @@ def test_special_override_is_bound_during_execution_and_restored(monkeypatch, st
 
 
 def test_checked_in_case_schema_matches_runtime_export():
-    schema = json.loads((support.ROOT / "evals/prompts/case_schema.json").read_text(encoding="utf-8"))
+    schema = json.loads((support.ROOT / "evals/prompts/case_schema_v2.json").read_text(encoding="utf-8"))
     assert schema == support.case_json_schema()

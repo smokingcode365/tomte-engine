@@ -1,8 +1,9 @@
+from memory_eval_support import entity as fixture_entity, MEMORY_FORMAT
 """Offline raw-context counterfactuals using unchanged real-provider prompts.
 
 Run from the repository root. No daemon, retrieval, persistence, dictionary or
 Redis writes. Candidate fixtures are controlled, not a retrieval benchmark.
-Snapshots/results go only under ignored log/cross_batch_context. Equivalent
+Snapshots/results go only under ignored log/cross_batch_context_v2. Equivalent
 matrix inputs reuse one observation; repetition runs explicitly bypass reuse.
 """
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -19,7 +20,7 @@ from urllib.parse import urlsplit
 from uuid import uuid5, NAMESPACE_URL
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'log/cross_batch_context'
+OUT = ROOT / 'log/cross_batch_context_v2'
 STRATEGIES = ['production', 'messages_4', 'messages_8', 'messages_16',
               'messages_32', 'previous_batch', 'tokens_500', 'tokens_1000',
               'tokens_2000', 'tokens_4000']
@@ -52,14 +53,9 @@ def select(case, strategy):
 
 
 def row(key, name, domain, kind, facts, aliases=()):
-    return dict(id=str(uuid5(NAMESPACE_URL, 'cross-batch-eval:' + key)), entity_id=key,
-                entity_name=name, entity_domain=domain, entity_type=kind,
-                tenant_id='offline-context-eval', user_id='offline-user', payload=dict(
-                    entity_id=key, entity_name=name, entity_domain=domain, entity_type=kind,
-                    aliases=list(aliases), facts=[dict(fact_id=key+'-'+attribute,
-                        attribute_name=attribute, value=value, assertion_state='ACTIVE',
-                        confidence=1, source_chat_id='prior-'+key,
-                        last_mentioned_at='2026-10-09T00:00:00Z') for attribute, value in facts]))
+    payload=fixture_entity(key,name,domain,kind,aliases,facts)
+    return dict(id=payload['entity_id'], tenant_id='offline-context-eval', user_id='offline-user',
+                **{k:payload[k] for k in ('entity_id','entity_name','entity_domain','entity_type')}, payload=payload)
 
 
 def datasets():
@@ -146,7 +142,6 @@ def worker(job):
     import httpx
     from tomte.engine.providers import openai_provider
     from tomte.engine.core.extraction import ExtractionMemorySchema, resolve_extraction
-    from tomte.engine.core.correction_safety import UnsupportedCorrection
     from tomte.engine.workflows.consolidation import ConsolidationWorkflow
     load_dotenv(ROOT/'.env', override=False)
     for name in ('tomte.engine','httpx','httpcore','openai'):
@@ -176,7 +171,7 @@ def worker(job):
     workflow=ConsolidationWorkflow.__new__(ConsolidationWorkflow)
     workflow.llm=Recorder()
     workflow.db=SimpleNamespace(get_resolution_candidates=lambda *a,**kw:case['candidates'][:5])
-    result=dict(job_id=job['job_id'],case_id=case['case_id'],reference=job['reference'],calls=calls,requests=requests,retries=retries)
+    result=dict(memory_format=MEMORY_FORMAT,job_id=job['job_id'],case_id=case['case_id'],reference=job['reference'],calls=calls,requests=requests,retries=retries)
     start=time.perf_counter()
     try:
         extracted=workflow.llm.parse_structured(None,json.dumps(data),ExtractionMemorySchema)
@@ -184,19 +179,19 @@ def worker(job):
         normalized=resolve_extraction(extracted,case['current'])
         entities=workflow._flatten_schema(normalized)
         result['entities']=entities
-        if entities:
-            operations=workflow._reconcile_with_golden_records('offline-context-eval','offline-user',
-                entities,case['candidates'],reference_context=job['reference'],current_batch=case['current'])
-        else:
-            operations=workflow._resolve_contextual_actions('offline-context-eval','offline-user',data,[0.0]*1536)
+        operations=workflow._reconcile_with_golden_records('offline-context-eval','offline-user',
+            entities,case['candidates'],reference_context=job['reference'],current_batch=case['current']) if entities else []
+        contextual=workflow._resolve_contextual_actions('offline-context-eval','offline-user',data,[0.0]*1536,prepared=operations)
+        by_id={op.get('db_id'):op for op in operations if op.get('db_id')}
+        for op in contextual:
+            if op['db_id'] in by_id:
+                by_id[op['db_id']].setdefault('_contextual_actions',[]).extend(op['_contextual_actions'])
+            else:operations.append(op)
         result['accepted_before_plan']=operations
         if operations is not None:
-            try:
-                prepared=workflow._plan_fact_mutations(operations,data,'offline-batch',case['candidates'])
-                result['prepared']=prepared
-                result['safeguard']='allowed'
-            except UnsupportedCorrection:
-                result['safeguard']='rejected'
+            prepared=workflow._plan_fact_mutations(operations,data,'offline-batch',case['candidates'])
+            result['prepared']=prepared
+            result['safeguard']='accepted' if prepared else 'abstained'
             result['plan']=getattr(workflow,'last_mutation_plan',None)
         else:
             result['safeguard']='unresolved'

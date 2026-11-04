@@ -1,3 +1,7 @@
+> Historical design record: the entity/value redesign supersedes the storage,
+> mutation, dictionary and projection details below. See [the current memory
+> contract](memory-design.md). This record is preserved to explain the earlier design.
+
 # Assertion lifecycle design
 
 ## Baseline implementation and storage decision

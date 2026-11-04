@@ -13,7 +13,7 @@ def apply_internal_merges(conn: psycopg.Connection, anchor_id: str, merges: List
     for merge in merges:
         execute_internal_keyword_merge(
             conn, anchor_id, merge["kw_type"], merge["survivor"],
-            merge["victims"], merge["total_hits"],
+            merge["victims"], merge["total_hits"], merge.get("keyword_context", ""),
         )
     mark_anchor_internal_merge_complete(conn, anchor_id)
 
@@ -21,7 +21,7 @@ def apply_internal_merges(conn: psycopg.Connection, anchor_id: str, merges: List
 def get_anchor_keywords(conn: psycopg.Connection, dictionary_id: UUID | str) -> List[Dict[str, Any]]:
     """Returns all keyword rows for an anchor (used by maintenance and internal merge)."""
     sql = """
-        SELECT keyword, keyword_type, hits, created_at, last_modified_at
+        SELECT keyword, keyword_type, keyword_context, hits, created_at, last_modified_at
         FROM tomte_keyword_registry
         WHERE dictionary_id = %s
     """
@@ -38,27 +38,28 @@ def get_semantic_keywords(
     id_limit: int,
     keyword_type: Optional[str] = None,
     keyword_limit: int = 5,
+    keyword_context: str = "",
 ) -> List[Dict[str, Any]]:
     """Typed lookup filters before ranking/limiting; legacy anchor lookup remains."""
     if keyword_type is not None:
-        if keyword_type not in ("ENTITY", "ATTRIBUTE") or keyword_limit < 1:
+        if keyword_type not in ("ENTITY", "ATTRIBUTE", "FIELD") or keyword_limit < 1:
             raise ValueError("Invalid dictionary candidate type or limit")
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT r.keyword, r.keyword_type, r.hits, a.dictionary_id,
+                SELECT r.keyword, r.keyword_type, r.keyword_context, r.hits, a.dictionary_id,
                        (1 - (a.embedding <=> %(vec)s::vector)) AS score
                 FROM tomte_semantic_anchors a
                 JOIN tomte_keyword_registry r USING (dictionary_id)
-                WHERE r.keyword_type = %(kind)s
+                WHERE r.keyword_type = %(kind)s AND r.keyword_context = %(context)s
                   AND (1 - (a.embedding <=> %(vec)s::vector)) > %(thresh)s
                 ORDER BY score DESC, r.hits DESC, a.dictionary_id, r.keyword
                 LIMIT %(limit)s
             """, {"vec": vector, "thresh": threshold, "kind": keyword_type,
-                  "limit": keyword_limit})
+                  "limit": keyword_limit, "context": keyword_context})
             return cur.fetchall()
     sql = """
         -- CRITICAL FIX: Added a.score to the SELECT statement
-        SELECT r.keyword, r.keyword_type, r.hits, a.dictionary_id, a.score
+        SELECT r.keyword, r.keyword_type, r.keyword_context, r.hits, a.dictionary_id, a.score
         FROM (
             SELECT dictionary_id, (1 - (embedding <=> %(vec)s::vector)) as score
             FROM tomte_semantic_anchors
@@ -100,15 +101,17 @@ def update_anchor_vector(conn: psycopg.Connection, dictionary_id: UUID, new_vect
         """, (new_vector, dictionary_id))
 
 @transactional
-def upsert_keyword(conn: psycopg.Connection, dictionary_id: UUID, keyword: str, k_type: str) -> None:
-    """Increments hits for an existing keyword or inserts a new one."""
+def upsert_keyword(conn: psycopg.Connection, dictionary_id: UUID, keyword: str, k_type: str, keyword_context: str = "") -> None:
+    """Increments hits only within the same vocabulary role and parent context."""
+    if (k_type == "FIELD") != bool(keyword_context):
+        raise ValueError("Only FIELD vocabulary requires a parent context")
     with conn.cursor() as cur:
         cur.execute("""
-            INSERT INTO tomte_keyword_registry (dictionary_id, keyword, keyword_type, hits)
-            VALUES (%s, %s, %s, 1)
-            ON CONFLICT (dictionary_id, keyword, keyword_type) 
+            INSERT INTO tomte_keyword_registry (dictionary_id, keyword, keyword_type, keyword_context, hits)
+            VALUES (%s, %s, %s, %s, 1)
+            ON CONFLICT (dictionary_id, keyword, keyword_type, keyword_context)
             DO UPDATE SET hits = tomte_keyword_registry.hits + 1, last_modified_at = NOW();
-        """, (dictionary_id, keyword, k_type))
+        """, (dictionary_id, keyword, k_type, keyword_context))
    
 
 @transactional
@@ -165,10 +168,10 @@ def execute_trim_job(conn: psycopg.Connection) -> int:
             DELETE FROM tomte_keyword_registry
             WHERE dictionary_id IN (SELECT dictionary_id FROM overweight_anchors)
             AND hits < 3 AND last_modified_at < NOW() - INTERVAL '1 year'
-            RETURNING dictionary_id, keyword, keyword_type, hits, last_modified_at
+            RETURNING dictionary_id, keyword, keyword_type, keyword_context, hits, last_modified_at
         )
-        INSERT INTO tomte_keyword_audit_log (dictionary_id, keyword, keyword_type, hits, last_modified_at)
-        SELECT dictionary_id, keyword, keyword_type, hits, last_modified_at FROM deleted_rows;
+        INSERT INTO tomte_keyword_audit_log (dictionary_id, keyword, keyword_type, keyword_context, hits, last_modified_at)
+        SELECT dictionary_id, keyword, keyword_type, keyword_context, hits, last_modified_at FROM deleted_rows;
     """
     with conn.cursor() as cur:
         cur.execute(sql)
@@ -204,9 +207,9 @@ def consolidate_duplicate_anchors(
         
         for key, data in merged_kws.items():
             cur.execute("""
-                INSERT INTO tomte_keyword_registry (dictionary_id, keyword, keyword_type, hits, created_at, last_modified_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (id_a, key[0], key[1], data['hits'], data['created_at'], data['last_modified_at']))
+                INSERT INTO tomte_keyword_registry (dictionary_id, keyword, keyword_type, keyword_context, hits, created_at, last_modified_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (id_a, key[0], key[1], key[2], data['hits'], data['created_at'], data['last_modified_at']))
         
         cur.execute("DELETE FROM tomte_semantic_anchors WHERE dictionary_id = %s", (id_b,))
 
@@ -224,27 +227,27 @@ def get_anchors_for_internal_merge(conn: psycopg.Connection) -> List[str]:
 
 @transactional
 def execute_internal_keyword_merge(
-    conn: psycopg.Connection, anchor_id: str, kw_type: str, survivor: str, victims: List[str], total_hits: int
+    conn: psycopg.Connection, anchor_id: str, kw_type: str, survivor: str, victims: List[str], total_hits: int, keyword_context: str = ""
 ) -> None:
     """Updates the survivor's hits and deletes the victim synonyms."""
     with conn.cursor() as cur:
         names = [survivor, *victims]
         if len(set(names)) != len(names):
             raise ValueError('Duplicate dictionary merge members')
-        cur.execute('SELECT keyword FROM tomte_keyword_registry WHERE dictionary_id=%s AND keyword_type=%s AND keyword=ANY(%s) FOR UPDATE', (anchor_id,kw_type,names))
+        cur.execute('SELECT keyword FROM tomte_keyword_registry WHERE dictionary_id=%s AND keyword_type=%s AND keyword_context=%s AND keyword=ANY(%s) FOR UPDATE', (anchor_id,kw_type,keyword_context,names))
         if len(cur.fetchall()) != len(names):
             raise ValueError('Dictionary merge member missing')
         cur.execute("""
             UPDATE tomte_keyword_registry SET hits = %s, last_modified_at = NOW()
-            WHERE dictionary_id = %s AND keyword_type = %s AND keyword = %s
-        """, (total_hits, anchor_id, kw_type, survivor))
+            WHERE dictionary_id = %s AND keyword_type = %s AND keyword_context = %s AND keyword = %s
+        """, (total_hits, anchor_id, kw_type, keyword_context, survivor))
         if cur.rowcount != 1:
             raise ValueError('Dictionary survivor missing; merge aborted')
         
         cur.execute("""
             DELETE FROM tomte_keyword_registry 
-            WHERE dictionary_id = %s AND keyword_type = %s AND keyword = ANY(%s)
-        """, (anchor_id, kw_type, victims))
+            WHERE dictionary_id = %s AND keyword_type = %s AND keyword_context = %s AND keyword = ANY(%s)
+        """, (anchor_id, kw_type, keyword_context, victims))
 
 @transactional
 def mark_anchor_internal_merge_complete(conn: psycopg.Connection, anchor_id: str) -> None:

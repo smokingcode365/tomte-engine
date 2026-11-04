@@ -5,12 +5,14 @@ from pydantic_ai.embeddings.voyageai import VoyageAIEmbeddingModel
 from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.providers.anthropic import AnthropicProvider
 from pydantic_ai.providers.voyageai import VoyageAIProvider
-from tomte.engine.core.schema import TomteMemorySchema
+from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.llm.structured import tomte_extractor_agent, junk_filter_agent, TomteDeps
 from tomte.engine.core.config import settings
 from tomte.engine.providers.diagnostics import observe_provider, observe_result
 from tomte.engine.llm.trust import TRUST_BOUNDARY
+from tomte.engine.llm.structured import make_extractor
+from tomte.engine.llm.recovery import install_recovery, run_with_recovery
 
 T = TypeVar('T', bound=BaseModel)
 
@@ -87,12 +89,12 @@ class AnthropicLLMProvider(LLMProvider):
         Dynamically routes the extraction based on the requested schema.
         """
         # Route A: Phase 2 Generative Extraction (Requires Dictionary Deps)
-        if isinstance(schema, type) and issubclass(schema, TomteMemorySchema):
+        if isinstance(schema, type) and issubclass(schema, ExtractionMemorySchema):
             deps = TomteDeps(taxonomy=taxonomy or [], lexicon=lexicon or [])
-            result = tomte_extractor_agent.run_sync(
+            extractor = tomte_extractor_agent if schema is ExtractionMemorySchema else make_extractor(schema)
+            result = run_with_recovery(extractor, schema,
                 user_text,
                 model=self.strong_model,
-                output_type=schema,
                 deps=deps
             )
             return result.output
@@ -104,7 +106,8 @@ class AnthropicLLMProvider(LLMProvider):
                 output_type=schema,
                 system_prompt=TRUST_BOUNDARY + (system_prompt or "You are a helpful data extraction assistant.")
             )
-            result = dynamic_agent.run_sync(
+            install_recovery(dynamic_agent, schema)
+            result = run_with_recovery(dynamic_agent, schema,
                 user_text,
                 model=self.strong_model
             )

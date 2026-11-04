@@ -6,12 +6,13 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
 
+from memory_fixtures import field_entries, value as item_value, simple_entity, simple_fact, fact_text
 from pydantic import ValidationError
 import pytest
 
 from tomte.engine.core.extraction import ExtractionMemorySchema, resolve_extraction
 from tomte.engine.dictionary.alignment import (
-    TerminologyAlignmentResponse, align_terms, apply_decisions, query_text,
+    TerminologyAlignmentResponse, FieldAlignmentResponse, align_terms, apply_decisions, query_text,
 )
 from tomte.engine.dictionary.service import DictionaryService
 from tomte.engine.llm.prompts.dictionary_maintenance import CROSS_ANCHOR_MERGE_PROMPT
@@ -29,7 +30,7 @@ def example(attribute="exterior_vehicle_colour", value="dark blue", entity_type=
     wire = ExtractionMemorySchema.model_validate({"assets_and_possessions": [{
         "entity_id": "tmp_vehicle", "entity_name": "Tesla", "entity_domain": "assets_and_possessions",
         "entity_type": entity_type, "aliases": ["my Tesla"],
-        "facts": [{"attribute_name": attribute, "value": value, "confidence": .9,
+        "facts": [{"attribute_name": attribute, "value": field_entries(value),
                    "source_chat_id": "source-1"}]}]})
     raw = [e.model_dump(mode="json") for e in resolve_extraction(wire, batch).assets_and_possessions]
     return raw, batch
@@ -38,14 +39,16 @@ def example(attribute="exterior_vehicle_colour", value="dark blue", entity_type=
 def setup_stage(response=None):
     raw, batch = example()
     entity_id, attribute_id = uuid4(), uuid4()
-    def retrieve(vector, threshold, id_limit, keyword_type, keyword_limit):
+    def retrieve(vector, threshold, id_limit, keyword_type, keyword_limit, keyword_context=""):
+        if keyword_type=="FIELD":return []
         return [{"dictionary_id": entity_id if keyword_type == "ENTITY" else attribute_id,
                  "keyword": "car" if keyword_type == "ENTITY" else "paint_color",
                  "keyword_type": keyword_type, "score": .99, "hits": 1}]
     db = SimpleNamespace(get_semantic_keywords=Mock(side_effect=retrieve))
-    llm = SimpleNamespace(embed_batch=Mock(return_value=[[1., 0.], [0., 1.]]),
+    llm = SimpleNamespace(embed_batch=Mock(side_effect=lambda texts:[[1.,0.] for _ in texts]),
                           get_vector_dimension=lambda: 2,
                           parse_structured=Mock(return_value=response or TerminologyAlignmentResponse()))
+    llm.parse_structured.side_effect=lambda **kw: FieldAlignmentResponse() if kw["schema"] is FieldAlignmentResponse else llm.parse_structured.return_value
     return raw, batch, db, llm
 
 
@@ -54,6 +57,19 @@ def reuse_response():
                                       "candidate_handle": "candidate_0_0"}],
             "attribute_decisions": [{"entity_handle": "entity_0", "fact_handle": "fact_0_0",
                                       "decision": "REUSE", "candidate_handle": "candidate_1_0"}]}
+
+
+def test_attribute_vocabulary_reuse_keeps_distinct_fact_instances():
+    response=reuse_response()
+    response['attribute_decisions'].append({'entity_handle':'entity_0','fact_handle':'fact_0_1',
+        'decision':'REUSE','candidate_handle':'candidate_2_0'})
+    raw,batch,db,llm=setup_stage(TerminologyAlignmentResponse.model_validate(response))
+    raw[0]['facts'].append({**deepcopy(raw[0]['facts'][0]),'value':item_value('red')})
+    result=align_terms(raw,batch,llm,db)
+    assert not result.metrics['raw_fallback']
+    assert len(result.entities[0]['facts'])==2
+    assert [f['attribute_name'] for f in result.entities[0]['facts']]==['paint_color','paint_color']
+    assert [f['value'] for f in result.entities[0]['facts']]==[f['value'] for f in raw[0]['facts']]
 
 
 def test_raw_extraction_does_not_inject_dictionary_guidance():
@@ -65,17 +81,18 @@ def test_raw_extraction_does_not_inject_dictionary_guidance():
 def test_query_contract_and_batched_embeddings_exclude_values_names_and_sources():
     raw, batch, db, llm = setup_stage()
     result = align_terms(raw, batch, llm, db)
-    texts = llm.embed_batch.call_args.args[0]
+    texts = llm.embed_batch.call_args_list[0].args[0]
     assert texts == ["domain: assets_and_possessions\nentity_type: automobile",
                      "domain: assets_and_possessions\nentity_type: automobile\nattribute: exterior_vehicle_colour"]
     assert all("dark blue" not in t and "Tesla" not in t for t in texts)
-    assert result.metrics["embedding_texts"] == 2 and result.metrics["embedding_calls"] == 1
-    assert db.get_semantic_keywords.call_count == 2
-    llm.parse_structured.assert_called_once()
-    view = json.loads(llm.parse_structured.call_args.kwargs["user_text"])["entities"][0]
-    assert view["facts"][0]["value_read_only"] == "dark blue"
+    assert result.metrics["embedding_texts"] == 3 and result.metrics["embedding_calls"] == 2
+    assert db.get_semantic_keywords.call_count == 3
+    assert llm.parse_structured.call_count == 2
+    assert result.metrics["terminology_calls"] == 2
+    view = json.loads(llm.parse_structured.call_args_list[0].kwargs["user_text"])["entities"][0]
+    assert view["facts"][0]["value_read_only"] == item_value("dark blue")
     assert view["facts"][0]["source_text"] == [batch[0]["content"]]
-    assert batch[1]["content"] not in llm.parse_structured.call_args.kwargs["user_text"]
+    assert batch[1]["content"] not in llm.parse_structured.call_args_list[0].kwargs["user_text"]
     assert set(view["candidates"][0]) == {"candidate_handle", "keyword"}
     assert set(result.evidence[0][0]) == {"keyword", "keyword_type", "vector", "dictionary_id"}
 
@@ -83,7 +100,8 @@ def test_query_contract_and_batched_embeddings_exclude_values_names_and_sources(
 @pytest.mark.parametrize("kind", ["ENTITY", "ATTRIBUTE"])
 def test_candidates_are_typed_and_bounded_even_if_provider_returns_wrong_type(kind):
     raw, batch, db, llm = setup_stage()
-    def retrieve(vector, threshold, id_limit, keyword_type, keyword_limit):
+    def retrieve(vector, threshold, id_limit, keyword_type, keyword_limit, keyword_context=""):
+        if keyword_type=="FIELD":return []
         other = "ATTRIBUTE" if keyword_type == "ENTITY" else "ENTITY"
         return [{"dictionary_id": uuid4(), "keyword": "wrong", "keyword_type": other,
                  "score": .99}] + [{"dictionary_id": uuid4(), "keyword": f"term_{i}",
@@ -91,7 +109,7 @@ def test_candidates_are_typed_and_bounded_even_if_provider_returns_wrong_type(ki
     db.get_semantic_keywords.side_effect = retrieve
     result = align_terms(raw, batch, llm, db)
     assert not result.metrics["raw_fallback"]
-    view = json.loads(llm.parse_structured.call_args.kwargs["user_text"])["entities"][0]
+    view = json.loads(llm.parse_structured.call_args_list[0].kwargs["user_text"])["entities"][0]
     candidates = view["candidates"] if kind == "ENTITY" else view["facts"][0]["candidates"]
     assert len(candidates) == 5 and all(c["keyword"] != "wrong" for c in candidates)
 
@@ -106,15 +124,16 @@ def test_valid_reuse_changes_only_the_two_vocabulary_fields():
     expected[0]["entity_type"] = "car"
     expected[0]["facts"][0]["attribute_name"] = "paint_color"
     assert result.entities == expected and raw == before
-    assert all(e["dictionary_id"] for e in result.evidence[0])
+    assert all(e["dictionary_id"] for e in result.evidence[0][:2])
+    assert result.evidence[0][2]["keyword_type"]=="FIELD" and result.evidence[0][2]["dictionary_id"] is None
 
 
 @pytest.mark.parametrize("value", ["dark blue", "Senior Software Engineer", "jointly owned", "leased"])
 def test_values_provenance_metadata_names_and_counts_are_immutable(value):
     raw, batch, db, llm = setup_stage(TerminologyAlignmentResponse.model_validate(reuse_response()))
-    raw[0]["facts"][0]["value"] = value
+    raw[0]["facts"][0]["value"] = item_value(value)
     result = align_terms(raw, batch, llm, db)
-    assert result.entities[0]["facts"][0]["value"] == value
+    assert result.entities[0]["facts"][0]["value"] == item_value(value)
     restored = deepcopy(result.entities)
     restored[0]["entity_type"] = raw[0]["entity_type"]
     restored[0]["facts"][0]["attribute_name"] = raw[0]["facts"][0]["attribute_name"]
@@ -222,7 +241,7 @@ def test_feedback_reuse_updates_exact_anchor_keep_raw_creates_separate_anchor():
     assert db.update_dictionary_anchor_vector.call_args.args[0] == accepted
     db.create_dictionary_anchor.assert_called_once_with(vector)
     db.find_dictionary_matches_above_threshold.assert_not_called()
-    assert db.upsert_dictionary_keyword.call_args_list[0].args == (accepted, "car", "ENTITY")
+    assert db.upsert_dictionary_keyword.call_args_list[0].args == (accepted, "car", "ENTITY", "")
 
 
 def test_deleted_reuse_anchor_raises_instead_of_redirecting_feedback():
@@ -262,25 +281,28 @@ def test_each_fact_receives_only_its_own_validated_source_text():
                            "attribute_name": "nickname", "source_chat_id": "source-2"})
     llm.embed_batch.side_effect = lambda texts: [[1., 0.] for _ in texts]
     result = align_terms(raw, batch, llm, db)
-    view = json.loads(llm.parse_structured.call_args.kwargs["user_text"])["entities"][0]["facts"]
+    view = json.loads(llm.parse_structured.call_args_list[0].kwargs["user_text"])["entities"][0]["facts"]
     assert view[0]["source_text"] == [batch[0]["content"]]
     assert view[1]["source_text"] == [batch[1]["content"]]
-    assert result.entities == raw and result.metrics["embedding_texts"] == 3
+    assert result.entities == raw and result.metrics["embedding_texts"] == 5
 
 
 @pytest.mark.parametrize("accept_mutation", [False, True])
 def test_feedback_is_filtered_during_preparation_before_any_write_scope(accept_mutation):
     from tomte.engine.core.assertions import MutationPlanResponse
+    from tomte.engine.core.relationships import prepare_proposals
     from tomte.engine.workflows.consolidation import ConsolidationWorkflow
     raw, batch = example()
     entity = raw[0]
-    operation = {**deepcopy(entity), "tenant_id": "synthetic", "user_id": "synthetic",
-                 "db_id": str(uuid4()), "payload": deepcopy(entity),
-                 "extracted_facts": deepcopy(entity["facts"]), "mode": "MUTATE",
-                 "_dictionary_evidence": [
-                     {"keyword": entity["entity_type"], "keyword_type": "ENTITY", "vector": [1., 0.], "dictionary_id": None},
-                     {"keyword": entity["facts"][0]["attribute_name"], "keyword_type": "ATTRIBUTE", "vector": [0., 1.], "dictionary_id": None},
-                     {"keyword": "unaccepted_attribute", "keyword_type": "ATTRIBUTE", "vector": [1., 1.], "dictionary_id": None}]}
+    payload=simple_entity(entity["entity_name"],kind=entity["entity_type"],domain=entity["entity_domain"],
+        facts=[simple_fact("existing_detail","unchanged")])
+    record={"id":payload["entity_id"],**{k:payload[k] for k in ("entity_id","entity_name","entity_type","entity_domain")},"payload":payload}
+    operation=ConsolidationWorkflow._prepare_operation("synthetic","synthetic",entity,record)
+    prepare_proposals([operation])  # Identity reconciliation supplies proposal keys before mutation.
+    operation["_dictionary_evidence"]=[
+        {"keyword":entity["entity_type"],"keyword_type":"ENTITY","vector":[1.,0.],"dictionary_id":None},
+        {"keyword":entity["facts"][0]["attribute_name"],"keyword_type":"ATTRIBUTE","vector":[0.,1.],"dictionary_id":None},
+        {"keyword":"unaccepted_attribute","keyword_type":"ATTRIBUTE","vector":[1.,1.],"dictionary_id":None}]
     workflow = ConsolidationWorkflow.__new__(ConsolidationWorkflow)
     # No DB exists on this preparation object, so opening a write scope fails.
     def plan(system_prompt, user_text, schema):
@@ -289,9 +311,9 @@ def test_feedback_is_filtered_during_preparation_before_any_write_scope(accept_m
         data = json.loads(user_text)
         target = data["TARGETS"][0]
         return schema.model_validate({"plans": [{"target_key": target["target_key"],
-            "operations": [{"operation": "REINFORCE", "target_fact_id": target["assertions"][0]["fact_id"],
-                "source_chat_ids": [data["CURRENT_BATCH"][0]["item_id"]],
-                "interpretation_confidence": 1, "evidence_type": "USER_EXPLICIT"}]}]})
+            "operations": [{"operation": "ADD", "attribute_name":entity["facts"][0]["attribute_name"],"fields":field_entries("dark blue"),
+                "incoming_fact_key": target["incoming_semantics"][0]["incoming_fact_key"],
+                "source_chat_ids": [data["CURRENT_BATCH"][0]["item_id"]]}]}]})
     workflow.llm = SimpleNamespace(parse_structured=Mock(side_effect=plan))
     prepared = workflow._plan_fact_mutations([operation],
         {"CURRENT_BATCH": batch, "RECENT_CONTEXT_REFERENCE_ONLY": []}, "synthetic-batch")
@@ -369,7 +391,7 @@ def test_alignment_failure_does_not_lose_committed_memory_or_replay_guarantee(me
     assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
     assert workflow.last_terminology_metrics["raw_fallback"]
     rows = memory_rows(case)
-    assert len(rows) == 1 and rows[0]["payload"]["facts"][0]["value"] == "Python"
+    assert len(rows) == 1 and fact_text(rows[0]["payload"]["facts"][0]) == "Python"
     assert "_dictionary_evidence" not in rows[0]["payload"]
     assert case.anchors == [] and processed_count(case) == 1
     calls = case.llm.calls[:]

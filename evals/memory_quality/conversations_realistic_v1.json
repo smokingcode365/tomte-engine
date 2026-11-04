@@ -1,0 +1,66 @@
+{
+  "dataset_version": "memory-realistic-conversations-1",
+  "timestamp": "2026-11-04T12:00:00Z",
+  "cases": [
+    {
+      "case_id": "similar_cars",
+      "repetitions": 1,
+      "batches": [
+        [{"role":"user","content":"I own two Honda Civics: a blue 2018 one and a red 2022 one."},{"role":"user","content":"I call my 2018 Civic Harbour and my 2022 Civic Meadow. Those are their nicknames."}],
+        [{"role":"user","content":"Harbour has Michelin tyres."},{"role":"user","content":"Meadow has Continental tyres."}],
+        [{"role":"user","content":"I had Harbour repainted white yesterday."},{"role":"user","content":"Meadow is still red; I didn't repaint that one."}],
+        [{"role":"user","content":"Today I replaced Harbour's Michelin tyres with Pirelli tyres."}],
+        [{"role":"user","content":"I still own both cars. I normally park Harbour in my garage and Meadow on the street."}]
+      ],
+      "queries": ["What colour and tyres does Harbour have now, and what did it have before?", "Tell me about Meadow: model year, colour, tyres and where I park it."]
+    },
+    {
+      "case_id": "ambiguous_brothers",
+      "repetitions": 1,
+      "batches": [
+        [{"role":"user","content":"I have two brothers, Leon and Felix. Leon is a software developer at Maple Systems."},{"role":"user","content":"Felix is also a software developer, but at River Systems. Both currently live in Bristol."}],
+        [{"role":"user","content":"One of my brothers moved to Leeds. I am deliberately not saying which brother yet."}],
+        [{"role":"user","content":"To clarify the move I mentioned: Leon moved to Leeds. Felix still lives in Bristol."},{"role":"user","content":"Leon's new home is near the railway station; I don't know the street address."}],
+        [{"role":"user","content":"By the way, Leon still works at Maple Systems."},{"role":"user","content":"Felix works mostly from home, but goes to the River Systems office every Monday."}],
+        [{"role":"user","content":"Felix hasn't changed employer or home city. I visited Leon in Leeds last weekend."}]
+      ],
+      "queries": ["Where do Leon and Felix live now, and who moved?", "Where does Felix work, and what is his working arrangement?"]
+    },
+    {
+      "case_id": "correction_then_change",
+      "repetitions": 1,
+      "batches": [
+        [{"role":"user","content":"My friend Maya is a researcher at Oak Research. Her workplace is at 14 Cedar Road."},{"role":"user","content":"She started there in 2022 and works there on Tuesdays and Thursdays."}],
+        [{"role":"user","content":"I gave you the wrong street number for Maya's workplace: it is 41 Cedar Road, not 14. It has always been 41; there was no move."}],
+        [{"role":"user","content":"Maya's employer is still Oak Research and her role is still researcher."},{"role":"user","content":"Now there has been a real move: Oak Research relocated Maya's workplace from 41 Cedar Road to 8 Willow Lane yesterday."}],
+        [{"role":"user","content":"Maya still works Tuesdays and Thursdays. The relocation did not change her job."},{"role":"user","content":"Her desk at the new workplace is by a window."}],
+        [{"role":"user","content":"Maya's workplace is still at 8 Willow Lane. Please remember that 14 Cedar Road was my mistake, not a previous workplace."}]
+      ],
+      "queries": ["What is Maya's current workplace address, and what was its actual previous address?", "What do you remember about Maya's employer, role, start year and work days?"]
+    },
+    {
+      "case_id": "mixed_topics",
+      "repetitions": 1,
+      "batches": [
+        [{"role":"user","content":"I have a cat named Nori. Nori eats the salmon recipe from Paws Kitchen."},{"role":"user","content":"I attend a pottery class at Clay House every Wednesday evening."}],
+        [{"role":"user","content":"Thanks, that's helpful. Hmm, okay."},{"role":"user","content":"Back to Nori: the cat is allergic to chicken. Salmon food is fine."}],
+        [{"role":"user","content":"My pottery class has moved from Wednesday evenings to Friday evenings, at the same Clay House studio."},{"role":"user","content":"Nori still eats the Paws Kitchen salmon recipe. I have not changed the food."}],
+        [{"role":"user","content":"The pottery teacher is Priya. I enjoy making bowls in that class."}],
+        [{"role":"user","content":"I still go to the Friday pottery class, and Nori still needs food without chicken."}]
+      ],
+      "queries": ["What food should I remember for Nori, and what must be avoided?", "When and where is my pottery class now, when was it before, and who teaches it?"]
+    },
+    {
+      "case_id": "multilingual_uncertainty",
+      "repetitions": 1,
+      "batches": [
+        [{"role":"user","content":"我姐姐叫林悦。她是松林诊所的护士。"},{"role":"user","content":"她大概是去年年初开始在那儿工作的，具体日期我记不清了。"}],
+        [{"role":"user","content":"I think Lin Yue may have moved to Suzhou recently, but I am not sure. Lin Yue is my sister 林悦."}],
+        [{"role":"user","content":"刚跟姐姐确认了：林悦现在住在苏州，她之前住在南京。搬家是最近的事，具体哪一天不知道。"},{"role":"user","content":"She still works for Pine Grove Clinic — that is the English name I use for 松林诊所, the same clinic."}],
+        [{"role":"user","content":"她通常每周上四天班，但哪几天会变，不是固定星期一到星期四。"},{"role":"user","content":"She likes the team at that clinic. Her job is still nursing."}],
+        [{"role":"user","content":"我之前说的入职时间仍然只是大约2025年年初，不是确定的日期。她现在确定住在苏州。"}]
+      ],
+      "queries": ["林悦现在住哪里，以前住哪里？她在哪里做什么工作？", "How certain is my sister's job start date, and what is her usual work schedule?"]
+    }
+  ]
+}

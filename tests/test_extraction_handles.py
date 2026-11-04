@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from tomte.engine.core.extraction import ExtractionMemorySchema, resolve_extraction
 
@@ -16,29 +15,32 @@ def saved_output():
         for e in entities:
             e['entity_id'] = 'tmp_' + e['entity_id']
             e['mention_context'] = None
-            for f in e['facts']:
-                f['related_entity_ids'] = ['tmp_' + x for x in f['related_entity_ids']]
-                f.update(evidence_context=None, group_participant_handles=[])
+            e["facts"] = [{"attribute_name": f["attribute_name"],
+                "value": [{"field_name": "detail", "text": f["value"], "fact_confidence": "high"}],
+                "source_chat_id": f["source_chat_id"]} for f in e["facts"]]
     return data
 
 
 def test_saved_cross_domain_duplicate_is_rejected_before_alignment():
     data = saved_output()
     original = deepcopy(data)
-    with pytest.raises(ValidationError, match='Temporary extraction IDs must be unique within a batch'):
-        ExtractionMemorySchema.model_validate(data)
+    response = ExtractionMemorySchema.model_validate(data)
+    source = data['identity_and_demographics'][0]['facts'][0]['source_chat_id']
+    resolved = resolve_extraction(response, [{'item_id': source, 'role': 'user', 'timestamp': 1735808400.0}])
+    entities = [entity for _, group in resolved for entity in group]
+    handles = [entity['entity_id'] for group in data.values() for entity in group]
+    assert {entity.entity_id for entity in entities} == {key for key in handles if handles.count(key) == 1}
+    assert all(handles.count(entity.entity_id) == 1 for entity in entities)
     assert data == original
 
 
-def test_unique_control_preserves_facts_references_and_provenance():
+def test_unique_control_preserves_business_text_and_transient_source_without_edges():
     data = saved_output()
     data['activities_and_skills'][0]['entity_id'] = 'tmp_act_01'
     response = ExtractionMemorySchema.model_validate(data)
     source = data['identity_and_demographics'][0]['facts'][0]['source_chat_id']
     resolved = resolve_extraction(response, [{'item_id': source, 'role': 'user', 'timestamp': 1735808400.0}])
-    assert response.model_dump(mode='json') == data
-    assert resolved.relationships[0].facts[0].related_entity_ids == ['tmp_per_01']
-    assert resolved.activities_and_skills[0].facts[0].related_entity_ids == ['tmp_org_01']
     facts = [f for group in resolved for entity in group[1] for f in entity.facts]
-    assert {f.value for f in facts} == {'Lena', 'Lena works at Harbor Labs', 'industrial designer'}
-    assert all(f.source_chat_id == source and f.last_mentioned_at == '2025-01-02T09:00:00Z' for f in facts)
+    assert {f.value["detail"]["text"] for f in facts} == {"Lena", "Lena works at Harbor Labs", "industrial designer"}
+    assert all(f.source_chat_id == source for f in facts)
+    assert all("related_entity" not in json.dumps(f.model_dump()) for f in facts)

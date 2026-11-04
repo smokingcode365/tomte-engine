@@ -4,7 +4,6 @@ from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from hashlib import sha256
 from itertools import combinations
-import ast
 import json
 import logging
 from pathlib import Path
@@ -19,7 +18,10 @@ from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.core.resolution import ResolutionResponse, Evidence
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.core.assertions import MutationPlanResponse
-from tomte.engine.dictionary.alignment import TerminologyAlignmentResponse
+from tomte.engine.core.proposals import ProposalResponse
+from tomte.engine.dictionary.alignment import TerminologyAlignmentResponse, FieldAlignmentResponse
+from tomte.engine.core.memory import wire_value
+from tomte.engine.core.retrieval import HistorySelectionResponse, HISTORY_SELECTION_PROMPT
 from tomte.engine.dictionary.service import InternalMergeResponse
 from tomte.engine.llm.prompts.extractor import EXTRACTOR_SYSTEM_PROMPT
 from tomte.engine.llm.prompts.junk_filter import JUNK_FILTER_PROMPT
@@ -29,7 +31,7 @@ from tomte.engine.llm.prompts.fact_mutation import MUTATION_SYSTEM_PROMPT
 from tomte.engine.llm.prompts.terminology_alignment import TERMINOLOGY_ALIGNMENT_PROMPT
 from tomte.engine.llm.prompts.dictionary_maintenance import CROSS_ANCHOR_MERGE_PROMPT, INTERNAL_KEYWORD_MERGE_PROMPT
 
-VERSION = "1.0"
+VERSION = "2.1"
 ROOT = Path(__file__).resolve().parents[1]
 STAGES = {
     "junk": (JUNK_FILTER_PROMPT, bool),
@@ -40,8 +42,10 @@ STAGES = {
     "fact_mutation": (MUTATION_SYSTEM_PROMPT, MutationPlanResponse),
     "cross_anchor_merge": (CROSS_ANCHOR_MERGE_PROMPT, bool),
     "internal_keyword_merge": (INTERNAL_KEYWORD_MERGE_PROMPT, InternalMergeResponse),
+    "field_terminology": (TERMINOLOGY_ALIGNMENT_PROMPT, FieldAlignmentResponse),
+    "history_selection": (HISTORY_SELECTION_PROMPT, HistorySelectionResponse),
 }
-Stage = Literal["junk", "extraction", "terminology", "identity_resolution", "contextual_action", "fact_mutation", "cross_anchor_merge", "internal_keyword_merge"]
+Stage = Literal["junk", "extraction", "terminology", "identity_resolution", "contextual_action", "fact_mutation", "cross_anchor_merge", "internal_keyword_merge", "field_terminology", "history_selection"]
 
 
 class Strict(BaseModel):
@@ -71,6 +75,37 @@ class TermRule(Strict):
 
 class TermExpected(Strict):
     decisions: list[TermRule]
+
+
+class FieldTermRule(TermRule):
+    fact_handle: str
+    field_handle: str
+
+
+class FieldTermExpected(Strict):
+    decisions: list[FieldTermRule]
+
+
+class HistoryRule(Strict):
+    fact_id: str
+    history_indices: list[int]
+
+
+class CoverageRule(Strict):
+    fact_id: str
+    covered_index: int
+    fuller_index: int
+    same_episode: bool
+
+
+class HistoryExpected(Strict):
+    choices: list[HistoryRule]
+    coverage: list[CoverageRule] = Field(default_factory=list)
+
+
+class ValueExpected(Strict):
+    text: str
+    fact_confidence: Literal["high", "medium", "low"]
 
 
 class IdentityRule(Strict):
@@ -114,7 +149,7 @@ class CountRange(Strict):
 
 
 class ActionRule(Strict):
-    action_type: Literal["CORRECTION", "RETRACTION", "CONFIRMATION", "CLARIFICATION"] | None = None
+    action_type: Literal["CORRECTION", "END", "CONFIRMATION", "CLARIFICATION", "MENTION", "HISTORY"] | None = None
     required_target_db_id: str | None = None
     required_target_fact_id: str | None = None
     require_unresolved: bool = False
@@ -146,13 +181,16 @@ class ActionExpected(Strict):
 
 class MutationRule(Strict):
     target_key: str | None = None
-    operation: Literal["ADD", "REINFORCE", "CORRECT", "SUPERSEDE", "RETRACT"] | None = None
+    operation: Literal["ADD", "UPDATE", "MENTION", "APPEND_HISTORY"] | None = None
     target_fact_id: str | None = None
     attribute_name: str | None = None
-    new_value: str | None = None
+    fields: dict[str, ValueExpected] | None = None
+    remove_fields: list[str] | None = None
+    update_mode: Literal["update_fields", "replace_value"] | None = None
+    change_type: Literal["real_change", "correction", "enrichment"] | None = None
+    history_index: int | None = Field(default=None, ge=0)
     required_source_ids: list[str] = Field(default_factory=list)
     forbidden_source_ids: list[str] = Field(default_factory=list)
-    allowed_evidence_types: list[Literal["USER_EXPLICIT", "RESOLVED_REFERENCE", "GROUP_EXPLICIT", "USER_IMPLIED", "DERIVED"]] | None = None
 
     @model_validator(mode="after")
     def constrained(self):
@@ -194,7 +232,7 @@ class FactRule(Strict):
     entity_name: str | None = None
     entity_selector: EntityRule | None = None
     attribute_name: str | None = None
-    value: str | None = None
+    value: dict[str, ValueExpected] | None = None
     required_source_chat_id: str | None = None
 
     @model_validator(mode="after")
@@ -230,24 +268,30 @@ class InternalExpected(Strict):
 
 
 EXPECTATIONS = dict(zip(STAGES, (JunkExpected, ExtractionExpected, TermExpected, IdentityExpected,
-                               ActionExpected, MutationExpected, CrossExpected, InternalExpected)))
+                               ActionExpected, MutationExpected, CrossExpected, InternalExpected, FieldTermExpected, HistoryExpected)))
 INPUT_KEYS = {
     "junk": {"CURRENT_BATCH": list, "RECENT_CONTEXT_REFERENCE_ONLY": list},
     "extraction": {"CURRENT_BATCH": list, "RECENT_CONTEXT_REFERENCE_ONLY": list},
     "terminology": {"entities": list},
+    "field_terminology": {"fields": list},
+    "history_selection": {"query": str, "history_candidates": list},
     "identity_resolution": {"CURRENT_BATCH": list, "REFERENCE_ONLY_CONTEXT": list,
                             "EXTRACTED_SEMANTIC_INFORMATION": list, "CANDIDATES_BY_OBJECT": dict},
     "contextual_action": {"CURRENT_BATCH": list, "REFERENCE_ONLY_CONTEXT": list, "CANDIDATES": list},
     "fact_mutation": {"CURRENT_BATCH": list, "REFERENCE_ONLY_CONTEXT": list,
-                      "CANONICAL_ATTRIBUTE_GUIDANCE": dict, "TARGETS": list},
+                      "TARGETS": list},
 }
 
 
 def offered_keywords(text):
-    if not text.startswith("Keywords: "):
-        raise ValueError("Internal merge input must be the exact Keywords: list text")
-    words = ast.literal_eval(text[len("Keywords: "):])
-    if not isinstance(words, list) or any(not isinstance(w, str) for w in words):
+    data = json.loads(text)
+    if (not isinstance(data, dict) or set(data) != {"keyword_type", "keyword_context", "keywords"}
+            or data["keyword_type"] not in {"ENTITY", "ATTRIBUTE", "FIELD"}
+            or not isinstance(data["keyword_context"], str)):
+        raise ValueError("Internal merge input must include its keyword role and parent context")
+    words = data["keywords"]
+    if (not isinstance(words, list) or any(not isinstance(w, str) or not w for w in words)
+            or len(set(words)) != len(words)):
         raise ValueError("Invalid offered keyword list")
     return set(words)
 
@@ -255,6 +299,16 @@ def offered_keywords(text):
 def terminology_targets(data):
     offered = {}
     try:
+        if "fields" in data:
+            for item in data["fields"]:
+                key = tuple(item[k] for k in ("entity_handle", "fact_handle", "field_handle"))
+                handles = [c["candidate_handle"] for c in item["candidates"]]
+                if any(not isinstance(k, str) or not k for k in key) or key in offered:
+                    raise ValueError("Invalid/duplicate field terminology handle")
+                if any(not isinstance(h, str) for h in handles) or len(set(handles)) != len(handles):
+                    raise ValueError("Invalid/duplicate candidate handle")
+                offered[key] = set(handles)
+            return offered
         for entity in data["entities"]:
             targets = [(entity["entity_handle"], None, entity["candidates"])]
             targets.extend((entity["entity_handle"], f["fact_handle"], f["candidates"]) for f in entity["facts"])
@@ -291,7 +345,7 @@ def validate_references(target, fact, required_sources, forbidden_sources, offer
 
 class Case(Strict):
     case_id: str = Field(min_length=1)
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     stage: Stage
     partition: Literal["dev", "validation"]
     severity: Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"]
@@ -303,7 +357,7 @@ class Case(Strict):
     @classmethod
     def version(cls, data):
         if isinstance(data, dict) and type(data.get("schema_version")) is not int:
-            raise ValueError("Case schema_version must be integer 1")
+            raise ValueError("Case schema_version must be integer 2")
         return data
 
     @model_validator(mode="after")
@@ -319,9 +373,11 @@ class Case(Strict):
             raise ValueError("Maintenance input must be exact user-prompt text")
         if self.stage == "internal_keyword_merge":
             offered_keywords(self.input)
-        if self.stage == "terminology":
+        if self.stage in {"terminology", "field_terminology"}:
             offered = terminology_targets(self.input)
             keys = [(r.entity_handle, r.fact_handle) for r in expectation.decisions]
+            if self.stage == "field_terminology":
+                keys = [(*key, r.field_handle) for key, r in zip(keys, expectation.decisions)]
             if len(set(keys)) != len(keys):
                 raise ValueError("Duplicate expected terminology target")
             if set(keys) != set(offered):
@@ -329,6 +385,14 @@ class Case(Strict):
             for rule, key in zip(expectation.decisions, keys):
                 if key not in offered or (rule.expected_decision == "REUSE" and rule.expected_candidate_handle not in offered[key]):
                     raise ValueError("Expectation must reference offered target/candidate")
+        if self.stage == "history_selection":
+            offered = {(c["fact_id"], c["history_index"]) for c in self.input["history_candidates"]}
+            wanted = [(r.fact_id, i) for r in expectation.choices for i in r.history_indices]
+            if len(set(wanted)) != len(wanted) or any(i < 0 or (f, i) not in offered for f, i in wanted):
+                raise ValueError("History expectations require unique offered entries")
+            for rule in expectation.coverage:
+                if any((rule.fact_id, index) not in offered for index in (rule.covered_index, rule.fuller_index)):
+                    raise ValueError("History coverage requires offered entries")
         if self.stage == "identity_resolution":
             extracted = self.input["EXTRACTED_SEMANTIC_INFORMATION"]
             if any(not isinstance(e, dict) or not isinstance(e.get("id"), str) or not e["id"] for e in extracted):
@@ -349,12 +413,12 @@ class Case(Strict):
         if self.stage == "fact_mutation":
             targets = self.input["TARGETS"]
             if any(not isinstance(t, dict) or not isinstance(t.get("target_key"), str)
-                   or not isinstance(t.get("assertions"), list) or any(not isinstance(f, dict) or not isinstance(f.get("fact_id"), str)
-                   for f in t["assertions"]) for t in targets):
+                   or not isinstance(t.get("facts"), list) or any(not isinstance(f, dict) or not isinstance(f.get("fact_id"), str)
+                   for f in t["facts"]) for t in targets):
                 raise ValueError("Invalid mutation targets")
             if len({t["target_key"] for t in targets}) != len(targets):
                 raise ValueError("Duplicate input target")
-            offered = {t["target_key"]: {f["fact_id"] for f in t["assertions"]} for t in targets}
+            offered = {t["target_key"]: {f["fact_id"] for f in t["facts"]} for t in targets}
             sources = source_ids(self.input)
             for rule in expectation.required_operations + expectation.forbidden_operations:
                 validate_references(rule.target_key, rule.target_fact_id, rule.required_source_ids,
@@ -362,10 +426,10 @@ class Case(Strict):
         if self.stage == "contextual_action":
             candidates = self.input["CANDIDATES"]
             if any(not isinstance(c, dict) or not isinstance(c.get("db_id"), str)
-                   or not isinstance(c.get("assertions"), list) or any(not isinstance(f, dict) or not isinstance(f.get("fact_id"), str)
-                   for f in c["assertions"]) for c in candidates):
+                   or not isinstance(c.get("facts"), list) or any(not isinstance(f, dict) or not isinstance(f.get("fact_id"), str)
+                   for f in c["facts"]) for c in candidates):
                 raise ValueError("Invalid contextual candidates")
-            offered = {c["db_id"]: {f["fact_id"] for f in c["assertions"]} for c in candidates}
+            offered = {c["db_id"]: {f["fact_id"] for f in c["facts"]} for c in candidates}
             sources = source_ids(self.input)
             for rule in expectation.required_actions:
                 validate_references(rule.required_target_db_id, rule.required_target_fact_id,
@@ -384,8 +448,8 @@ class Case(Strict):
 def case_json_schema():
     """Single-source export; cross-field input references remain runtime checks."""
     schema = Case.model_json_schema()
-    schema["title"] = "Tomte prompt evaluation case v1"
-    schema["$id"] = "tomte-prompt-case-v1"
+    schema["title"] = "Tomte prompt evaluation case v2"
+    schema["$id"] = "tomte-prompt-case-v2"
     schema["allOf"] = []
     definitions = {}
     for stage, expected in EXPECTATIONS.items():
@@ -418,8 +482,8 @@ def load_cases(paths):
         raw = path.read_bytes()
         hashes[path.relative_to(ROOT).as_posix()] = sha256(raw).hexdigest()
         document = json.loads(raw)
-        if not isinstance(document, dict) or type(document.get("schema_version")) is not int or document.get("schema_version") != 1 or not isinstance(document.get("cases"), list):
-            raise ValueError("Case files require schema_version=1 and cases=[]")
+        if not isinstance(document, dict) or type(document.get("schema_version")) is not int or document.get("schema_version") != 2 or not isinstance(document.get("cases"), list):
+            raise ValueError("Case files require schema_version=2 and cases=[]")
         for item in document["cases"]:
             case = Case.model_validate(item)
             if case.case_id in ids:
@@ -446,14 +510,13 @@ def schema_hashes(stages):
                                else STAGES[s][1].model_json_schema())) for s in sorted(stages)}
 
 
-def matches(rule, actual, sources="source_chat_ids", evidence="evidence_type"):
+def matches(rule, actual, sources="source_chat_ids"):
     fields = rule.model_dump(exclude_unset=True)
     required = set(fields.pop("required_source_ids", []))
     forbidden = set(fields.pop("forbidden_source_ids", []))
-    labels = fields.pop("allowed_evidence_types", None)
     selected = set(actual.get(sources, []))
     return (all(actual.get(k) == v for k, v in fields.items()) and required <= selected
-            and not forbidden & selected and (labels is None or actual.get(evidence) in labels))
+            and not forbidden & selected)
 
 
 def assignment(rules, outputs, matcher):
@@ -484,7 +547,12 @@ def score(case, output):
             if type(output) is not bool:
                 raise ValueError("Expected bool")
         else:
-            output = schema.model_validate(output).model_dump(mode="json")
+            parsed = schema.model_validate(output)
+            if isinstance(parsed, ProposalResponse):
+                # Runtime salvage is useful, but a malformed response must not
+                # earn a clean benchmark pass after rejected items disappear.
+                check("proposal_items", not parsed.rejected_items(), "INVALID_STRUCTURED_OUTPUT")
+            output = parsed.model_dump(mode="json")
         canonical(output)
     except (ValueError, TypeError):
         check("structured_output", False, "INVALID_STRUCTURED_OUTPUT")
@@ -495,11 +563,14 @@ def score(case, output):
         check("junk", output == exp.expected_junk, "WRONG_JUNK_CLASSIFICATION")
     elif stage == "cross_anchor_merge":
         check("merge", output == exp.expected_merge, "FALSE_ANCHOR_MERGE" if output else "MISSED_ANCHOR_MERGE")
-    elif stage == "terminology":
+    elif stage in {"terminology", "field_terminology"}:
         offered = terminology_targets(case.input)
         decisions = {}
-        for item in output["entity_type_decisions"] + output["attribute_decisions"]:
+        outputs = output["field_decisions"] if stage == "field_terminology" else output["entity_type_decisions"] + output["attribute_decisions"]
+        for item in outputs:
             key = (item["entity_handle"], item.get("fact_handle"))
+            if stage == "field_terminology":
+                key = (*key, item["field_handle"])
             check("offered_target", key in offered, "UNKNOWN_TARGET")
             check("unique_decision", key not in decisions, "DUPLICATE_TARGET")
             if item["decision"] == "REUSE":
@@ -507,11 +578,23 @@ def score(case, output):
             decisions[key] = item
         for rule in exp.decisions:
             key = (rule.entity_handle, rule.fact_handle)
+            if stage == "field_terminology":
+                key = (*key, rule.field_handle)
             item = decisions.get(key, {"decision": "KEEP_RAW"})
             check("decision", item["decision"] == rule.expected_decision,
                   "FALSE_REUSE" if item["decision"] == "REUSE" else "MISSED_REUSE")
             if rule.expected_decision == "REUSE":
                 check("candidate", item.get("candidate_handle") == rule.expected_candidate_handle, "WRONG_CANDIDATE")
+    elif stage == "history_selection":
+        offered = {(c["fact_id"], c["history_index"]) for c in case.input["history_candidates"]}
+        chosen = [(c["fact_id"], i) for c in output["choices"] for i in c["history_indices"]]
+        wanted = {(c.fact_id, i) for c in exp.choices for i in c.history_indices}
+        check("unique_history", len(set(chosen)) == len(chosen), "DUPLICATE_HISTORY")
+        check("offered_history", all(key in offered for key in chosen), "UNOFFERED_HISTORY")
+        check("history_selection", set(chosen) == wanted, "WRONG_HISTORY_SELECTION")
+        coverage = [canonical(c) for c in output["coverage"]]
+        expected_coverage = [canonical(c.model_dump()) for c in exp.coverage]
+        check("history_coverage", sorted(coverage) == sorted(expected_coverage), "WRONG_HISTORY_COVERAGE")
     elif stage == "identity_resolution":
         offered = case.input["CANDIDATES_BY_OBJECT"]
         results = {}
@@ -550,7 +633,7 @@ def score(case, output):
                 check("new_quote", item["new_entity_evidence"] == rule.exact_evidence_quote, "WRONG_NEW_EVIDENCE")
     elif stage == "fact_mutation":
         operations = []
-        offered = {t["target_key"]: {f["fact_id"] for f in t["assertions"]} for t in case.input["TARGETS"]}
+        offered = {t["target_key"]: {f["fact_id"] for f in t["facts"]} for t in case.input["TARGETS"]}
         seen = set()
         for plan in output["plans"]:
             key = plan["target_key"]
@@ -560,7 +643,7 @@ def score(case, output):
             for op in plan["operations"]:
                 if op["target_fact_id"] is not None:
                     check("offered_fact", op["target_fact_id"] in offered.get(key, set()), "WRONG_MUTATION_TARGET")
-                operations.append({"target_key": key, **op})
+                operations.append({"target_key": key, **op, "fields": wire_value(op["fields"])})
         matched, used = assignment(exp.required_operations, operations, matches)
         for index, rule in enumerate(exp.required_operations):
             check("required_mutation", index in matched, "MISSING_REQUIRED_MUTATION")
@@ -568,9 +651,10 @@ def score(case, output):
                 # Diagnostic reasons compare structured fields only, never language.
                 candidates = [o for o in operations if rule.target_key is None or o["target_key"] == rule.target_key]
                 if candidates:
-                    for field, code in (("operation", "WRONG_MUTATION_TYPE"), ("new_value", "WRONG_MUTATION_VALUE")):
+                    for field, code in (("operation", "WRONG_MUTATION_TYPE"), ("fields", "WRONG_MUTATION_VALUE"),
+                                        ("change_type", "WRONG_MUTATION_TYPE"), ("update_mode", "WRONG_MUTATION_TYPE")):
                         if field in rule.model_fields_set:
-                            check(field, any(o.get(field) == getattr(rule, field) for o in candidates), code)
+                            check(field, any(o.get(field) == rule.model_dump()[field] for o in candidates), code)
                     check("source", any(set(rule.required_source_ids) <= set(o["source_chat_ids"])
                                         and not set(rule.forbidden_source_ids) & set(o["source_chat_ids"]) for o in candidates), "WRONG_MUTATION_SOURCE")
         for op in operations:
@@ -590,7 +674,7 @@ def score(case, output):
             return ((rule.entity_name is None or entity["entity_name"] == rule.entity_name)
                     and (rule.entity_selector is None or entity_match(rule.entity_selector, entity))
                     and (rule.attribute_name is None or fact["attribute_name"] == rule.attribute_name)
-                    and (rule.value is None or fact["value"] == rule.value)
+                    and (rule.value is None or wire_value(fact["value"]) == rule.model_dump()["value"])
                     and (not check_source or "required_source_chat_id" not in rule.model_fields_set or fact["source_chat_id"] == rule.required_source_chat_id))
         for rules, values, matcher, code in ((exp.required_entities, entities, entity_match, "MISSING_ENTITY"),
                                             (exp.required_facts, facts, fact_match, "MISSING_FACT")):
@@ -612,7 +696,7 @@ def score(case, output):
             check("unique_ids", len({e["entity_id"] for e in entities}) == len(entities), "DUPLICATE_ENTITY_ID")
     elif stage == "contextual_action":
         actions = output["actions"]
-        offered = {c["db_id"]: {f["fact_id"] for f in c["assertions"]} for c in case.input["CANDIDATES"]}
+        offered = {c["db_id"]: {f["fact_id"] for f in c["facts"]} for c in case.input["CANDIDATES"]}
         for action in actions:
             if action["target"] is not None:
                 key = action["target"]["db_id"]
@@ -757,6 +841,6 @@ def manifest(cases, hashes, repeat, partition, prompts=None):
             "strong_model": settings.openai.strong_model, "cheap_model": settings.openai.cheap_model,
             "embedding_model": settings.openai.embed_model, "prompt_hashes": prompt_hashes(stages, prompts),
             "schema_hashes": schema_hashes(stages), "case_file_hashes": hashes,
-            "evaluator_version": VERSION, "case_schema_version": 1,
+            "evaluator_version": VERSION, "case_schema_version": 2,
             "evaluator_hashes": {p: sha256((ROOT / p).read_bytes()).hexdigest()
                                  for p in ("scripts/evaluate_prompts.py", "scripts/prompt_eval_support.py")}}

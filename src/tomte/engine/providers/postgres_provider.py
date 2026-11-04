@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+from pydantic import ValidationError
 import psycopg
 import json
 from contextlib import contextmanager
@@ -8,7 +9,7 @@ from tomte.engine.exceptions import TomteSessionStateUnavailable
 from tomte.engine.utils.keys import validate_id
 
 from tomte.engine.core.config import settings
-from tomte.engine.core.assertions import adapt_assertions
+from tomte.engine.core.memory import Entity
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.core.enums import MemoryDomain
 from tomte.engine.exceptions import TomteDatabaseConnectionError
@@ -104,9 +105,27 @@ class PostgresProvider(DatabaseProvider):
                 raise ValueError(f"Invalid retrieved memory row at index {index}: missing a nonempty entity_id")
             if isinstance(entity.get("id"), UUID):
                 entity["id"] = str(entity["id"])  # Portable through Redis persona JSON.
-            entity["facts"] = adapt_assertions(entity.get("facts", []), str(entity.get("id") or entity["entity_id"]))
+            try:
+                stored = row["payload"] if "payload" in row else {k: entity[k] for k in Entity.model_fields}
+                payload = Entity.model_validate(stored).model_dump(mode="json")
+            except (ValidationError, KeyError):
+                raise ValueError(f"Invalid retrieved memory row at index {index}: invalid stored entity") from None
+            if entity.get("id") is not None and str(entity["id"]) != payload["entity_id"]:
+                raise ValueError("Retrieved entity identity disagrees with database UUID")
+            if "payload" in row and row["payload"].get("entity_id") != payload["entity_id"]:
+                raise ValueError("Retrieved payload identity disagrees with row")
+            entity.update(payload)
             entities.append(entity)
         return entities
+
+    @staticmethod
+    def _validate_storage_rows(rows):
+        """Raw admin/identity reads still validate the same canonical boundary."""
+        normalized = PostgresProvider._normalize_memory_rows(rows)
+        for row, entity in zip(rows, normalized):
+            if any(key in row and row[key] != entity[key] for key in ("entity_id", "entity_name", "entity_type", "entity_domain")):
+                raise ValueError("Stored row identity metadata disagrees with payload")
+        return rows
 
     def upsert_user_activity(self, tenant_id: str, user_id: str) -> None:
         operations.upsert_user_activity(self.conn, tenant_id, user_id)
@@ -183,10 +202,12 @@ class PostgresProvider(DatabaseProvider):
         return operations.claim_consolidation_batch(self.conn, tenant_id, user_id, batch_id)
 
     def get_user_graph_skeleton(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
-        return operations.get_user_graph_skeleton(self.conn, tenant_id, user_id)
+        with self.transaction():
+            return self._validate_storage_rows(operations.get_user_graph_skeleton(self.conn, tenant_id, user_id))
 
     def get_resolution_candidates(self, tenant_id, user_id, names, domain, vector, context, limit=5):
-        return operations.get_resolution_candidates(self.conn, tenant_id, user_id, names, domain, vector, context, limit)
+        with self.transaction():
+            return self._validate_storage_rows(operations.get_resolution_candidates(self.conn, tenant_id, user_id, names, domain, vector, context, limit))
 
     def find_exact_fact(self, tenant_id: str, user_id: str, entity_id: str, attribute_name: str) -> Optional[UUID]:
         return operations.find_exact_fact(self.conn, tenant_id, user_id, entity_id, attribute_name)
@@ -201,12 +222,15 @@ class PostgresProvider(DatabaseProvider):
             return False
 
     # --- Dictionary semantic anchors (bootstrap + feedback) ---
+    def get_history_candidates(self, tenant_id, user_id, entity_ids, vector, limit):
+        return operations.get_history_candidates(self.conn, tenant_id, user_id, entity_ids, vector, limit)
+
     def get_semantic_keywords(
         self, vector: List[float], threshold: float, id_limit: int,
-        keyword_type: Optional[str] = None, keyword_limit: int = 5,
+        keyword_type: Optional[str] = None, keyword_limit: int = 5, keyword_context: str = "",
     ) -> List[Dict[str, Any]]:
         return dictionary_ops.get_semantic_keywords(self.conn, vector, threshold, id_limit,
-                                                    keyword_type, keyword_limit)
+                                                    keyword_type, keyword_limit, keyword_context)
 
     def find_dictionary_matches_above_threshold(
         self, vector: List[float], threshold: float
@@ -221,8 +245,8 @@ class PostgresProvider(DatabaseProvider):
         dictionary_ops.update_anchor_vector(self.conn, dictionary_id, new_vector)
 
     @dictionary_writer
-    def upsert_dictionary_keyword(self, dictionary_id: UUID, keyword: str, keyword_type: str) -> None:
-        dictionary_ops.upsert_keyword(self.conn, dictionary_id, keyword, keyword_type)
+    def upsert_dictionary_keyword(self, dictionary_id: UUID, keyword: str, keyword_type: str, keyword_context: str = "") -> None:
+        dictionary_ops.upsert_keyword(self.conn, dictionary_id, keyword, keyword_type, keyword_context)
 
     @dictionary_writer
     def create_dictionary_anchor(self, vector: List[float]) -> UUID:

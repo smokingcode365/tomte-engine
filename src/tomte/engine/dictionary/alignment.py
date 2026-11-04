@@ -32,6 +32,15 @@ class AttributeDecision(VocabularyDecision):
     fact_handle: str
 
 
+class FieldDecision(AttributeDecision):
+    field_handle: str
+
+
+class FieldAlignmentResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    field_decisions: list[FieldDecision] = Field(default_factory=list)
+
+
 class TerminologyAlignmentResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     entity_type_decisions: list[VocabularyDecision] = Field(default_factory=list)
@@ -48,6 +57,17 @@ class AlignmentResult:
 def query_text(domain, entity_type, attribute=None):
     text = f"domain: {domain}\nentity_type: {entity_type}"
     return text if attribute is None else text + f"\nattribute: {attribute}"
+
+
+def _embed_queries(llm, texts, metrics):
+    from tomte.engine.llm.embedder import EMBED_BATCH_SIZE, embed_texts
+    vectors = []
+    for start in range(0, len(texts), EMBED_BATCH_SIZE):
+        batch = texts[start:start + EMBED_BATCH_SIZE]
+        metrics["embedding_calls"] += 1
+        metrics["embedding_texts"] += len(batch)
+        vectors.extend(embed_texts(llm, batch))
+    return vectors
 
 
 def apply_decisions(raw, targets, response):
@@ -124,8 +144,7 @@ def align_terms(raw, current_batch, llm, db):
         if not targets:
             return AlignmentResult(deepcopy(raw), [], metrics)
         texts = [target["text"] for target in targets.values()]
-        metrics.update(embedding_texts=len(texts), embedding_calls=1)
-        vectors = llm.embed_batch(texts)
+        vectors = _embed_queries(llm, texts, metrics)
         if len(vectors) != len(texts):
             raise ValueError("Dictionary embedding count mismatch")
         for index, (target, vector) in enumerate(zip(targets.values(), vectors)):
@@ -155,6 +174,9 @@ def align_terms(raw, current_batch, llm, db):
         response = llm.parse_structured(system_prompt=TERMINOLOGY_ALIGNMENT_PROMPT,
             user_text=json.dumps({"entities": view}, ensure_ascii=False), schema=TerminologyAlignmentResponse)
         aligned, evidence = apply_decisions(raw, targets, response)
+        aligned, field_evidence = align_value_fields(aligned, current_batch, llm, db, metrics=metrics)
+        for existing, fields in zip(evidence, field_evidence):
+            existing.extend(fields)
         return AlignmentResult(aligned, evidence, metrics)
     except Exception as exc:
         from tomte.engine.workers.control import WorkStopped
@@ -170,3 +192,69 @@ def align_terms(raw, current_batch, llm, db):
         return AlignmentResult(deepcopy(raw), [[] for _ in raw], metrics)
     finally:
         metrics["latency_seconds"] = perf_counter() - started
+
+
+def field_context(entity, fact):
+    """Parent identity is structural; the model decides equivalence of vocabulary."""
+    return json.dumps([entity["entity_domain"], entity["entity_type"], fact["attribute_name"]], ensure_ascii=False, separators=(",", ":"))
+
+
+def align_value_fields(raw, current_batch, llm, db, *, metrics=None):
+    """Second pass uses canonical parent terms. All renames validate before application."""
+    from tomte.engine.core.memory import field_key
+    if metrics is None:
+        metrics = {"embedding_calls": 0, "embedding_texts": 0, "candidate_lookups": 0, "terminology_calls": 0}
+    targets = {}
+    sources = {item["item_id"]: item["content"] for item in current_batch if item["role"] == "user"}
+    for i, entity in enumerate(raw):
+        for j, fact in enumerate(entity["facts"]):
+            context = field_context(entity, fact)
+            for n, (name, item) in enumerate(fact["value"].items()):
+                key = (f"entity_{i}", f"fact_{i}_{j}", f"field_{n}")
+                targets[key] = {"i": i, "j": j, "name": name, "context": context,
+                    "view": {"entity_handle": key[0], "fact_handle": key[1], "field_handle": key[2],
+                        "parent_context": context, "field_name": name, "value_read_only": item,
+                        "source_text": sources[fact["source_chat_id"]], "candidates": []}}
+    evidence = [[] for _ in raw]
+    if not targets:
+        return deepcopy(raw), evidence
+    vectors = _embed_queries(llm, [t["context"] + " field: " + t["name"] for t in targets.values()], metrics)
+    for index, (target, vector) in enumerate(zip(targets.values(), vectors)):
+        target["vector"] = vector
+        metrics["candidate_lookups"] += 1
+        rows = db.get_semantic_keywords(vector, settings.llm_threshold_low, id_limit=20,
+            keyword_type="FIELD", keyword_limit=CANDIDATE_LIMIT, keyword_context=target["context"])
+        eligible = [row for row in rows if row["keyword_type"] == "FIELD"
+                    and row.get("keyword_context") == target["context"] and row["score"] > settings.llm_threshold_low]
+        target["candidates"] = {f"candidate_{index}_{n}": row for n, row in enumerate(eligible[:CANDIDATE_LIMIT])}
+        target["view"]["candidates"] = [{"candidate_handle": handle, "keyword": row["keyword"]}
+            for handle, row in target["candidates"].items()]
+    metrics["terminology_calls"] += 1
+    response = llm.parse_structured(system_prompt=TERMINOLOGY_ALIGNMENT_PROMPT,
+        user_text=json.dumps({"fields": [t["view"] for t in targets.values()]}, ensure_ascii=False), schema=FieldAlignmentResponse)
+    response = FieldAlignmentResponse.model_validate(response.model_dump(mode="json") if isinstance(response, BaseModel) else response)
+    selected = {}
+    for decision in response.field_decisions:
+        key = (decision.entity_handle, decision.fact_handle, decision.field_handle)
+        if key not in targets or key in selected:
+            raise ValueError("Unknown or duplicate value-field terminology target")
+        candidate = targets[key]["candidates"].get(decision.candidate_handle)
+        if decision.decision == "REUSE" and candidate is None:
+            raise ValueError("Value-field candidate was not offered for this parent")
+        selected[key] = candidate
+    aligned = deepcopy(raw)
+    values = {}
+    for key, target in targets.items():
+        candidate = selected.get(key)
+        name = field_key(candidate["keyword"] if candidate else target["name"])
+        location = (target["i"], target["j"])
+        value = values.setdefault(location, {})
+        if name in value:
+            raise ValueError("Value-field alignment would collapse distinct fields")
+        value[name] = deepcopy(raw[target["i"]]["facts"][target["j"]]["value"][target["name"]])
+        evidence[target["i"]].append({"keyword": name, "keyword_type": "FIELD", "keyword_context": target["context"],
+            "attribute_name": raw[target["i"]]["facts"][target["j"]]["attribute_name"],
+            "vector": target["vector"], "dictionary_id": str(candidate["dictionary_id"]) if candidate else None})
+    for (i, j), value in values.items():
+        aligned[i]["facts"][j]["value"] = value
+    return aligned, evidence

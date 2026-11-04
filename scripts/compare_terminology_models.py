@@ -1,3 +1,4 @@
+from memory_eval_support import value as fixture_value
 """Evaluation-only fixed-candidate comparison; no persistence or embeddings.
 
 Run from tomte-engine. Uses the production prompt, schema, model runner and
@@ -32,7 +33,7 @@ from tomte.engine.providers import openai_provider
 from tomte.engine.providers.postgres_provider import PostgresProvider
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / 'log' / 'terminology_model_comparison.json'
+OUTPUT = ROOT / 'log' / 'terminology_model_comparison_v2.json'
 
 
 def fixture(cases):
@@ -42,14 +43,14 @@ def fixture(cases):
         attribute = case['raw_term'] if case['kind'] == 'ATTRIBUTE' else 'description'
         entity = {'entity_id': f'synthetic_{i}', 'entity_name': 'Synthetic subject',
                   'entity_domain': case['domain'], 'entity_type': case['entity_type'],
-                  'aliases': [], 'facts': [{'attribute_name': attribute, 'value': case['value'],
-                  'source_chat_id': f'synthetic_source_{i}', 'timeline': 1791547200}]}
+                  'aliases': [], 'facts': [{'attribute_name': attribute, 'value': fixture_value(case['value']),
+                  'source_chat_id': f'synthetic_source_{i}', '_source_timestamp': 1791547200}]}
         raw.append(entity)
         entry = {'entity_handle': eh, 'entity_name': entity['entity_name'],
                  'domain': case['domain'], 'raw_entity_type': entity['entity_type'],
                  'candidates': [], 'facts': []}
         fact = {'entity_handle': eh, 'fact_handle': fh, 'raw_attribute_name': attribute,
-                'value_read_only': case['value'], 'source_text': [case['source']], 'candidates': []}
+                'value_read_only': fixture_value(case['value']), 'source_text': [case['source']], 'candidates': []}
         entry['facts'].append(fact)
         view.append(entry)
         for kind, key, item, term, j in (

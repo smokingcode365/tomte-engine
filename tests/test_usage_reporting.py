@@ -158,8 +158,9 @@ def test_failed_structured_response_usage_is_retained_without_double_count(provi
         with pytest.raises(UnexpectedModelBehavior):
             provider.parse_structured('synthetic','synthetic',MutationPlanResponse)
     row=r.query('t','u')['totals'][0]
-    assert len(calls)==row['observed_responses']==1
-    assert row['input_tokens']==19 and row['output_tokens']==4
+    # Proposal schemas permit one bounded repair even when ordinary retries are zero.
+    assert len(calls)==row['observed_responses']==2
+    assert row['input_tokens']==38 and row['output_tokens']==8
     assert r.query('t','u',100)['pending_estimate'] is None
 
 

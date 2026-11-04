@@ -42,9 +42,11 @@ Now:
 
 - Chat Hook heartbeat and retrieval calls are independent short operations.
 - Consolidation performs model calls before a single scope for its prepared
-  memory changes and dictionary feedback. Feedback joins that scope, or owns
-  one when called independently. PostgreSQL failure propagates and rolls back
-  the unit; model decision logic is unchanged.
+  memory changes, search-index deltas and processed-batch marker. PostgreSQL
+  failure rolls back that unit. Optional dictionary feedback runs afterward in
+  a separate transaction; its failure does not replay already committed memory.
+  See [the current memory contract](memory-design.md) for identity, stale-snapshot
+  and history safeguards.
 - Cross-anchor merges retain one transaction per merge; internal keyword merge
   batches include their cooldown marker. Trim deletion and audit insertion
   remain one atomic CTE. Candidate reads finish before model calls.

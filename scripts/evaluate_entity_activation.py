@@ -1,3 +1,5 @@
+from memory_eval_support import (MEMORY_FORMAT, entity as fixture_entity, fact as fixture_fact, value as fixture_value,
+    fixture_write, fixture_uuid, label_map, search_texts, similarity, database_scores)
 """Current-message-only activation evaluation; no production changes or LLM calls.
 
 Run from tomte-engine. Uses real configured embeddings and rollback-only local
@@ -33,7 +35,7 @@ from tomte.engine.providers.postgres_provider import PostgresProvider
 from tomte.engine.utils.security import SecurityGuard
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "log" / "entity_activation_evaluation.json"
+OUTPUT = ROOT / "log" / "entity_activation_evaluation_v2.json"
 CACHE = ROOT / "log" / "memory_retrieval_embeddings.json"
 USAGE = ROOT / "log" / "entity_activation_api_usage.json"
 FLOORS = (.20, .25, .30, .35, .40, .45)
@@ -302,7 +304,7 @@ def main():
     guard = SecurityGuard()
     texts = [c["text"] for c in cases] + [t["text"] for c in conversations for t in c["turns"] if t["role"] == "user"]
     for text in texts:
-        assert text == guard.sanitize_input(text) and guard.check_for_injection(text)
+        assert text == guard.sanitize_input(text)
     summaries = {k: get_entity_summary(e) for k, e in bank.items()}
     OUTPUT.parent.mkdir(exist_ok=True)
     cache = json.loads(CACHE.read_text()) if CACHE.exists() else {}
@@ -334,10 +336,10 @@ def main():
         return {t:cache[cache_key(role,t)] for t in unique}
     httpx.AsyncClient.send = embeddings_only
     try:
-        docs = embed("document",summaries.values())
+        docs = embed("document", [text for payload in bank.values() for text in search_texts(payload)])
         queries = embed("query",texts)
     finally: httpx.AsyncClient.send = send
-    scores = {text:{k:cosine(vector,docs[summary]) for k,summary in summaries.items()} for text,vector in queries.items()}
+    scores = {text:{k:similarity(vector, payload, docs) for k,payload in bank.items()} for text,vector in queries.items()}
     print(f"Ready: {len(bank)} entities, {len(cases)} activation cases, {len(queries)} unique messages",flush=True)
     db = PostgresProvider(os.environ["POSTGRES_URL"])
     observer = psycopg.connect(os.environ["POSTGRES_URL"],autocommit=True,options="-c default_transaction_read_only=on")
@@ -351,26 +353,25 @@ def main():
                 updates=[]
                 for t,u in [(tenant,"equal"),(tenant,"weighted"),(tenant,"other"),(tenant+"-other","equal")]:
                     for k,payload in bank.items():
-                        updates.append(dict(mode="INSERT",tenant_id=t,user_id=u,
-                            **{name:payload[name] for name in ("entity_id","entity_name","entity_domain","entity_type")},
-                            payload=deepcopy(payload),embedding=docs[summaries[k]]))
+                        updates.append(fixture_write(t, u, payload, docs))
                 assert db.commit_graph_updates(updates)
                 db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=NOW()-interval '24 hours' "
-                    "WHERE tenant_id=%s AND user_id='weighted' AND entity_id='tesla'",(tenant,))
-                db.conn.execute("UPDATE tomte_memory_engine SET mention_count=5 WHERE tenant_id=%s AND user_id='weighted' AND entity_id='honda'",(tenant,))
-                db.conn.execute("UPDATE tomte_memory_engine SET mention_count=8 WHERE tenant_id=%s AND user_id='weighted' AND entity_id='python'",(tenant,))
+                    "WHERE tenant_id=%s AND user_id='weighted' AND entity_id=%s",(tenant,fixture_uuid(tenant, 'weighted', bank['tesla']['entity_id'])))
+                db.conn.execute("UPDATE tomte_memory_engine SET mention_count=5 WHERE tenant_id=%s AND user_id='weighted' AND entity_id=%s",(tenant,fixture_uuid(tenant, 'weighted', bank['honda']['entity_id'])))
+                db.conn.execute("UPDATE tomte_memory_engine SET mention_count=8 WHERE tenant_id=%s AND user_id='weighted' AND entity_id=%s",(tenant,fixture_uuid(tenant, 'weighted', bank['python']['entity_id'])))
                 for user in ("equal","weighted"):
-                    factors[user]={r["entity_id"]:float(r["factor"]) for r in db.conn.execute(
+                    labels = label_map(tenant, user, bank)
+                    uuid_by_label = {label: identity for identity, label in labels.items()}
+                    factors[user]={labels[r["entity_id"]]:float(r["factor"]) for r in db.conn.execute(
                         "SELECT entity_id, mention_count*exp(-0.0001*extract(epoch FROM (now()-last_mentioned_at))) factor "
                         "FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s",(tenant,user)).fetchall()}
                     for text,vector in queries.items():
                         found=db.semantic_retrieval(tenant,user,vector)
                         assert all(r["tenant_id"]==tenant and r["user_id"]==user for r in found)
-                        expected=sorted(bank,key=lambda k:(-scores[text][k]*factors[user][k],k))[:5]
-                        assert [r["entity_id"] for r in found]==expected
-                        rows=db.conn.execute("SELECT entity_id, 1-(embedding <=> %s::vector) cosine FROM tomte_memory_engine "
-                            "WHERE tenant_id=%s AND user_id=%s",(vector,tenant,user)).fetchall()
-                        max_difference=max(max_difference,max(abs(scores[text][r["entity_id"]]-float(r["cosine"])) for r in rows))
+                        expected=sorted(bank,key=lambda k:(-scores[text][k]*factors[user][k],uuid_by_label[k]))[:5]
+                        assert [labels[r["entity_id"]] for r in found]==expected
+                        rows=database_scores(db,tenant,user,vector)
+                        max_difference=max(max_difference,max(abs(scores[text][labels[r["entity_id"]]]-float(r["cosine"])) for r in rows))
                         pg_checks+=1
                 for t,u in [(tenant,"other"),(tenant+"-other","equal")]:
                     found=db.semantic_retrieval(t,u,queries[cases[0]["text"]])
@@ -417,7 +418,7 @@ def main():
                 if related:low+=1
                 else:high+=1
         item["false_severity"]=dict(low_impact_related=low,higher_impact=high)
-    report=dict(entity_count=len(bank),case_count=len(cases),category_counts=dict(Counter(c["category"] for c in cases)),
+    report=dict(memory_format=MEMORY_FORMAT,entity_count=len(bank),case_count=len(cases),category_counts=dict(Counter(c["category"] for c in cases)),
         split_counts=dict(Counter(c["split"] for c in cases)),families={g:[k for k in bank if family[k]==g] for g in sorted(set(family.values()))},
         entities=bank,cases=cases,summaries=summaries,scores=scores,comparisons=comparisons,
         selected_on_calibration=selected["rule"],selection_loss="3 * missed/turn + false/turn; ties prefer simpler rule and lower cap",

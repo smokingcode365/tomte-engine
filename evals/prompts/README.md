@@ -5,9 +5,10 @@ persistence. It performs no retrieval, candidate discovery, embeddings, PostgreS
 or Redis operations. Passing a stage benchmark does not prove Tomte's complete
 memory system is correct. Final persistence behavior will be tested separately.
 
-Step 4A contains **no substantive benchmark cases**. `cases/dev/` and
-`cases/validation/` are placeholders. `fixtures/harness_smoke.json` contains eight
-tiny artificial mechanics fixtures and fake outputs, explicitly not benchmarks.
+The current v2 partitions are empty pending semantic re-authoring of the 40
+historical v1 cases. Those original cases and their saved results remain unchanged;
+see `cases/v2/README.md`. `fixtures/harness_smoke_v2.json` contains ten artificial
+mechanics fixtures and fake outputs, explicitly not an accuracy benchmark.
 
 ## Validation and execution
 
@@ -15,7 +16,7 @@ Run from `tomte-engine` in the existing uv environment:
 
 ```powershell
 uv run python scripts/evaluate_prompts.py
-uv run python scripts/evaluate_prompts.py --cases evals/prompts/fixtures/harness_smoke.json
+uv run python scripts/evaluate_prompts.py --cases evals/prompts/fixtures/harness_smoke_v2.json
 uv run pytest tests/test_prompt_eval_harness.py -q
 ```
 
@@ -50,15 +51,15 @@ begins, validation cases/results must not be used for iterative prompt editing.
 Run validation only at designated checkpoints. This is a development protocol,
 not an automated guarantee that humans have not seen validation data.
 
-## Version-1 case contract
+## Version-2 case contract
 
-Each JSON file has `schema_version: 1` and a `cases` array. Each case requires
-`case_id`, integer `schema_version: 1`, `stage`, `partition`, `severity`, `tags`,
+Each JSON file has `schema_version: 2` and a `cases` array. Each case requires
+`case_id`, integer `schema_version: 2`, `stage`, `partition`, `severity`, `tags`,
 `input`, and `expected`. IDs are globally unique across loaded files. Partitions are
 dev/validation; severity is CRITICAL/HIGH/MEDIUM/LOW. Unknown stages, fields, metadata,
 duplicate IDs and malformed expectations fail validation; none are silently skipped.
 
-`case_schema.json` describes an individual case, including conditional stage-specific
+`case_schema_v2.json` describes an individual case, including conditional stage-specific
 expectations, exported by `scripts.prompt_eval_support.case_json_schema()` and
 checked for drift by an offline test. Cross-field coverage/reference checks are
 runtime validations; JSON Schema does not express those input-dependent sets.
@@ -90,6 +91,12 @@ reasoning. Production output-schema validation still applies to model results.
   and fact target, explicitly including KEEP_RAW. Omitted **model output** decisions
   count as KEEP_RAW. Unknown or
   borrowed candidate handles and duplicate target decisions fail.
+- **field_terminology:** `decisions` use entity, fact and field handles. Candidates
+  are offered only within the selected parent vocabulary context. KEEP_RAW and
+  REUSE follow the same offered-handle checks as parent terminology alignment.
+- **history_selection:** `choices` select exact offered fact UUID/history indices;
+  optional `coverage` states expected same-episode coverage decisions. Duplicate
+  or unoffered selections fail. The engine separately checks item containment.
 - **identity_resolution:** `resolutions`, each with `extracted_entity_id`,
   `expected_kind`, `required_target_ids`, `forbidden_target_ids`; optional
   `allowed_evidence_labels`, `allow_additional_targets` (default false),
@@ -103,22 +110,25 @@ reasoning. Production output-schema validation still applies to model results.
 - **contextual_action:** `expected_action_count` integer or `{minimum, maximum}`,
   optional `require_no_action`, `required_actions`. Matchers constrain `action_type`,
   `required_target_db_id`, `required_target_fact_id`, `require_unresolved`,
-  `required_source_ids`, `forbidden_source_ids`. Returned targets/assertions must
-  be offered; reference hints and numeric confidence are ignored.
+  `required_source_ids`, `forbidden_source_ids`. Returned entity/fact targets must
+  be offered; reference hints are not scored.
 - **fact_mutation:** `required_operations`, `forbidden_operations`, `allow_noop`;
   optional `exact_operation_count`, `allow_additional_operations` (default false).
   Matchers constrain `target_key`, `operation`, `target_fact_id`, `attribute_name`,
-  `new_value`, `required_source_ids`, `forbidden_source_ids`, `allowed_evidence_types`.
+  `fields` (a map of text/confidence items), `remove_fields`, `update_mode`,
+  `change_type`, `history_index`, `required_source_ids`, `forbidden_source_ids`.
   Omitted matcher fields impose no constraint; explicit null fields require null.
   Required operations must still appear even when allow_noop is true. Extra
-  operations fail by default. Confidence is ignored; offered handles remain checked.
+  operations fail by default. Item confidence is checked when a field-value matcher
+  specifies it; offered handles remain checked.
 - **cross_anchor_merge:** `expected_merge` boolean; false/missed merge distinguished.
 - **internal_keyword_merge:** `required_pairs`, `forbidden_pairs`, each exactly two
   distinct words. Returned groups become unordered pairwise relationships. Keyword
   text/case stays exact; invented words fail. Unlisted pairs fail by default with
   EXTRA_SYNONYM_GROUP (counted as false merges); `allow_additional_pairs: true`
-  explicitly permits partial scoring but still checks forbidden pairs. Input is the exact production
-  `Keywords: [...]` Python-list representation; it is parsed safely with literal_eval.
+  explicitly permits partial scoring but still checks forbidden pairs. Input is the exact
+  production JSON text containing `keyword_type`, `keyword_context`, and `keywords`;
+  the harness validates that envelope before scoring offered words.
 
 Expectation target/fact IDs must reference the frozen offered input, including
 fact ownership when a target is specified. Required/forbidden source IDs must
@@ -128,6 +138,10 @@ it does not enforce persistence authorization or judge attribute/value text.
 
 Each score contains `passed`, named `checks`, and machine-readable `failures`.
 Schemas/expectations are versioned so future schema additions are explicit migrations.
+Evaluator version 2.1 preserves rejected-proposal diagnostics while scoring.
+Malformed items score `INVALID_STRUCTURED_OUTPUT` even if runtime recovery safely
+discards them and the remaining empty output would otherwise satisfy a no-op case.
+This does not change the engine's recovery behavior or the frozen case schema.
 
 ## Prompt comparisons and routing
 
@@ -141,7 +155,7 @@ alternate full prompt strings. No alternative prompts are authored in this step.
 Generic stages pass overrides normally. Extraction/junk require temporary agent
 bindings because those provider routes ignore a supplied system_prompt. Bindings are
 restored on success or failure; production files/constants are never rewritten.
-Version 1 does not enable legacy dictionary injection. Use the same case files and
+Version 2 does not enable legacy dictionary injection. Use the same case files and
 scorers for comparisons; only prompt hashes should differ. Evaluator source hashes
 also detect scoring-code changes between runs.
 

@@ -55,7 +55,7 @@ def test_mutation_validation_survives_gate_masking(provider, enabled):
             raise GateStopped("Provider operation stopped") from None
     event = events(enabled)[0]
     assert event["category"] == "schema_validation"
-    assert event["validation_errors"] == [{"code":"value_error", "path":["plans",0,"operations",0], "constraint":"replacement_forbidden"}]
+    assert event["validation_errors"] == [{"code":"value_error", "path":["plans",0,"operations",0], "constraint":"mention_value_forbidden"}]
     assert event["schema"] == "MutationPlanResponse" and event["stage"] == "fact_mutation"
     assert event["stop_reason"] == "retry_refused"
     assert event["transport_succeeded"] is True and event["tool_output_count"] == 1
@@ -82,7 +82,7 @@ def test_switch_preserves_success_and_native_retry_count(provider, monkeypatch, 
 def test_switch_preserves_failure_and_native_retry_count(provider, monkeypatch, caplog, active):
     monkeypatch.setattr(settings, "provider_diagnostics_enabled", active)
     caplog.set_level("INFO", logger=diagnostics.logger.name)
-    calls = []; provider.strong_model = model_for([plan(SECRET)], calls)
+    calls = []; provider.strong_model = model_for([{"plans":None}], calls)
     with pytest.raises(UnexpectedModelBehavior):
         provider.parse_structured(SECRET, PRIVATE, MutationPlanResponse)
     assert len(calls) == 2 and len(events(caplog)) == int(active)
@@ -174,7 +174,7 @@ def test_zero_tool_outputs_and_nested_history_not_misattributed(provider, enable
     with capture_run_messages():
         provider.strong_model = model_for([plan()], [])
         provider.parse_structured(SECRET, PRIVATE, MutationPlanResponse)
-        provider.strong_model = model_for([plan(SECRET)], [])
+        provider.strong_model = model_for([{"plans":None}], [])
         with pytest.raises(UnexpectedModelBehavior):
             provider.parse_structured(SECRET, PRIVATE, MutationPlanResponse)
     assert events(enabled)[-1]["history_available"] is False

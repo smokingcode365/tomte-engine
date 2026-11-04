@@ -12,13 +12,14 @@ from http.server import HTTPServer
 import pytest
 from demo.app import Demo, DemoError, active_entity, handler_for
 from tomte.engine.workflows.consolidation import ConsolidationWorkflow
+from test_memory_values import apply, fields, update
 
 
-def entity(value='blue'):
-    return dict(id='11111111-1111-4111-8111-111111111111', entity_id='veh_01',
-                entity_name='Willow bicycle', entity_type='bicycle', aliases=['Willow'],
-                facts=[dict(fact_id='current', attribute_name='color', value=value, assertion_state='ACTIVE'),
-                       dict(fact_id='old', attribute_name='color', value='white', assertion_state='HISTORICAL')])
+def entity(value="blue"):
+    old = apply([], {"operation": "ADD", "attribute_name": "color", "fields": fields(color="white")})[0]
+    facts = apply([old], update(old, fields=fields(color=value), change_type="real_change"))
+    return dict(entity_id="11111111-1111-4111-8111-111111111111", entity_name="Willow bicycle",
+                entity_type="bicycle", entity_domain="assets_and_possessions", aliases=["Willow"], facts=facts)
 
 
 @pytest.fixture
@@ -51,7 +52,7 @@ def wired():
         history = deepcopy(cache.history.get(s, []))
         record(s, text, user_id, 'user')
         return dict(clean_message=text.strip(), chat_history=history, context_text='current context',
-                    query_relevant_memories=deepcopy(db.rows), background_memories=[dict(entity_id='profile', entity_name='Demo profile', facts=[])])
+                    query_relevant_memories=deepcopy(db.rows), background_memories=[dict(entity_id='22222222-2222-4222-8222-222222222222', entity_name='Demo profile', entity_type='person', entity_domain='identity_and_demographics', aliases=[], facts=[])])
     client.send_user_message = Mock(side_effect=send)
     client.log_assistant_response = Mock(side_effect=lambda s, a, user_id: record(s, a, user_id, 'assistant') or {})
     host = Mock(return_value='A fictional host reply, not user evidence.')
@@ -83,8 +84,8 @@ def test_three_session_demo_wiring_with_explicit_stubbed_memory_updates(wired):
     app.send(second, 'What color is Willow?')
     request = app.host.call_args.args[0]
     assert request['conversation_history'] == []
-    assert request['query_relevant_memories'][0]['facts'][0]['value'] == 'blue'
-    assert request['background_memories'][0]['name'] == 'Demo profile'
+    assert request['query_relevant_memories'][0]['facts'][0]['value']['color']['text'] == 'blue'
+    assert request['background_memories'][0]['entity_name'] == 'Demo profile'
     assert len(request['query_relevant_memories'][0]['facts']) == 1
     app.send(second, 'I painted Willow red.')
     def persist_red(t, u, batch):
@@ -95,8 +96,8 @@ def test_three_session_demo_wiring_with_explicit_stubbed_memory_updates(wired):
     assert app.consolidate(second)['status'] == 'committed'
     third = app.new_session()
     app.send(third, 'What color is Willow now?')
-    assert app.inspect()[0]['facts'][0]['value'] == 'red'
-    assert app.inspect()[0]['id'] == entity()['id']
+    assert app.inspect()[0]['facts'][0]['value']['color']['text'] == 'red'
+    assert app.inspect()[0]['entity_id'] == entity()['entity_id']
     assert app.state(first)['history'][0]['content'].startswith('I own')
     assert app.host.call_args.args[0]['conversation_history'] == []
     app.db.get_user_graph_skeleton.assert_called_with(app.tenant, app.user)
@@ -163,11 +164,15 @@ def test_foreign_session_and_batch_rejected_before_consolidation(wired):
     wired.cache.clear_session_4_consolidation.assert_not_called()
 
 
-def test_inspector_projects_only_active_assertions(wired):
-    wired.db.rows = [dict(id=entity()['id'], payload=entity())]
-    assert active_entity(wired.db.rows[0])['facts'][0]['value'] == 'blue'
+def test_inspector_returns_current_and_history_with_confidence(wired):
+    wired.db.rows = [dict(id=entity()['entity_id'], payload=entity())]
+    assert active_entity(wired.db.rows[0])['facts'][0]['value']['color']['text'] == 'blue'
     assert len(wired.inspect()[0]['facts']) == 1
-    wired.db.get_user_graph_skeleton.assert_called_once_with(wired.tenant, wired.user)
+    fact = wired.inspect()[0]['facts'][0]
+    assert fact['history_values'][0]['value']['color']['text'] == 'white'
+    assert fact['value']['color']['fact_confidence'] == 'high'
+    assert '_recorded_at' not in json.dumps(wired.inspect())
+    wired.db.get_user_graph_skeleton.assert_called_with(wired.tenant, wired.user)
 
 
 @pytest.mark.parametrize('invalid_header', ['missing', 'Origin', 'X-Demo-Token', 'Host'])

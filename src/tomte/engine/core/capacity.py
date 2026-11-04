@@ -27,9 +27,9 @@ def check_provider_capacity(operation, arguments):
     if operation != 'parse_structured':
         return
     schema = arguments['schema']
-    from tomte.engine.core.schema import TomteMemorySchema
+    from tomte.engine.core.extraction import ExtractionMemorySchema
     prompt = arguments.get('system_prompt') or ''
-    if isinstance(schema, type) and issubclass(schema, TomteMemorySchema):
+    if isinstance(schema, type) and issubclass(schema, ExtractionMemorySchema):
         from tomte.engine.llm.prompts.extractor import EXTRACTOR_SYSTEM_PROMPT, DICTIONARY_EXTRACTION_GUIDANCE
         prompt = EXTRACTOR_SYSTEM_PROMPT
         if arguments.get('taxonomy') or arguments.get('lexicon'):

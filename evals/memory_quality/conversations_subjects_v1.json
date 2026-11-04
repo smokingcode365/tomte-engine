@@ -1,0 +1,33 @@
+{
+  "dataset_version": "memory-subject-naming-1",
+  "timestamp": "2026-11-03T12:00:00Z",
+  "cases": [
+    {
+      "case_id": "user_jobs",
+      "repetitions": 3,
+      "batches": [
+        [{"role": "user", "content": "I have two jobs. I work as a doctor at Harbour Hospital on weekdays, and as a lecturer at Northbridge College on Saturdays."}],
+        [{"role": "user", "content": "I quit the Saturday lecturer job at Northbridge College. I still work as a doctor at Harbour Hospital on weekdays."}]
+      ],
+      "queries": ["Which job do I still have, and which one did I leave?"]
+    },
+    {
+      "case_id": "brother_jobs",
+      "repetitions": 3,
+      "batches": [
+        [{"role": "user", "content": "My brother Daniel has two jobs. He works as a doctor at Willow Hospital on weekdays, and as a lecturer at Birch College on Saturdays."}],
+        [{"role": "user", "content": "Daniel quit his Saturday lecturer job at Birch College. He still works as a doctor at Willow Hospital on weekdays."}]
+      ],
+      "queries": ["Which job does my brother Daniel still have, and which one did he leave?"]
+    },
+    {
+      "case_id": "stable_car_name",
+      "repetitions": 3,
+      "batches": [
+        [{"role": "user", "content": "I own a blue Honda Civic that I bought in 2021."}],
+        [{"role": "user", "content": "I repainted my Honda Civic white. I still own it."}]
+      ],
+      "queries": ["What colour is my Honda Civic now, what colour was it before, and when did I buy it?"]
+    }
+  ]
+}

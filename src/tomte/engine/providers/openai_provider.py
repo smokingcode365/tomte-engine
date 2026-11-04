@@ -5,7 +5,7 @@ from pydantic_ai.messages import ModelResponse, RetryPromptPart
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import Agent, Embedder, ToolOutput, capture_run_messages
 from pydantic_ai.exceptions import UnexpectedModelBehavior
-from tomte.engine.core.schema import TomteMemorySchema
+from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.core.assertions import MutationPlanResponse
 from tomte.engine.llm.interfaces import LLMProvider
 from tomte.engine.llm.structured import tomte_extractor_agent, junk_filter_agent,TomteDeps
@@ -13,6 +13,8 @@ from tomte.engine.core.config import settings
 from tomte.engine.log import tomtelog
 from tomte.engine.providers.diagnostics import observe_provider, observe_result
 from tomte.engine.llm.trust import TRUST_BOUNDARY
+from tomte.engine.llm.structured import make_extractor
+from tomte.engine.llm.recovery import install_recovery, recoverable, run_with_recovery
 
 T = TypeVar('T', bound=BaseModel)
 
@@ -63,7 +65,7 @@ def _run_structured_agent(agent, schema, stage, user_text, **kwargs):
         # history as this call's attempts if an enclosing capture has already run.
         owns_history = not messages
         try:
-            return agent.run_sync(user_text, **kwargs)
+            return run_with_recovery(agent, schema, user_text, **kwargs)
         except UnexpectedModelBehavior as exc:
             cause = exc
             while cause is not None and not isinstance(cause, ValidationError):
@@ -137,12 +139,12 @@ class OpenAILLMProvider(LLMProvider):
         Dynamically routes the extraction based on the requested schema.
         """
         # Route A: Phase 2 Generative Extraction (Requires Dictionary Deps)
-        if isinstance(schema, type) and issubclass(schema, TomteMemorySchema):
+        if isinstance(schema, type) and issubclass(schema, ExtractionMemorySchema):
             deps = TomteDeps(taxonomy=taxonomy or [], lexicon=lexicon or [])
+            extractor = getattr(self, 'extractor_agent', tomte_extractor_agent) if schema is ExtractionMemorySchema else make_extractor(schema)
             result = _run_structured_agent(
-                getattr(self, 'extractor_agent', tomte_extractor_agent), schema, "extraction", user_text,
+                extractor, schema, "extraction", user_text,
                 model=self.strong_model,
-                output_type=schema,
                 model_settings={"openai_reasoning_effort": "low"},
                 deps=deps
             )
@@ -153,14 +155,15 @@ class OpenAILLMProvider(LLMProvider):
         else:
             # Spin up a temporary, stateless agent for this specific schema
             dynamic_agent = Agent(
-                retries=getattr(self, 'agent_retries', 1),
+                retries=1 if recoverable(schema) else getattr(self, 'agent_retries', 1),
                 # Only mutation planning opts into strict generation. Local
                 # provenance/lifecycle validation still owns acceptance.
                 output_type=ToolOutput(schema, strict=True) if schema is MutationPlanResponse else schema,
                 system_prompt=TRUST_BOUNDARY + (system_prompt or "You are a helpful data extraction assistant.")
             )
+            install_recovery(dynamic_agent, schema)
             stage = {"MutationPlanResponse": "fact_mutation",
-                     "TerminologyAlignmentResponse": "terminology_alignment"}.get(
+                     "TerminologyAlignmentResponse": "terminology_alignment", "FieldAlignmentResponse": "terminology_alignment"}.get(
                          getattr(schema, "__name__", ""), "structured")
             result = _run_structured_agent(
                 dynamic_agent, schema, stage, user_text,

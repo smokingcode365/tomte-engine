@@ -88,7 +88,7 @@ def test_extraction_returns_output_and_preserves_schema_and_dependencies(adapter
                                      taxonomy=["vehicle"], lexicon=["paint_color"]) is expected
     args, kwargs = run.call_args
     assert args == ("synthetic batch",)
-    assert kwargs["model"] == "synthetic-strong" and kwargs["output_type"] is ExtractionMemorySchema
+    assert kwargs["model"] == "synthetic-strong" and "output_type" not in kwargs
     assert kwargs["deps"].taxonomy == ["vehicle"] and kwargs["deps"].lexicon == ["paint_color"]
     run.assert_called_once()
 

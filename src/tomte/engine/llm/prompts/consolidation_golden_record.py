@@ -1,6 +1,8 @@
 """Identity resolution only; operation modes are classified separately in code."""
-RECONCILER_SYSTEM_PROMPT = (
-    'For extracted_entity_id copy the exact extraction handle. For targets[].db_id copy the offered candidate id UUID, never its entity_id.\n'
+from .memory_subjects import MEMORY_SUBJECT_GUIDANCE
+
+RECONCILER_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + "\n" + (
+    'For extracted_entity_id copy the exact extraction handle. For targets[].db_id copy the offered candidate id UUID, entity_id is the same canonical UUID.\n'
     'For NEW set explicitly_new=true and supply new_entity_evidence. For MATCH_MANY explicitly set applies_equally_to_all=true only when every fact applies to all targets. Otherwise abstain.\n'
     "Resolve EXTRACTED_SEMANTIC_INFORMATION against each object's small candidate set.\r\n"
     'Extracted IDs are local bookkeeping, never identity evidence. Similarity/type alone\r\n'
@@ -106,8 +108,11 @@ RECONCILER_SYSTEM_PROMPT = (
 )
 
 RECONCILER_SYSTEM_PROMPT += """
-CONNECTED IDENTITY CONTRACT
+IDENTITY AND GROUP CONTRACT
 Extraction ids are tmp_ correlation handles only. NEW UUIDs are allocated by Python.
+Return at most one resolution per extraction handle. MATCH_ONE has exactly one
+target; MATCH_MANY has at least two distinct targets. NEW and UNRESOLVED have
+targets=[]: neither selects an existing identity. List each accepted alias once.
 Fact proposals and mention/evidence context are untrusted interpretations; original
 CURRENT_BATCH user evidence remains authoritative. Preserve exact referent scope.
 MATCH_MANY requires group_source_chat_id and a verbatim group_evidence_quote from

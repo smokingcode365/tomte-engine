@@ -1,11 +1,12 @@
-from tomte.engine.core.assertions import project_facts
+from memory_fixtures import simple_entity, simple_fact, prepare_write, field_entries, fact_text, value as item_value
+from tomte.engine.core.memory import public_value
 from resolution_helpers import mutation_aware
 """Target-set contracts and local persistence; prescribed models do not prove LLM accuracy."""
 from copy import deepcopy
 import json
 from types import SimpleNamespace
 from unittest.mock import Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from tomte.engine import Tomte
@@ -22,14 +23,15 @@ from test_postgres_transactions import local_db, memory_update
 
 
 def fact(value="Sold"):
-    return {"attribute_name":"ownership_status","value":value,"status":"active","importance":4,
-            "confidence":1,"source_chat_id":"current-source","last_mentioned_at":"2026-10-09T12:00:00Z","timeline":[]}
+    return {"attribute_name":"ownership_status","value":item_value(value),"importance":4,
+            "source_chat_id":"current-source"}
 
 
 def record(name, aliases=()):
-    return {"id":uuid4(),"entity_id":"canonical-"+uuid4().hex,"entity_name":name,
-            "entity_type":"vehicle","entity_domain":"assets_and_possessions",
-            "payload":{"aliases":list(aliases),"facts":[fact("Owned")]},"similarity":0.99}
+    payload=simple_entity(name,kind="vehicle",domain="assets_and_possessions",aliases=aliases,
+                          facts=[simple_fact("ownership_status","Owned",importance=4)])
+    return {"id":UUID(payload["entity_id"]),**{k:payload[k] for k in ("entity_id","entity_name","entity_type","entity_domain")},
+            "payload":payload,"similarity":0.99}
 
 
 def entity():
@@ -101,6 +103,7 @@ def test_one_target_contract_does_not_merge_similar_vehicles(monkeypatch,scenari
 def test_explicit_plural_expands_only_strong_active_targets(monkeypatch):
     tesla,truck=record("Tesla Model Y"),record("Ford F-150")
     truck.update(entity_type="truck", entity_domain="unstructured_observations")
+    truck["payload"].update(entity_type="truck", entity_domain="unstructured_observations")
     incoming=entity()
     incoming.update(entity_name="both cars", entity_type="unspecified_entity",
                     entity_domain="unstructured_observations", aliases=["shared group label"])
@@ -108,7 +111,7 @@ def test_explicit_plural_expands_only_strong_active_targets(monkeypatch):
         decision("MATCH_MANY",[tesla,truck],"GROUP_EXPLICIT",equal=True),
         ["Tesla Model Y and Ford F-150 are my cars."],incoming)
     assert {op["db_id"] for op in ops}=={str(tesla["id"]),str(truck["id"])}
-    assert all(project_facts(op["payload"]["facts"])[0]["value"]=="Sold" for op in ops)
+    assert all(fact_text(op["payload"]["facts"][0])=="Sold" for op in ops)
     for op in ops:
         target=next(row for row in [tesla,truck] if str(row["id"])==op["db_id"])
         for key in ("entity_id", "entity_name", "entity_type", "entity_domain"):
@@ -121,7 +124,7 @@ def test_my_cars_preserves_uncertainty_for_unmentioned_honda(monkeypatch):
     tesla,truck,honda=record("Tesla"),record("truck"),record("Honda")
     result=decision("MATCH_MANY",[tesla,truck],"GROUP_EXPLICIT",equal=True)
     result["targets"].append({"db_id":str(honda["id"]),"resolution_confidence":0.6,"evidence":"GROUP_INFERRED"})
-    incoming=entity();incoming["facts"][0].update(attribute_name="paint_color",value="red")
+    incoming=entity();incoming["facts"][0].update(attribute_name="paint_color",value=item_value("red"))
     ops,_,_=resolve(monkeypatch,[tesla,truck,honda],"I painted my cars red. I like red.",result,
                     ["We discussed Tesla and truck."],incoming)
     assert ops == []  # Incomplete selected groups abstain rather than partial fanout.
@@ -161,7 +164,7 @@ def test_new_requires_explicit_current_introduction(monkeypatch):
     incoming.update(entity_name="BMW", entity_type="car", aliases=["my new BMW"])
     ops,_,_=resolve(monkeypatch,[],message,decision("NEW",new_quote=message),incoming=incoming)
     assert len(ops)==1 and ops[0]["mode"]=="INSERT" and "db_id" not in ops[0]
-    assert ops[0]["entity_id"].startswith("entity_") and ops[0]["entity_id"] != incoming["entity_id"]
+    assert str(UUID(ops[0]["entity_id"]))==ops[0]["entity_id"] and ops[0]["entity_id"] != incoming["entity_id"]
     for key in ("entity_name", "entity_type", "entity_domain"):
         assert ops[0][key]==ops[0]["payload"][key]==incoming[key]
     assert ops[0]["payload"]["aliases"]==[]
@@ -178,8 +181,8 @@ def test_missing_result_does_not_create_a_false_memory(monkeypatch):
 
 
 def test_foreign_or_unoffered_target_fails_before_persistence(monkeypatch):
-    with pytest.raises(ValueError,match="offered scoped candidates"):
-        resolve(monkeypatch,[record("Tesla")],"I sold Tesla.",decision("MATCH_ONE",[record("Foreign tenant")]))
+    operations, _, _ = resolve(monkeypatch,[record("Tesla")],"I sold Tesla.",decision("MATCH_ONE",[record("Foreign tenant")]))
+    assert operations == []
 
 
 def test_truncated_explicit_set_cannot_receive_partial_group_write(monkeypatch):
@@ -191,28 +194,31 @@ def test_truncated_explicit_set_cannot_receive_partial_group_write(monkeypatch):
 
 
 def test_response_cardinality_is_strict_and_fact_confidence_separate():
-    with pytest.raises(ValueError):ResolutionResponse.model_validate({"resolutions":[decision("MATCH_ONE")]})
+    with pytest.raises(ValueError):EntityResolution.model_validate(decision("MATCH_ONE"))
+    assert ResolutionResponse.model_validate({"resolutions":[decision("MATCH_ONE")]}).resolutions == []
     row=record("Tesla")
-    with pytest.raises(ValueError):ResolutionResponse.model_validate({"resolutions":[decision("MATCH_MANY",[row,row])]})
+    with pytest.raises(ValueError):EntityResolution.model_validate(decision("MATCH_MANY",[row,row]))
+    assert ResolutionResponse.model_validate({"resolutions":[decision("MATCH_MANY",[row,row])]}).resolutions == []
     assert "resolution_confidence" not in fact()
 
 
 def test_candidate_search_is_bounded_normalized_and_tenant_user_scoped(local_db):
     case=local_db
+    ids=[]
     for i in range(8):
-        op=memory_update(case.tenant,case.users[0]);op["entity_id"]=op["payload"]["entity_id"]=f"vehicle-{i}"
-        op["entity_domain"]=op["payload"]["entity_domain"]="assets_and_possessions"
-        op["entity_name"]=op["payload"]["entity_name"]= "  Tesla   Model Y  " if i==7 else f"car-{i}"
-        op["payload"]["aliases"]=["Little Dog"] if i==7 else []
+        payload=simple_entity("  Tesla   Model Y  " if i==7 else f"car-{i}",kind="vehicle",domain="assets_and_possessions",
+            aliases=["Little Dog"] if i==7 else [],facts=[simple_fact("ownership_status","Owned")])
+        ids.append(payload["entity_id"])
+        op=prepare_write(case.tenant,case.users[0],payload)
         assert case.db.commit_graph_updates([op])
-    foreign=memory_update(case.tenant,case.users[1]);foreign["entity_name"]="Little Dog"
+    foreign=prepare_write(case.tenant,case.users[1],simple_entity("Little Dog",facts=[simple_fact("ownership_status","Owned")]))
     assert case.db.commit_graph_updates([foreign])
     args=(case.tenant,case.users[0],["little dog"],"assets_and_possessions",op["embedding"],"I sold Little Dog.")
     rows=case.db.get_resolution_candidates(*args)
-    assert len(rows)==5 and rows[0]["entity_id"]=="vehicle-7" and rows[0]["exact_match"]
-    assert {row["entity_id"] for row in rows} <= {f"vehicle-{i}" for i in range(8)}
+    assert len(rows)==5 and rows[0]["entity_id"]==ids[7] and rows[0]["exact_match"]
+    assert {row["entity_id"] for row in rows} <= set(ids)
     rows=case.db.get_resolution_candidates(case.tenant,case.users[0],["tesla model y"],"assets_and_possessions",op["embedding"],"")
-    assert rows[0]["entity_id"]=="vehicle-7"
+    assert rows[0]["entity_id"]==ids[7]
     assert case.db.get_resolution_candidates(case.tenant+"-other",case.users[0],["little dog"],"assets_and_possessions",op["embedding"],"")==[]
     with pytest.raises(ValueError):case.db.get_resolution_candidates(*args,limit=6)
 
@@ -220,11 +226,12 @@ def test_candidate_search_is_bounded_normalized_and_tenant_user_scoped(local_db)
 @pytest.mark.parametrize("fail_first",[False,True])
 def test_real_group_update_replay_and_uncertainty_leave_honda_untouched(mechanics,monkeypatch,fail_first):
     case=mechanics
+    original_ids={}
     for name in ["Tesla","truck","Honda"]:
-        op=memory_update(case.tenant,case.user)
-        op.update(entity_id=name,entity_name=name,entity_type="vehicle",entity_domain="assets_and_possessions",embedding=case.llm.vector())
-        op["payload"].update(entity_id=name,entity_name=name,entity_type="vehicle",entity_domain="assets_and_possessions",aliases=[name],facts=[fact("Owned")])
-        assert case.db.commit_graph_updates([op])
+        payload=simple_entity(name,kind="vehicle",domain="assets_and_possessions",aliases=[name],
+                              facts=[simple_fact("ownership_status","Owned",importance=4)])
+        original_ids[name]=payload["facts"][0]["fact_id"]
+        assert case.db.commit_graph_updates([prepare_write(case.tenant,case.user,payload,vector=case.llm.vector())])
     case.cache.append_chat_history(case.tenant,case.session,"Tesla and truck are my cars.","user",case.user)
     message="I sold them both."
     calls=[]
@@ -233,7 +240,7 @@ def test_real_group_update_replay_and_uncertainty_leave_honda_untouched(mechanic
         if schema is ExtractionMemorySchema:
             return schema.model_validate({"assets_and_possessions":[{"entity_id":"tmp_veh_01","entity_name":"both cars",
                 "entity_type":"vehicle","entity_domain":"assets_and_possessions","facts":[{
-                "attribute_name":"ownership_status","value":"Sold","confidence":1}]}]})
+                "attribute_name":"ownership_status","value":field_entries("Sold")}]}]})
         candidates=data["CANDIDATES_BY_OBJECT"]["tmp_veh_01"]
         selected=[row for row in candidates if row["name"] in {"Tesla","truck"}]
         assert len(selected)==2 and all(row["name"]!="Honda" for row in selected)
@@ -266,25 +273,22 @@ def test_real_group_update_replay_and_uncertainty_leave_honda_untouched(mechanic
     assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen)
     if fail_first:
         assert calls[-1]==first_input  # Failed preparation retries use the same frozen sources/context/candidates.
-    rows={row["entity_id"]:row for row in memory_rows(case)}
-    assert project_facts(rows["Tesla"]["payload"]["facts"])[0]["value"]==project_facts(rows["truck"]["payload"]["facts"])[0]["value"]=="Sold"
-    assert rows["Honda"]["payload"]["facts"][0]["value"]=="Owned"
-    # Group plans must use each target's own assertion ID, never copy the Tesla ID.
-    prior_ids=[]
+    rows={row["payload"]["entity_name"]:row for row in memory_rows(case)}
+    assert fact_text(rows["Tesla"]["payload"]["facts"][0])==fact_text(rows["truck"]["payload"]["facts"][0])=="Sold"
+    assert fact_text(rows["Honda"]["payload"]["facts"][0])=="Owned"
     for name in ("Tesla", "truck"):
-        prior,current=rows[name]["payload"]["facts"]
-        assert prior["value"]=="Owned" and prior["assertion_state"]=="HISTORICAL"
-        assert current["supersedes_fact_id"]==prior["fact_id"] and current["value"]=="Sold"
-        prior_ids.append(prior["fact_id"])
-    assert len(set(prior_ids))==2
+        current,=rows[name]["payload"]["facts"]
+        assert current["fact_id"]==original_ids[name]
+        assert current["history_values"][0]["value"]["detail"]["text"]=="Owned"
+    assert len(set(original_ids.values()))==3
     before=memory_rows(case);call_count=len(calls)
     assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen)
     assert memory_rows(case)==before and len(calls)==call_count and processed_count(case)==1
     # A later ambiguous batch is processed observably with zero durable memory operations.
     assert case.cache.clear_session_4_consolidation(case.tenant,case.user,case.session,frozen)
-    monkeypatch.setattr(case.llm,"parse_structured",lambda system_prompt,user_text,schema,**kwargs:
+    monkeypatch.setattr(case.llm,"parse_structured",mutation_aware(lambda system_prompt,user_text,schema,**kwargs:
         model(system_prompt,user_text,schema,**kwargs) if schema is ExtractionMemorySchema else
-        schema.model_validate({"resolutions":[decision("UNRESOLVED")]}))
+        schema.model_validate({"resolutions":[decision("UNRESOLVED")]})))
     ChatHookWorkflow().on_chat(case.tenant,case.session,"One of my cars has a broken window.",ChatSenderRole.USER,case.user)
     frozen=case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)
     assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen)
@@ -321,8 +325,7 @@ def test_retry_context_is_stable_isolated_and_removed_on_ack(mechanics):
 @pytest.mark.parametrize("mode", ["MUTATE", "REINFORCE"])
 def test_match_one_preserves_metadata_and_merges_nickname_facts(monkeypatch,mode):
     target=record("Tesla Model Y", ["my car", "old nickname"])
-    old_fact=fact("blue")
-    old_fact.update(attribute_name="paint_color", source_chat_id="old-source")
+    old_fact=simple_fact("paint_color","blue",importance=4)
     target["payload"]["facts"].append(old_fact)
     incoming=entity()
     incoming.update(entity_name="Little Dog", entity_type="unspecified_entity",
@@ -334,32 +337,27 @@ def test_match_one_preserves_metadata_and_merges_nickname_facts(monkeypatch,mode
     ops,_,_=resolve(monkeypatch,[target],"I named it Little Dog.",
                     decision("MATCH_ONE",[target],"ALIAS",accepted_aliases=["Little Dog"]),incoming=incoming)
     op,=ops
-    assert op["mode"]==mode and op["db_id"]==str(target["id"])
+    assert op["mode"]=="MUTATE" and op["db_id"]==str(target["id"])  # Accepted alias changes semantics even on a mention.
     for key in ("entity_id", "entity_name", "entity_type", "entity_domain"):
         assert op[key]==op["payload"][key]==target[key]
     assert set(op["payload"]["aliases"])=={"my car", "old nickname", "Little Dog"}
     assert len(op["payload"]["aliases"])==3
-    assert any(f["attribute_name"]=="ownership_status" and f["value"]=="Owned" for f in project_facts(op["payload"]["facts"]))
-    paint=next(f for f in project_facts(op["payload"]["facts"]) if f["attribute_name"]=="paint_color")
-    assert paint["value"]==current_fact["value"] and paint["assertion_state"]=="ACTIVE"
-    assert any(e["source_chat_id"]=="new-source" for e in paint["evidence"])
-    if mode=="MUTATE":
-        historical=next(f for f in op["payload"]["facts"] if f["value"]=="blue")
-        assert historical["assertion_state"]=="HISTORICAL" and paint["supersedes_fact_id"]==historical["fact_id"]
-    else:
-        assert paint["source_chat_id"]=="old-source" and paint["mention_count"]==2
-    assert op["extracted_facts"]==[{"attribute_name":"paint_color"}]
+    assert any(f["attribute_name"]=="ownership_status" and fact_text(f)=="Owned" for f in op["payload"]["facts"])
+    paint=next(f for f in op["payload"]["facts"] if f["attribute_name"]=="paint_color")
+    assert public_value(paint["value"])==current_fact["value"] and paint["fact_id"]==old_fact["fact_id"]
+    assert paint["_mention_count"]==2
+    if mode=="MUTATE":assert paint["history_values"][0]["value"]==old_fact["value"]
+    else:assert paint["value"]==old_fact["value"] and paint["history_values"]==[]
+    assert op["extracted_facts"]==([{"attribute_name":"paint_color"}] if mode=="MUTATE" else [])
     assert target==before_target and incoming==before_incoming
 
 
 @pytest.mark.parametrize("mode", ["MUTATE", "REINFORCE"])
 def test_matched_metadata_stays_consistent_in_postgres(local_db,monkeypatch,mode):
     case=local_db
-    seed=memory_update(case.tenant,case.users[0])
-    for key,value in {"entity_id":"canonical-tesla", "entity_name":"Tesla Model Y",
-                      "entity_type":"vehicle", "entity_domain":"assets_and_possessions"}.items():
-        seed[key]=seed["payload"][key]=value
-    seed["payload"].update(aliases=["my car"], facts=[fact("Owned")])
+    payload=simple_entity("Tesla Model Y",kind="vehicle",domain="assets_and_possessions",aliases=["my car"],
+                          facts=[simple_fact("ownership_status","Owned",importance=4)])
+    seed=prepare_write(case.tenant,case.users[0],payload)
     assert case.db.commit_graph_updates([seed])
     target,=case.db.get_user_graph_skeleton(case.tenant,case.users[0])
     incoming=entity()
@@ -370,16 +368,16 @@ def test_matched_metadata_stays_consistent_in_postgres(local_db,monkeypatch,mode
     ops,_,_=resolve(monkeypatch,[target],"I named it Little Dog.",
                     decision("MATCH_ONE",[target],"ALIAS",accepted_aliases=["Little Dog"]),incoming=incoming)
     op,=ops
-    assert op["mode"]==mode
-    op.update(tenant_id=case.tenant,user_id=case.users[0],embedding=seed["embedding"])
-    assert case.db.commit_graph_updates(ops)
+    assert op["mode"]=="MUTATE"  # Alias addition is a semantic change.
+    write=prepare_write(case.tenant,case.users[0],op["payload"],old=target["payload"],vector=seed["embedding"])
+    assert case.db.commit_graph_updates([write])
     persisted,=case.db.get_user_graph_skeleton(case.tenant,case.users[0])
     assert persisted["id"]==target["id"]
     for key in ("entity_id", "entity_name", "entity_type", "entity_domain"):
         assert persisted[key]==persisted["payload"][key]==target[key]
     assert set(persisted["payload"]["aliases"])=={"my car", "Little Dog"}
-    assert all(any(old["attribute_name"]==f["attribute_name"] and old["value"]==f["value"]
-                   for old in project_facts(persisted["payload"]["facts"])) for f in incoming["facts"])
+    assert all(any(old["attribute_name"]==f["attribute_name"] and public_value(old["value"])==f["value"]
+                   for old in persisted["payload"]["facts"]) for f in incoming["facts"])
     visible=case.observer.execute(
         "SELECT id, entity_id, entity_name, entity_domain, entity_type, payload "
         "FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s",
@@ -401,14 +399,15 @@ def test_alias_schema_backward_compatible_default():
 @pytest.mark.parametrize("kind,aliases", [("UNRESOLVED", ["Nickname"]),
     ("NEW", [""]), ("NEW", ["  "]), ("NEW", ["Nickname", "Nickname"])])
 def test_invalid_alias_schema_rejected(kind, aliases):
-    with pytest.raises(ValueError):
-        EntityResolution(extracted_entity_id="e", kind=kind, reasoning="fixture", accepted_aliases=aliases)
+    result = EntityResolution(extracted_entity_id="e", kind=kind, reasoning="fixture", accepted_aliases=aliases)
+    assert result.kind == kind
+    assert result.accepted_aliases == (["Nickname"] if kind == "NEW" and aliases == ["Nickname", "Nickname"] else [])
 
 
 def test_match_many_cannot_authorize_aliases():
     rows = [record("Tesla"), record("Honda")]
-    with pytest.raises(ValueError):
-        EntityResolution.model_validate(decision("MATCH_MANY", rows, equal=True, accepted_aliases=["Group"]))
+    result = EntityResolution.model_validate(decision("MATCH_MANY", rows, equal=True, accepted_aliases=["Group"]))
+    assert result.accepted_aliases == [] and len(result.targets) == 2
 
 
 @pytest.mark.parametrize("alias,text", [("Little Dog", "I named it Little Dog."),
@@ -449,21 +448,20 @@ def test_new_alias_does_not_bypass_user_introduction(monkeypatch):
 
 
 def test_preparation_preserves_stored_alias_order_and_only_appends_approved():
-    target = record("Tesla", ["existing Z", "existing A", "existing Z"])
+    target = record("Tesla", ["existing Z", "existing A"])
     incoming = entity()
     incoming.update(entity_name="different name", aliases=["unapproved"])
     op = ConsolidationWorkflow._prepare_operation("tenant", "user", incoming, target,
                                                   ["Tesla", "Little Dog", "Little Dog"])
-    assert op["payload"]["aliases"] == ["existing Z", "existing A", "existing Z", "Little Dog"]
-    assert target["payload"]["aliases"] == ["existing Z", "existing A", "existing Z"]
+    assert op["payload"]["aliases"] == ["existing Z", "existing A", "Little Dog"]
+    assert target["payload"]["aliases"] == ["existing Z", "existing A"]
 
 
 
 @pytest.mark.parametrize("message", ["I'm not training for the marathon anymore.", "我不再为马拉松训练了"])
 def test_model_resolved_paraphrase_reaches_retraction_without_literal_anchor(monkeypatch, message):
-    from tomte.engine.core.assertions import adapt_assertions
     row = record("Marathon training")
-    row["payload"]["facts"] = adapt_assertions([dict(fact("training"), attribute_name="training_status")], str(row["id"]))
+    row["payload"]["facts"] = [simple_fact("training_status","training")]
     fact_id = row["payload"]["facts"][0]["fact_id"]
     incoming = entity(); incoming["facts"] = [dict(fact("not training"), attribute_name="training_status")]
     current = [{"item_id":"current-source", "role":"user", "content":message, "timestamp":1791547200}]
@@ -474,8 +472,8 @@ def test_model_resolved_paraphrase_reaches_retraction_without_literal_anchor(mon
             return schema.model_validate({"resolutions":[decision("MATCH_ONE", [row], "RESOLVED_REFERENCE", .98)]})
         target, = json.loads(user_text)["TARGETS"]
         return schema.model_validate({"plans":[{"target_key":target["target_key"], "operations":[{
-            "operation":"RETRACT", "target_fact_id":fact_id, "source_chat_ids":["current-source"],
-            "interpretation_confidence":1, "evidence_type":"USER_EXPLICIT"}]}]})
+            "operation":"UPDATE", "target_fact_id":fact_id, "source_chat_ids":["current-source"],
+            "fields":field_entries("not training"), "change_type":"real_change"}]}]})
     monkeypatch.setattr(Tomte,"_db",Mock()); monkeypatch.setattr(Tomte,"_llm",SimpleNamespace(parse_structured=model))
     monkeypatch.setattr("tomte.engine.workflows.consolidation.get_dictionary_service",lambda:Mock())
     workflow = ConsolidationWorkflow()
@@ -484,8 +482,8 @@ def test_model_resolved_paraphrase_reaches_retraction_without_literal_anchor(mon
     planned = workflow._plan_fact_mutations(prepared,{"CURRENT_BATCH":current,"RECENT_CONTEXT_REFERENCE_ONLY":[]},"paraphrase-batch")
     assert calls == ["ResolutionResponse", "MutationPlanResponse"]
     old, = planned[0]["payload"]["facts"]
-    assert old["fact_id"] == fact_id and old["assertion_state"] == "RETRACTED"
-    assert project_facts(planned[0]["payload"]["facts"]) == []
+    assert old["fact_id"] == fact_id and fact_text(old) == "not training"
+    assert old["history_values"][0]["value"]["detail"]["text"] == "training"
 
 
 @pytest.mark.parametrize("message", ["I sold my Tesal.", "我把小蓝卖了", "I sold it."])
@@ -510,8 +508,8 @@ def test_group_or_unresolved_cannot_cite_aliases(kind):
     targets = [record("A"),record("B")] if kind == "MATCH_MANY" else []
     data = decision(kind, targets, equal=True)
     data["alias_evidence"] = [{"alias":"Group", "source_chat_id":"u1", "evidence_quote":"Group"}]
-    with pytest.raises(ValueError, match="one resolved entity"):
-        EntityResolution.model_validate(data)
+    result = EntityResolution.model_validate(data)
+    assert result.alias_evidence == [] and result.accepted_aliases == []
 
 
 def test_alias_quote_proves_source_not_alias_semantics():

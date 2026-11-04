@@ -1,3 +1,4 @@
+from memory_eval_support import value as fixture_value
 """Evaluation-only semantic dictionary granularity study.
 
 Run from tomte-engine: uv run python scripts/evaluate_dictionary_granularity.py
@@ -28,7 +29,7 @@ from tomte.engine.providers.postgres_provider import PostgresProvider
 
 ROOT=Path(__file__).resolve().parents[1]
 DATA=ROOT/'scripts'/'dictionary_granularity_cases.json'
-OUTPUT=ROOT/'log'/'dictionary_granularity_evaluation.json'
+OUTPUT=ROOT/'log'/'dictionary_granularity_evaluation_v2.json'
 CACHE=ROOT/'log'/'dictionary_granularity_embeddings.json'
 VEHICLE_FACTS=[('ownership_status','owned'),('nickname','Little Dog'),('purchase_year','2024'),('mileage','30000'),
  ('charging_location','home'),('insurance_provider','Example Insurance'),('tire_type','winter'),('service_date','2026-10-01'),
@@ -55,7 +56,7 @@ def whole(record, raw_type=None, raw_attribute=None, value=None, size=10):
 def current_summary(record):
     return get_entity_summary({'entity_domain':record['domain'],'entity_name':record['entity_name'],
         'entity_type':record['entity_type'],'aliases':[],
-        'facts':[{'attribute_name':k,'value':v,'importance':3,'assertion_state':'ACTIVE'} for k,v in facts(record)]})
+        'facts':[{'attribute_name':k,'value':fixture_value(v)} for k,v in facts(record)]})
 
 
 def fact_text(record, attribute, entity_type, value=None):

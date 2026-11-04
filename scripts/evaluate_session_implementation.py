@@ -1,3 +1,4 @@
+from memory_eval_support import MEMORY_FORMAT, fixture_write, fixture_uuid, search_texts, similarity, label_map
 """Replay existing synthetic evaluations through real session SQL/Redis/workflow.
 
 Uses cached real embeddings only (no model/API requests), worker disabled, and
@@ -56,9 +57,9 @@ def main():
     bank, _, cases, conversations = dataset()
     eligible_bank = {eid: entity for eid, entity in bank.items()
                      if entity["entity_domain"] != MemoryDomain.IDENTITY.value}
-    docs = {eid: cached("document", get_entity_summary(entity)) for eid, entity in bank.items()}
+    docs = {text: cached("document", text) for entity in bank.values() for text in search_texts(entity)}
     texts = {case["text"] for case in cases} | {turn["text"] for c in conversations for turn in c["turns"] if turn["role"] == "user"}
-    scores = {text: {eid: cosine(cached("query", text), docs[eid]) for eid in bank} for text in texts}
+    scores = {text: {eid: similarity(cached("query", text), entity, docs) for eid,entity in bank.items()} for text in texts}
     eligible_scores = {text: {eid: value for eid, value in values.items() if eid in eligible_bank}
                        for text, values in scores.items()}
     rule = dict(name="production", family="lexical", floor=settings.session_entity_cosine_floor,
@@ -70,6 +71,7 @@ def main():
                               options="-c default_transaction_read_only=on")
     before = state(observer, raw_cache)
     tenant = "session-implementation-" + uuid4().hex
+    labels = label_map(tenant, "u", bank)
     calls = Counter()
     class CachedEmbeddingProvider:
         def embed_text(self, text):
@@ -82,7 +84,7 @@ def main():
     activations = []
     original_promote = cache.promote_session_entities
     def recorded_promote(t, u, s, ids, retention, ttl):
-        activations.append(list(ids))
+        activations.append([labels[identity] for identity in ids])
         return original_promote(t, u, s, ids, retention, ttl)
     cache.promote_session_entities = recorded_promote
     for name in ("upsert_user_activity", "get_important_entities", "get_recent_entities", "get_frequent_entities",
@@ -100,9 +102,7 @@ def main():
         workflow = ChatHookWorkflow()
         try:
             with db.transaction():
-                updates = [dict(mode="INSERT", tenant_id=tenant, user_id="u", **{field: entity[field]
-                    for field in ("entity_id", "entity_name", "entity_domain", "entity_type")},
-                    payload=deepcopy(entity), embedding=docs[eid]) for eid, entity in bank.items()]
+                updates = [fixture_write(tenant, "u", entity, docs) for entity in bank.values()]
                 assert db.commit_graph_updates(updates)
                 for case in cases:
                     prior_calls = calls.copy()
@@ -123,9 +123,9 @@ def main():
                     scope = (tenant, "u", session)
                     ever_valid = {eid for turn in c["turns"] for eid in turn["gold"]}
                     for index, turn in enumerate(c["turns"]):
-                        old = cache.get_session_entity_ids(*scope, 10)
+                        old = [labels[eid] for eid in cache.get_session_entity_ids(*scope, 10)]
                         result = workflow.on_chat(tenant, session, turn["text"], ChatSenderRole(turn["role"]), "u")
-                        actual = cache.get_session_entity_ids(*scope, 10)
+                        actual = [labels[eid] for eid in cache.get_session_entity_ids(*scope, 10)]
                         if turn["role"] == "assistant":
                             assert actual == old
                             assistant_checks += 1
@@ -135,18 +135,19 @@ def main():
                         if actual != expected:
                             differences.append(dict(conversation=c["name"], turn=index, actual=actual, expected=expected))
                         fetched = db.get_entities_by_ids(tenant, "u", cache.get_session_entity_ids(*scope, 5))
-                        returned = [entity["entity_id"] for entity in fetched]
-                        assert all("[[ENTITY: " + eid + " |" in result["context_text"] for eid in returned)
+                        returned = [labels[entity["entity_id"]] for entity in fetched]
+                        context_returned=[labels[e["entity_id"]] for e in result["query_relevant_memories"]+result["background_memories"]]
+                        assert set(returned) <= set(context_returned)
                         ttl = cache.client.ttl(generate_session_entity_key(*scope))
                         assert not actual or 86380 <= ttl <= 86400
                         turns.append(dict(conversation=c["name"], kind=turn["kind"], text=turn["text"], gold=[eid for eid in turn["gold"] if eid in eligible_bank],
-                            context_gold=turn["gold"], context_returned=re.findall(r"\[\[ENTITY: ([^| ]+) \|", result["context_text"]),
+                            context_gold=turn["gold"], context_returned=context_returned,
                             activated=activations[-1], retained=actual, returned=returned,
                             pollution=len(set(actual) - ever_valid)))
                 for scope in [(tenant, "u", "absent"), (tenant, "other", "case-001"), (tenant + "-other", "u", "case-001")]:
                     assert cache.get_session_entity_ids(*scope, 10) == []
                     if scope[0] != tenant or scope[1] != "u":
-                        assert db.get_entities_by_ids(scope[0], scope[1], ["tesla"]) == []
+                        assert db.get_entities_by_ids(scope[0], scope[1], [fixture_uuid(tenant,"u",bank["tesla"]["entity_id"])]) == []
                 raise RollbackEvaluation()
         except RollbackEvaluation:
             pass
@@ -166,7 +167,7 @@ def main():
         threading.Thread.start = original_start
     positive = [turn for turn in turns if turn["gold"]]
     context_positive = [turn for turn in turns if turn["context_gold"]]
-    report = dict(persona_excluded_from_session_caps=True, eligible_entities=len(eligible_bank),
+    report = dict(memory_format=MEMORY_FORMAT,persona_excluded_from_session_caps=True, eligible_entities=len(eligible_bank),
         all_required_caller_context_availability=statistics.mean(set(t["context_gold"]) <= set(t["context_returned"]) for t in context_positive),
         activation_cases=len(rows), session_user_turns=len(turns), assistant_nonpromotion_checks=assistant_checks,
         simulator_differences=differences, activation_metrics=metrics(rows),
@@ -175,7 +176,7 @@ def main():
         multi_entity_availability=[dict(conversation=t["conversation"], gold=t["gold"], returned=t["returned"]) for t in turns if len(t["gold"]) > 1],
         cross_scope_checks=3, representative_user_turn_calls=query_counts, calls=dict(calls), external_api_calls=0, before=before, after=after,
         cleanup_verified=before == after, activations=rows, session_turns=turns)
-    (ROOT / "log/session_implementation_evaluation.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    (ROOT / "log/session_implementation_evaluation_v2.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({key: value for key, value in report.items() if key not in ("activations", "session_turns", "before", "after")}, indent=2))
     assert before == after, "Synthetic cleanup did not restore baseline state"
     assert not differences, "Production session ordering differs from simulator"

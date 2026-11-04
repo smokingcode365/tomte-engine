@@ -1,3 +1,4 @@
+from memory_eval_support import wire_fields, MEMORY_FORMAT
 """Small live prototype evaluation, with prescribed raw extraction (not E2E).
 
 Run from tomte-engine using its Python environment. Calls configured embeddings
@@ -26,7 +27,7 @@ from tomte.engine.providers import openai_provider
 from tomte.engine.providers.postgres_provider import PostgresProvider
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "log" / "terminology_alignment_evaluation.json"
+OUTPUT = ROOT / "log" / "terminology_alignment_evaluation_v2.json"
 # case, raw type, attribute, value, source, offered term, keyword type, domain
 CASES = [
     ("A", "car", "exterior_vehicle_colour", "dark blue", "I painted the exterior of my Tesla dark blue.", "paint_color", "ATTRIBUTE", "assets_and_possessions"),
@@ -84,21 +85,25 @@ def main():
     def record_run(*args, **kwargs):
         result = run(*args, **kwargs)
         total = result.usage()
-        offered = json.loads(args[3])["entities"]
+        payload = json.loads(args[3])
+        offered = payload.get("entities", [])
         targets = {(e["entity_handle"], None): e["candidates"] for e in offered}
         targets.update({(e["entity_handle"], f["fact_handle"]): f["candidates"]
                         for e in offered for f in e["facts"]})
+        if "fields" in payload:
+            targets = {(f['entity_handle'], f['fact_handle'], f['field_handle']): f['candidates'] for f in payload['fields']}
+            offered = payload['fields']
         output = result.output.model_dump(mode="json")
         unsupported = sum(d["decision"] == "REUSE" and not any(
             c["candidate_handle"] == d["candidate_handle"]
-            for c in targets.get((d["entity_handle"], d.get("fact_handle")), []))
+            for c in targets.get((d["entity_handle"], d.get("fact_handle"), d["field_handle"]) if "field_handle" in d else (d["entity_handle"], d.get("fact_handle")), []))
             for group in output.values() for d in group)
         record = {k: getattr(total, k, None) for k in ("requests", "input_tokens", "output_tokens")}
         record.update(structured_result=output, offered_candidates=offered,
                       unsupported_candidate_count=unsupported)
         usage.append(record)
         return result
-    report = {"model": None, "embedding_model": settings.openai.embed_model,
+    report = {"memory_format": MEMORY_FORMAT, "model": None, "embedding_model": settings.openai.embed_model,
               "vector_dimension": settings.openai.vector_dimension, "cases": results}
     httpx.AsyncClient.send = count_send
     openai_provider._run_structured_agent = record_run
@@ -117,10 +122,10 @@ def main():
                 batch = [{"item_id": f"synthetic-{label}-{repeat}", "timestamp": 1791547200 + repeat,
                           "content": source, "role": "user"}]
                 wire = ExtractionMemorySchema.model_validate({domain: [{
-                    "entity_id": "syn_01", "entity_name": "Tesla" if domain == "assets_and_possessions" else "Synthetic person career",
+                    "entity_id": "tmp_syn_01", "entity_name": "Tesla" if domain == "assets_and_possessions" else "Synthetic person career",
                     "entity_domain": domain, "entity_type": entity_type,
                     "facts": [] if attribute is None else [{"attribute_name": attribute,
-                        "value": value, "confidence": 1., "source_chat_id": batch[0]["item_id"]}]}]})
+                        "value": wire_fields(value), "source_chat_id": batch[0]["item_id"]}]}]})
                 raw = [e.model_dump(mode="json") for e in getattr(resolve_extraction(wire, batch), domain)]
                 usage_start, diagnostic_start = len(usage), len(diagnostics)
                 counts_before = api.copy()

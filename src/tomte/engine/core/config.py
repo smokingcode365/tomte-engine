@@ -21,6 +21,9 @@ class GeminiSettings(BaseModel):
     vector_dimension: int = 768  # Standard for Google embeddings
 
 class TomteSettings(BaseSettings):
+    memory_history_bytes: int = Field(default=12000, ge=0, description="Public history budget per entity; current facts are not truncated.")
+    memory_history_candidate_bytes: int = Field(default=20000, ge=1000, description="Bounded history selection input, excluding current values.")
+    memory_history_candidate_limit: int = Field(default=40, ge=1, le=200)
     max_model_input_bytes: int = Field(default=65536, ge=1, description="Conservative UTF-8 input capacity per model stage; not a token/context guarantee.")
     provider_diagnostics_enabled: bool = Field(default=False, description="Emit bounded metadata-only provider diagnostics; no raw payloads.")
     max_keywords_for_llm: int = Field(default=400, description="The maximum number of keywords to send to the LLM for extraction.")

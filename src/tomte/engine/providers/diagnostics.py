@@ -34,13 +34,17 @@ def observe_result(result):
 
 # Match only reviewed, constant validator messages; never serialize arbitrary msg/ctx.
 _MUTATION_REASONS = {
-    "Duplicate mutation sources": "duplicate_sources",
-    "ADD needs an attribute and no target fact": "invalid_add_shape",
-    "Mutation requires an existing target fact": "missing_target_fact",
-    "Mutation requires a nonempty new value": "missing_replacement",
-    "Mutation does not accept a replacement value": "replacement_forbidden",
-    "Empty replacement value": "empty_replacement",
+    "Invalid or duplicate mutation sources": "duplicate_sources",
+    "Invalid mutation sources": "invalid_sources",
+    "Conflicting duplicate value field": "conflicting_fields",
+    "ADD requires a new attribute/value, without a target": "invalid_add_shape",
+    "Operation requires an offered fact UUID": "missing_target_fact",
+    "MENTION only changes fact mention metadata": "mention_value_forbidden",
+    "Cannot set and remove the same field": "field_collision",
+    "Duplicate value field": "duplicate_fields",
+    "History cannot be targeted by current-value operations": "history_immutable",
 }
+
 _GATE_REASONS = {
     "Automatic retry or split refused": "retry_refused",
     "Experiment deadline reached": "deadline_stop",
@@ -115,6 +119,21 @@ def _event(operation, schema, model, messages, result, exc, started, history_own
     for part in retry_parts:
         if isinstance(part.content, list):
             errors.extend(_errors(part.content, schema))
+    # Item recovery deliberately makes the envelope parseable. Revalidate observed
+    # tool replies only for diagnostic codes/paths so the original cause survives
+    # a repair refusal, without retaining/logging prompts or business content.
+    from tomte.engine.core.proposals import ProposalResponse
+    if isinstance(schema, type) and issubclass(schema, ProposalResponse):
+        for response in responses:
+            for part in response.parts:
+                if not isinstance(part, ToolCallPart):
+                    continue
+                try:
+                    parsed = schema.model_validate_json(part.args) if isinstance(part.args, str) else schema.model_validate(part.args)
+                except ValidationError as error:
+                    errors.extend(_errors(error.errors(include_input=False, include_context=False, include_url=False), schema))
+                else:
+                    errors.extend(_errors(parsed._validation_errors, schema))
     errors = list({json.dumps(e, sort_keys=True): e for e in errors}.values())[:10]
     names = [_name(type(e)) for e in chain]
     gate_reasons = [e.args[0] for e in chain if type(e).__name__ == "GateStopped" and e.args and isinstance(e.args[0], str)]
@@ -157,9 +176,10 @@ def _event(operation, schema, model, messages, result, exc, started, history_own
     http_status = next((_integer(getattr(e, "status_code", None)) for e in chain if getattr(e, "status_code", None) is not None), None)
     return {
         "event": "provider_diagnostic", "correlation_id": uuid4().hex,
-        "operation": operation, "stage": {"MutationPlanResponse": "fact_mutation", "TerminologyAlignmentResponse": "terminology_alignment",
+        "operation": operation, "stage": {"MutationPlanResponse": "fact_mutation", "TerminologyAlignmentResponse": "terminology_alignment", "FieldAlignmentResponse": "terminology_alignment",
             "ResolutionResponse": "entity_resolution", "ExtractionMemorySchema": "extraction", "TomteMemorySchema": "extraction"}.get(getattr(schema, "__name__", ""), operation),
         "schema": _name(schema) if isinstance(schema, type) else None,
+        "proposal_recovery": result.recovery_summary() if isinstance(result, ProposalResponse) else None,
         "model_fingerprint": _fingerprint(model if isinstance(model, str) else getattr(model, "model_name", None)),
         "outcome": "failure" if exc is not None else "success", "category": category,
         "failure_stage": "output_validation" if errors else "provider_operation" if exc else None,

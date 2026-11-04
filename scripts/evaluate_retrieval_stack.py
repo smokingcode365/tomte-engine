@@ -1,3 +1,4 @@
+from memory_eval_support import MEMORY_FORMAT, fixture_write, fixture_uuid, search_texts, similarity, label_map
 """Evaluation-only retrieval ablation. No production changes or model/chat calls.
 
 Run from tomte-engine. Reuses prior real embeddings; only missing synthetic
@@ -166,7 +167,7 @@ def main():
     vectors = json.loads(path.read_text())
     def key(role,text):
         return hashlib.sha256(json.dumps([settings.openai.embed_model,1536,role,text]).encode()).hexdigest()
-    texts = {'document': sorted({get_entity_summary(e) for e in bank.values()}),
+    texts = {'document': sorted({text for e in bank.values() for text in search_texts(e)}),
              'query': sorted({c['text'] for c in cold} | {t['text'] for c in conversations for t in c['turns']})}
     api = dict(requests=0, embedded_texts=0)
     original_send = httpx.AsyncClient.send
@@ -243,10 +244,8 @@ def main():
         workflow._build_knowledge_context=record
         try:
             with db.transaction():
-                updates=[dict(mode='INSERT',tenant_id=tenant,user_id=c['user'],
-                    **{f:e[f] for f in ('entity_id','entity_name','entity_domain','entity_type')},
-                    payload=deepcopy(e),embedding=vectors[key('document',get_entity_summary(e))])
-                    for c in conversations[:30] for e in bank.values()]
+                docs={text:vectors[key('document',text)] for text in texts['document']}
+                updates=[fixture_write(tenant,c['user'],e,docs) for c in conversations[:30] for e in bank.values()]
                 assert db.commit_graph_updates(updates)
                 assert db.conn.execute('SELECT count(*) AS n FROM tomte_memory_engine WHERE tenant_id=%s',(tenant,)).fetchone()['n']==900
                 # Deliberately adverse old/low-frequency Tesla versus rotating
@@ -263,7 +262,7 @@ def main():
                             n=recent.index(eid);age=60+n*60
                         if eid=='tesla': mentions=1;age=86400*365
                         db.conn.execute('UPDATE tomte_memory_engine SET mention_count=%s,last_mentioned_at=now()-(%s * interval \'1 second\'),importance=%s WHERE tenant_id=%s AND user_id=%s AND entity_id=%s',
-                            (mentions,age,50-rank,tenant,c['user'],eid))
+                            (mentions,age,50-rank,tenant,c['user'],fixture_uuid(tenant,c['user'],bank[eid]['entity_id'])))
                 def evaluate(user,session,turn,cold_session,valid_topics):
                     nonlocal capturing
                     turn_calls.clear();turn_ms.clear();sql_count[0]=0
@@ -279,12 +278,15 @@ def main():
                     # Legacy comparison queries run AFTER the actual workflow,
                     # outside its counters. The raw stream comes from production.
                     streams=dict(captured)
+                    labels=label_map(tenant,user,bank)
                     legacy_ms={}
                     for label,call in [('frequent',lambda:db.get_frequent_entities(tenant,user)),
                                        ('semantic',lambda:db.semantic_retrieval(tenant,user,vector))]:
                         start=time.perf_counter();streams[label]=call()
                         legacy_ms[label]=(time.perf_counter()-start)*1000
                         samples[label].append(legacy_ms[label])
+                    # Score gold labels; leave production rows and API values unchanged.
+                    streams={s:[{**e,'entity_id':labels[e['entity_id']]} for e in items] for s,items in streams.items()}
                     raw_ms=turn_ms['raw']
                     required=set(turn['required'])
                     # Prior declared-valid topics and all returned persona are
@@ -294,7 +296,7 @@ def main():
                         merged=workflow.cog.merge_entities(*(streams[s] for s in order))
                         ids=[e['entity_id'] for e in merged]
                         context=workflow.cog.format_entities(merged)
-                        if config=='G': assert context==payload['context_text']
+                        if config=='G': assert set(ids)=={labels[e['entity_id']] for e in payload['query_relevant_memories']+payload['background_memories']}
                         candidates=sum(len(streams[s]) for s in order)
                         statements=actual_statements-int('recent' not in order)-int('raw' not in order)+int('frequent' in order)+int('semantic' in order)
                         db_ms=sum(turn_ms.values())-sum(turn_ms[s] for s in ('recent','raw') if s not in order)+sum(legacy_ms[s] for s in ('frequent','semantic') if s in order)
@@ -348,7 +350,7 @@ def main():
         threading.Thread.start=original_start
     assert before==after,'Cleanup failed'
     baseline_rows=[r for r in rows if r['config']=='A']
-    report=dict(dataset=dict(users=30,conversations=len(conversations),entity_concepts=len(bank),stored_synthetic_records=len(bank)*30,
+    report=dict(memory_format=MEMORY_FORMAT,dataset=dict(users=30,conversations=len(conversations),entity_concepts=len(bank),stored_synthetic_records=len(bank)*30,
         user_turns=len(rows)//8,cold_sessions=sum(r['cold'] for r in baseline_rows),warm_turns=sum(not r['cold'] for r in baseline_rows),
         assistant_nonpromotion_checks=assistant_checks),api=api,
         scenarios=dict(Counter(r['group'] for r in rows if r['config']=='A')),
@@ -380,7 +382,7 @@ def main():
         assert set(ids)==set(row['ids'])
         conceptual.append(dict(row,ids=ids))
     report['conceptual_order_comparison']=summarize(conceptual)
-    (ROOT/'log/retrieval_stack_evaluation.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+    (ROOT/'log/retrieval_stack_evaluation_v2.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     print(json.dumps({k:v for k,v in report.items() if k not in ('rows','direct_rows','before','after')},indent=2))
 
 

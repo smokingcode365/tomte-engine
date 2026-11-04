@@ -2,8 +2,11 @@
 
 JUNK_FILTER_PROMPT = """
 You are the Tomte Engine Cost-Control Filter.
-Return FALSE when CURRENT_BATCH could add, change, correct, confirm, retract,
-clarify, disambiguate or qualify persistent memory; return TRUE for genuine junk.
+Return FALSE when a CURRENT_BATCH USER message could add, change, correct, confirm, retract,
+clarify, disambiguate, mention a clearly identifiable existing fact, or qualify memory; return TRUE for genuine junk.
+In a mixed batch, one potentially memory-relevant USER message is enough for FALSE.
+Assistant messages may clarify a USER reply but cannot establish user memory on
+their own. Do not keep a batch solely because an assistant supplies useful facts.
 
 Consolidation supplies JSON with CURRENT_BATCH and RECENT_CONTEXT_REFERENCE_ONLY.
 CURRENT_BATCH contains the messages being evaluated. The bounded reference-only
@@ -19,6 +22,10 @@ say that", "I meant the other one", "not anymore" or "actually..." may change me
 when prior turns establish a relevant claim. These examples are not an exhaustive
 phrase list. A bare "No." can negate a clear memory claim or answer a memory question;
 without a useful referent it need not be a memory update. Do not guess missing facts.
+
+A question about a clearly identified stored fact can count as a mention without
+asserting its presuppositions. Meaningful situational facts are eligible, not just
+permanent facts.
 
 Greetings, jokes, social reactions and mere acknowledgements such as "thanks",
 "okay", "lol", "got it" and "cool" remain junk even after a memory-relevant turn,

@@ -1,54 +1,61 @@
-# engine/utils/cognitive.py (Recommended location)
-from typing import Dict, Any, List
-from tomte.engine.core.assertions import project_facts
+"""Search text contains business data only; every current/history item is indexed."""
+import json
+import math
+from tomte.engine.core.memory import public_value
 
-from tomte.engine.llm.interfaces import LLMProvider
-
-def get_entity_summary(entity_data: Dict[str, Any]) -> str:
-    """
-    Converts a raw Entity dictionary into a high-fidelity Semantic Signature.
-    This string is used for generating vectors that anchor the entity in 
-    both the Knowledge Graph and the Semantic Dictionary.
-    """
-    # 1. Core Identity (Highest Weight)
-    # We include the Domain and Type to ensure the vector lands in the right 'neighborhood'
-    domain = entity_data.get("entity_domain", "unknown").replace("_", " ")
-    e_type = entity_data.get("entity_type", "unknown").replace("_", " ")
-    name = entity_data.get("entity_name", "Unknown")
-    
-    summary_parts = [
-        f"DOMAIN: {domain}",
-        f"TYPE: {e_type}",
-        f"NAME: {name}"
-    ]
-
-    # 2. Add Aliases (Identity nuances)
-    aliases = entity_data.get("aliases", [])
-    if aliases:
-        summary_parts.append(f"ALSO KNOWN AS: {', '.join(aliases)}")
-
-    # 3. Filtered Facts (The 'Substance')
-    # We only include Stable or Permanent facts (Importance >= 3) to prevent 
-    # transient comments (e.g., 'I am hungry') from drifting the anchor vector.
-    facts = project_facts(entity_data.get("facts", []))
-    stable_facts = [
-        f"{f['attribute_name'].replace('_', ' ')}: {f['value']}"
-        for f in facts 
-        if f.get("importance", 3) >= 3
-    ]
-    
-    if stable_facts:
-        summary_parts.append("FACTS: " + " | ".join(stable_facts))
-
-    # Join with a clear separator to help the transformer model 
-    # distinguish between different logical components[cite: 114].
-    return " | ".join(summary_parts)
+SEARCH_TEXT_CHARS = 2000
+EMBED_BATCH_SIZE = 16
 
 
-def embed_entity(llm: LLMProvider, entity_data: Dict[str, Any]) -> List[float]:
-    """
-    Embeds a raw Entity dictionary into a high-fidelity Semantic Signature.
-    This string is used for generating vectors that anchor the entity in 
-    both the Knowledge Graph and the Semantic Dictionary.
-    """
-    return llm.embed_text(get_entity_summary(entity_data))
+def get_entity_summary(entity_data):
+    identity = {key: entity_data.get(key) for key in ("entity_name", "entity_type", "entity_domain", "aliases")}
+    # This bounded aggregate is a discovery fallback. Complete value chunks are
+    # indexed separately; truncating this summary never discards stored memory.
+    identity["facts"] = [{"attribute_name": f["attribute_name"], "value": public_value(f["value"])}
+                         for f in entity_data.get("facts", [])]
+    return json.dumps(identity, ensure_ascii=False)[:SEARCH_TEXT_CHARS]
+
+
+def get_search_entries(entity_data):
+    """Stable positional keys reference authoritative JSON, never replace it."""
+    entries = []
+    identity = json.dumps({key: entity_data[key] for key in ("entity_name", "entity_type", "entity_domain")}, ensure_ascii=False)
+    for fact in entity_data["facts"]:
+        for history_index, value in [(-1, fact["value"]), *enumerate(h["value"] for h in fact["history_values"])]:
+            prefix = identity[:400] + " " + fact["attribute_name"][:200] + (" current " if history_index == -1 else " history ")
+            for field_name, item in value.items():
+                text = field_name + ": " + item["text"] + " (fact_confidence: " + item["fact_confidence"] + ")"
+                for chunk_index, start in enumerate(range(0, len(text), SEARCH_TEXT_CHARS - len(prefix))):
+                    entries.append({"fact_id": fact["fact_id"], "history_index": history_index,
+                                    "field_name": field_name, "chunk_index": chunk_index,
+                                    "text": prefix + text[start:start + SEARCH_TEXT_CHARS - len(prefix)]})
+    return entries
+
+
+def search_entry_key(entry):
+    return (entry["fact_id"], entry["history_index"], entry["field_name"], entry["chunk_index"])
+
+
+def changed_search_entries(entity_data, previous=None):
+    old = {search_entry_key(entry): entry["text"] for entry in get_search_entries(previous)} if previous else {}
+    return [entry for entry in get_search_entries(entity_data) if old.get(search_entry_key(entry)) != entry["text"]]
+
+
+def embed_texts(llm, texts):
+    vectors = []
+    dimension = llm.get_vector_dimension()
+    for start in range(0, len(texts), EMBED_BATCH_SIZE):
+        batch = texts[start:start + EMBED_BATCH_SIZE]
+        result = llm.embed_batch(batch)
+        if len(result) != len(batch):
+            raise ValueError("Embedding response count mismatch")
+        for vector in result:
+            if (len(vector) != dimension or any(type(x) not in (int, float) or not math.isfinite(x) for x in vector)
+                    or not any(vector)):
+                raise ValueError("Invalid search embedding")
+        vectors.extend(result)
+    return vectors
+
+
+def embed_entity(llm, entity_data):
+    return embed_texts(llm, [get_entity_summary(entity_data)])[0]

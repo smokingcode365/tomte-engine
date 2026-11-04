@@ -1,4 +1,3 @@
-from tomte.engine.core.assertions import project_facts
 from resolution_helpers import resolution_response, mutation_response
 """Deterministic mechanics against bootstrapped local PostgreSQL and Redis.
 
@@ -24,7 +23,8 @@ import pytest
 from tomte.engine import Tomte
 from tomte.engine.core.config import settings
 from tomte.engine.core.enums import ChatSenderRole
-from tomte.engine.core.schema import Entity, Fact, TomteMemorySchema
+from tomte.engine.core.extraction import ExtractedEntity, ExtractedFact
+from memory_fixtures import field_entries, value as item_value, fact_text
 from tomte.engine.core.extraction import ExtractionMemorySchema, resolve_extraction
 from tomte.engine.dictionary import service
 from tomte.engine.llm.embedder import get_entity_summary
@@ -45,21 +45,17 @@ QUESTION = "What programming language do I like?"
 
 
 def extraction_response(schema, entity, user_text):
-    """Prescribe semantic content only; verify new source input, never model timestamps."""
+    """Prescribe only semantic fields and current batch source IDs."""
     data = json.loads(user_text)
     assert set(data) == {"CURRENT_BATCH", "RECENT_CONTEXT_REFERENCE_ONLY"}
     assert len(data["CURRENT_BATCH"]) == 1
     wire = entity.model_dump(mode="json")
-    wire["entity_id"] = "tmp_" + wire["entity_id"] if not wire["entity_id"].startswith("tmp_") else wire["entity_id"]
+    if not wire["entity_id"].startswith("tmp_"):
+        wire["entity_id"] = "tmp_" + wire["entity_id"]
     for fact in wire["facts"]:
-        fact.pop("last_mentioned_at")
-        fact.pop("related_entity_uuids", None)
-        for field in ("fact_id", "assertion_state", "origin", "created_at", "effective_at", "ended_at", "supersedes_fact_id", "corrects_fact_id", "evidence"):
-            fact.pop(field, None)
-        fact["source_chat_id"] = None
-        for event in fact["timeline"]:
-            event.pop("timestamp")
-            event["source_chat_id"] = None
+        if isinstance(fact["value"], dict):
+            fact["value"] = [{"field_name": k, **v} for k, v in fact["value"].items()]
+        fact["source_chat_id"] = data["CURRENT_BATCH"][0]["item_id"]
     result = schema.model_validate({entity.entity_domain.value: [wire]})
     normalized = resolve_extraction(result, data["CURRENT_BATCH"])
     return result, getattr(normalized, entity.entity_domain.value)[0]
@@ -68,15 +64,12 @@ def extraction_response(schema, entity, user_text):
 class DeterministicInsertLLM:
     def __init__(self, db, index, source):
         self.db, self.index, self.calls = db, index, []
-        self.entity = Entity(
-            entity_id="pre_01", entity_name="Programming language preference",
+        self.entity = ExtractedEntity(
+            entity_id="tmp_pre_01", entity_name="Programming language preference",
             entity_domain="preferences_and_traits", entity_type="programming_preference",
             aliases=["my favorite programming language"],
-            facts=[Fact(
-                attribute_name="favorite_programming_language", value="Python",
-                importance=4, confidence=1.0, source_chat_id=source,
-                last_mentioned_at="2026-10-08T00:00:00Z",
-            )],
+            facts=[ExtractedFact(attribute_name="favorite_programming_language",
+                                 value=field_entries("Python"), importance=4, source_chat_id=source)],
         )
 
     def vector(self):
@@ -84,8 +77,6 @@ class DeterministicInsertLLM:
 
     def record(self, method):
         assert self.db.conn.info.transaction_status == TransactionStatus.IDLE
-        expected = ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch", "embed_text"]
-        assert len(self.calls) < len(expected) and method == expected[len(self.calls)]
         self.calls.append(method)
 
     def get_vector_dimension(self):
@@ -97,14 +88,10 @@ class DeterministicInsertLLM:
         return self.vector()
 
     def embed_batch(self, texts):
-        if texts and texts[0].startswith("domain: "):
-            self.record("dictionary_embed")
-            return [self.vector() for _ in texts]
-        expected = self.entity.model_dump(mode="json")
-        expected["aliases"] = []
-        assert texts == [get_entity_summary(expected)]
-        self.record("embed_batch")
-        return [self.vector()]
+        kind = "dictionary_embed" if texts and texts[0].startswith("domain: ") else (
+            "field_embed" if texts and texts[0].startswith("[") else "embed_batch")
+        self.record(kind)
+        return [self.vector() for _ in texts]
 
     def is_junk(self, chat_log):
         assert json.loads(chat_log)["CURRENT_BATCH"][0]["content"] == MESSAGE
@@ -112,8 +99,9 @@ class DeterministicInsertLLM:
         return False
 
     def parse_structured(self, system_prompt, user_text, schema, taxonomy=None, lexicon=None):
-        if schema.__name__ == "TerminologyAlignmentResponse":
-            self.record("align")
+        if schema.__name__ in ("TerminologyAlignmentResponse", "FieldAlignmentResponse", "ContextualActionResponse"):
+            self.record({"TerminologyAlignmentResponse": "align", "FieldAlignmentResponse": "field_align",
+                         "ContextualActionResponse": "contextual"}[schema.__name__])
             return schema()
         if schema.__name__ == "MutationPlanResponse":
             self.record("mutate")
@@ -146,6 +134,7 @@ def mechanics(monkeypatch):
             pytest.fail("Mechanics tests require local PostgreSQL and Redis URLs", pytrace=False)
     assert not settings.enable_pii_scrubbing, "This no-network check requires PII model loading disabled"
     db = PostgresProvider(pg_url)
+    db.ensure_infrastructure(1536)
     cache = RedisCacheProvider(redis_url)
     observer = psycopg.connect(pg_url, autocommit=True, options="-c default_transaction_read_only=on")
     tag = uuid4().hex
@@ -215,21 +204,21 @@ def test_deterministic_insert_is_committed_and_retrievable(mechanics):
     expected=case.llm.entity.model_dump(mode="json")
     expected["aliases"] = []
     expected.pop("mention_context", None)
-    assert payload["entity_id"].startswith("entity_")
+    assert str(uuid4().__class__(payload["entity_id"])) == payload["entity_id"]
     expected["entity_id"] = payload["entity_id"]
     assert {k:v for k,v in payload.items() if k!="facts"}=={k:v for k,v in expected.items() if k!="facts"}
     stored,=payload["facts"]
-    assert stored["value"]=="Python" and stored["assertion_state"]=="ACTIVE"
-    assert stored["fact_id"] and stored["evidence"][0]["source_chat_id"]==queue[0]["item_id"]
-    assert len(case.anchors) == 2
+    assert fact_text(stored) == "Python" and stored["_mention_count"] == 1
+    assert stored["fact_id"] and "source_chat_id" not in stored
+    assert len(case.anchors) == 3
     keywords = [k for a in case.anchors for k in case.db.get_anchor_keywords(str(a))]
     assert {(k["keyword"], k["keyword_type"], k["hits"]) for k in keywords} == {
-        ("programming_preference", "ENTITY", 1), ("favorite_programming_language", "ATTRIBUTE", 1),
+        ("programming_preference", "ENTITY", 1), ("favorite_programming_language", "ATTRIBUTE", 1), ("detail", "FIELD", 1),
     }
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, QUESTION, ChatSenderRole.USER, case.user)
-    assert "favorite_programming_language: Python" in context["context_text"]
-    assert context["context_text"].count("[[ENTITY: " + payload["entity_id"]) == 1
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch", "embed_text"]
+    assert "favorite_programming_language" in context["context_text"] and "Python" in context["context_text"]
+    assert context["context_text"].count(payload["entity_id"]) == 1
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile", "mutate", "embed_batch", "embed_text"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -237,16 +226,16 @@ def test_keyword_write_failure_rolls_back_only_dictionary_and_retains_ack_snapsh
     case = mechanics
     queue = queued_message(case)
     original = case.db.upsert_dictionary_keyword
-    def fail_attribute(anchor, keyword, kind):
+    def fail_attribute(anchor, keyword, kind, keyword_context=""):
         # First keyword writes normally; the second causes a real SQL constraint failure.
-        return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind)
+        return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind, keyword_context)
     monkeypatch.setattr(case.db, "upsert_dictionary_keyword", fail_attribute)
     workflow = ConsolidationWorkflow()
     assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
     assert workflow.last_dictionary_feedback == 'failed'
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
     stored, = case.db.get_user_graph_skeleton(case.tenant, case.user)
-    assert stored['payload']['facts'][0]['value'] == 'Python'
+    assert fact_text(stored['payload']['facts'][0]) == 'Python'
     assert case.db.is_consolidation_processed(case.tenant, case.user,
                                               workflow._batch_id(case.tenant, case.user, queue))
     assert len(case.anchors) == 2
@@ -254,7 +243,7 @@ def test_keyword_write_failure_rolls_back_only_dictionary_and_retains_ack_snapsh
     assert all(case.db.get_anchor_keywords(str(a)) == [] for a in case.anchors)
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is not None
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile", "mutate", "embed_batch"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -264,17 +253,15 @@ class LifecycleLLM(DeterministicInsertLLM):
     def prepare(self, mode, value, message, db_id=None, step=0):
         self.mode, self.message, self.db_id, self.step = mode, message, db_id, step
         self.calls = []
+        # Keep repetition genuinely unchanged; it is a mention, not enrichment.
         fact = self.entity.facts[0].model_copy(update={
-            "value": value, "importance": (4, 5, 3)[step],
-            "confidence": (0.8, 0.9, 1.0)[step],
+            "value": item_value(value), "importance": 4 if step < 2 else 3,
             "source_chat_id": "synthetic-step-" + str(step),
-            "last_mentioned_at": f"2026-10-08T00:0{step}:00Z",
         })
-        # An explicitly prescribed unrelated fixture fact checks merge retention.
         facts = [fact]
         if mode == "INSERT":
             facts.append(fact.model_copy(update={
-                "attribute_name": "preferred_editor", "value": "VSCode", "importance": 3,
+                "attribute_name": "preferred_editor", "value": item_value("VSCode"), "importance": 3,
             }))
         self.entity = self.entity.model_copy(update={
             "facts": facts, "aliases": ["my favorite programming language" if step == 0 else "my preferred language"],
@@ -300,8 +287,9 @@ class LifecycleLLM(DeterministicInsertLLM):
         return False
 
     def parse_structured(self, system_prompt, user_text, schema, taxonomy=None, lexicon=None):
-        if schema.__name__ == "TerminologyAlignmentResponse":
-            self.record("align")
+        if schema.__name__ in ("TerminologyAlignmentResponse", "FieldAlignmentResponse", "ContextualActionResponse"):
+            self.record({"TerminologyAlignmentResponse": "align", "FieldAlignmentResponse": "field_align",
+                         "ContextualActionResponse": "contextual"}[schema.__name__])
             return schema()
         if schema.__name__ == "MutationPlanResponse":
             self.record("mutate")
@@ -322,13 +310,7 @@ class LifecycleLLM(DeterministicInsertLLM):
         }]}, user_text)
 
     def embed_batch(self, texts):
-        if texts and texts[0].startswith("domain: "):
-            self.record("dictionary_embed")
-            return [self.vector() for _ in texts]
-        assert len(texts) == 1
-        assert self.entity.facts[0].value in texts[0] and "VSCode" in texts[0]
-        self.record("embed_batch")
-        return [self.vector()]
+        return super().embed_batch(texts)
 
 
 def lifecycle(case):
@@ -355,7 +337,7 @@ def dictionary_state(case):
 
 
 def language(row):
-    return next(f for f in project_facts(row["payload"]["facts"]) if f["attribute_name"] == "favorite_programming_language")
+    return next(f for f in row["payload"]["facts"] if f["attribute_name"] == "favorite_programming_language")
 
 
 def run_message(case):
@@ -363,7 +345,13 @@ def run_message(case):
     queue = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
     assert len(queue) == 1 and queue[0]["content"] == case.llm.message
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"]
+    expected = ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile"]
+    if case.llm.mode != "INSERT":
+        expected.append("contextual")
+    expected.append("mutate")
+    if case.llm.mode != "REINFORCE":
+        expected.append("embed_batch")
+    assert case.llm.calls == expected
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     return queue
@@ -375,21 +363,23 @@ def acknowledge(case):
     assert case.cache.clear_session_4_consolidation(case.tenant, case.user, case.session, snapshot)
 
 
-def assert_context(case, value):
-    context = ChatHookWorkflow().on_chat(case.tenant, case.session, "What programming language do I prefer?", ChatSenderRole.USER, case.user)["context_text"]
-    assert context.count("[[ENTITY: " + memory_rows(case)[0]["entity_id"]) == 1
-    assert "favorite_programming_language: " + value in context
-    if value == "Rust":
-        assert "favorite_programming_language: Python" not in context
-    acknowledge(case)  # Only this synthetic question's queue is acknowledged.
+def assert_context(case, expected):
+    response = ChatHookWorkflow().on_chat(case.tenant, case.session, "What programming language do I prefer?", ChatSenderRole.USER, case.user)
+    assert response["context_text"].count(memory_rows(case)[0]["entity_id"]) == 1
+    memories = response["query_relevant_memories"] + response["background_memories"]
+    current = next(f for e in memories for f in e["facts"] if f["attribute_name"] == "favorite_programming_language")
+    assert fact_text(current) == expected
+    if expected == "Rust":
+        assert current["history_values"][0]["value"]["detail"]["text"] == "Python"
+    acknowledge(case)
 
 
 def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact(mechanics):
     case = lifecycle(mechanics)
     run_message(case)
     inserted, = memory_rows(case)
-    assert inserted["entity_id"].startswith("entity_") and inserted["mention_count"] == 1
-    assert language(inserted)["value"] == "Python"
+    assert inserted["entity_id"] == str(inserted["id"]) and inserted["mention_count"] == 2
+    assert fact_text(language(inserted)) == "Python"
     unrelated = inserted["payload"]["facts"][1]
     acknowledge(case)
 
@@ -397,19 +387,14 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     run_message(case)
     reinforced, = memory_rows(case)
     assert reinforced["id"] == inserted["id"] and reinforced["entity_id"] == inserted["entity_id"]
-    assert reinforced["mention_count"] == 2
+    assert reinforced["mention_count"] == 3 and language(reinforced)["_mention_count"] == 2
     assert reinforced["created_at"] == inserted["created_at"]
-    assert reinforced["last_mentioned_at"] > inserted["last_mentioned_at"]
-    assert reinforced["vector"] != inserted["vector"]
-    assert reinforced["importance"] == 5 and language(reinforced)["importance"] == 5
-    assert language(reinforced)["confidence"] == 0.9
-    assert language(reinforced)["mention_count"] == 2
+    assert reinforced["vector"] == inserted["vector"]
+    assert language(reinforced)["value"] == language(inserted)["value"]
     assert language(reinforced)["fact_id"] == language(inserted)["fact_id"]
     snapshot = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
     from tomte.engine.core.extraction import source_timestamps
-    assert language(reinforced)["source_chat_id"] == language(inserted)["source_chat_id"]
-    assert language(reinforced)["evidence"][-1]["source_chat_id"] == snapshot[0]["item_id"]
-    assert language(reinforced)["last_mentioned_at"] == source_timestamps(snapshot)[snapshot[0]["item_id"]]
+    assert language(reinforced)["_last_mentioned_at"] == source_timestamps(snapshot)[snapshot[0]["item_id"]]
     acknowledge(case)
     assert_context(case, "Python")
 
@@ -417,26 +402,24 @@ def test_insert_reinforce_mutate_preserves_one_entity_and_retrieves_current_fact
     run_message(case)
     mutated, = memory_rows(case)
     assert mutated["id"] == inserted["id"] and mutated["entity_id"] == inserted["entity_id"]
-    assert mutated["mention_count"] == 3 and mutated["importance"] == 3
+    assert mutated["mention_count"] == 4 and mutated["importance"] == 3
     assert mutated["created_at"] == inserted["created_at"]
-    assert mutated["last_mentioned_at"] > reinforced["last_mentioned_at"]
     assert mutated["vector"] != reinforced["vector"]
-    assert language(mutated)["value"] == "Rust" and language(mutated)["confidence"] == 1.0
-    assert language(mutated)["timeline"] == [] and language(mutated)["mention_count"] == 1
+    current = language(mutated)
+    assert fact_text(current) == "Rust" and current["_mention_count"] == 3
     assert unrelated in mutated["payload"]["facts"]
-    historical=next(f for f in mutated["payload"]["facts"] if f["fact_id"]==language(reinforced)["fact_id"])
-    assert historical["value"]=="Python" and historical["assertion_state"]=="HISTORICAL"
-    assert language(mutated)["supersedes_fact_id"]==historical["fact_id"]
-    assert set(mutated["payload"]["aliases"]) == set()
+    assert current["history_values"][0]["value"] == language(reinforced)["value"]
+    assert current["fact_id"] == language(reinforced)["fact_id"]
+    assert mutated["payload"]["aliases"] == []
     hits = Counter()
     for anchor in case.anchors:
-        for k in case.db.get_anchor_keywords(str(anchor)):
-            hits[k["keyword"]] += k["hits"]
-    assert hits == {"programming_preference": 3, "favorite_programming_language": 3, "preferred_editor": 1}
-    assert len(case.anchors) == 7
+        for keyword in case.db.get_anchor_keywords(str(anchor)):
+            hits[(keyword["keyword"], keyword["keyword_type"])] += keyword["hits"]
+    assert hits == {("programming_preference", "ENTITY"): 2, ("favorite_programming_language", "ATTRIBUTE"): 2,
+                    ("preferred_editor", "ATTRIBUTE"): 1, ("detail", "FIELD"): 3}
+    assert len(case.anchors) == 8
     acknowledge(case)
     assert_context(case, "Rust")
-    print("Lifecycle: one pre_01, same UUID; Python -> Python -> Rust; row counts 1/2/3; keyword hits 3/3/1; structured Python history preserved; Rust context verified")
 
 
 @pytest.mark.parametrize("mode,value,step", [("REINFORCE", "Python", 1), ("MUTATE", "Rust", 2)])
@@ -450,16 +433,16 @@ def test_lifecycle_dictionary_failure_preserves_committed_memory(mechanics, monk
     ChatHookWorkflow().on_chat(case.tenant, case.session, case.llm.message, ChatSenderRole.USER, case.user)
     queue = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
     original = case.db.upsert_dictionary_keyword
-    def fail_attribute(anchor, keyword, kind):
-        return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind)
+    def fail_attribute(anchor, keyword, kind, keyword_context=""):
+        return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind, keyword_context)
     monkeypatch.setattr(case.db, "upsert_dictionary_keyword", fail_attribute)
     workflow = ConsolidationWorkflow()
     assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
-    assert workflow.last_dictionary_feedback == 'failed'
+    assert workflow.last_dictionary_feedback == ('applied' if mode == 'REINFORCE' else 'failed')
     after, = memory_rows(case)
     assert after['id'] == before[0]['id']
     assert after['mention_count'] == before[0]['mention_count'] + 1
-    assert language(after)['value'] == value
+    assert fact_text(language(after)) == value
     assert case.db.is_consolidation_processed(case.tenant, case.user,
                                               workflow._batch_id(case.tenant, case.user, queue))
     assert dictionary_state(case) == dictionary_before
@@ -514,14 +497,14 @@ def test_matched_row_with_new_extraction_id_preserves_golden_identity(mechanics,
     updated, = memory_rows(case)
     assert updated["id"] == inserted["id"] and updated["entity_id"] == inserted["entity_id"]
     assert updated["payload"]["entity_id"] == inserted["entity_id"]
-    assert language(updated)["value"] == value
+    assert fact_text(language(updated)) == value
     assert inserted["payload"]["facts"][1] in updated["payload"]["facts"]
     assert set(updated["payload"]["aliases"]) == set()
     for key in ("entity_name", "entity_type", "entity_domain"):
         assert updated["payload"][key] == case.llm.entity.model_dump(mode="json")[key]
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, "What programming language do I prefer?", ChatSenderRole.USER, case.user)["context_text"]
-    assert context.count("[[ENTITY: " + inserted["entity_id"]) == 1 and "[[ENTITY: pre_99" not in context
-    assert "favorite_programming_language: " + value in context
+    assert context.count(inserted["entity_id"]) == 1 and "tmp_pre_99" not in context
+    assert "favorite_programming_language" in context and value in context
 
 
 def test_insert_allocates_identity_independently_of_extraction(mechanics, monkeypatch):
@@ -532,19 +515,19 @@ def test_insert_allocates_identity_independently_of_extraction(mechanics, monkey
         operation, = operations
         assert operation["mode"] == "INSERT" and "db_id" not in operation
         assert operation["entity_id"] == operation["payload"]["entity_id"]
-        assert operation["entity_id"].startswith("entity_") and operation["reserved_id"]
+        assert operation["entity_id"] == operation["reserved_id"]
         return commit(operations)
     monkeypatch.setattr(case.db, "commit_graph_updates", verify_identity)
     run_message(case)
     inserted, = memory_rows(case)
     assert inserted["entity_id"] == inserted["payload"]["entity_id"]
-    assert inserted["entity_id"].startswith("entity_")
+    assert inserted["entity_id"] == str(inserted["id"])
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, "What programming language do I prefer?", ChatSenderRole.USER, case.user)["context_text"]
-    assert context.count("[[ENTITY: " + inserted["entity_id"]) == 1
+    assert context.count(inserted["entity_id"]) == 1
 
 
 @pytest.mark.parametrize("mode", ["MUTATE", "REINFORCE"])
-def test_missing_matched_golden_record_fails_before_persistence(mechanics, monkeypatch, mode):
+def test_unoffered_match_is_noop_without_inventing_a_record(mechanics, monkeypatch, mode):
     case = lifecycle(mechanics)
     run_message(case)
     before, dictionary_before = memory_rows(case), dictionary_state(case)
@@ -554,7 +537,7 @@ def test_missing_matched_golden_record_fails_before_persistence(mechanics, monke
     case.llm.prepare(mode, value, "I still really like Python." if mode == "REINFORCE" else "Actually, I prefer Rust now.", missing_id, step)
     parse = case.llm.parse_structured
     def missing_match(system_prompt, user_text, schema, taxonomy=None, lexicon=None):
-        if schema is ExtractionMemorySchema or schema.__name__ == "TerminologyAlignmentResponse":
+        if schema.__name__ != "ResolutionResponse":
             return parse(system_prompt, user_text, schema, taxonomy, lexicon)
         case.llm.record("reconcile")
         return resolution_response(schema, {"mappings": [{
@@ -564,9 +547,14 @@ def test_missing_matched_golden_record_fails_before_persistence(mechanics, monke
     monkeypatch.setattr(case.llm, "parse_structured", missing_match)
     ChatHookWorkflow().on_chat(case.tenant, case.session, case.llm.message, ChatSenderRole.USER, case.user)
     queue = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
-    with pytest.raises(ValueError, match="Matched Golden Record not found"):
-        ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile"]
+    workflow=ConsolidationWorkflow()
+    markers=processed_count(case)
+    assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
+    assert "reconcile" in case.llm.calls and "mutate" not in case.llm.calls
+    assert processed_count(case)==markers+1
+    calls=list(case.llm.calls)
+    assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
+    assert case.llm.calls==calls and processed_count(case)==markers+1
     assert memory_rows(case) == before and dictionary_state(case) == dictionary_before
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
@@ -587,8 +575,8 @@ def test_failed_optional_feedback_commits_memory_and_replay_is_noop(mechanics, m
     batch_id = ConsolidationWorkflow._batch_id(case.tenant, case.user, queue)
     dictionary_before = dictionary_state(case)
     original = case.db.upsert_dictionary_keyword
-    def fail_attribute(anchor, keyword, kind):
-        return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind)
+    def fail_attribute(anchor, keyword, kind, keyword_context=""):
+        return original(anchor, None if kind == "ATTRIBUTE" else keyword, kind, keyword_context)
     monkeypatch.setattr(case.db, "upsert_dictionary_keyword", fail_attribute)
     workflow = ConsolidationWorkflow()
     assert workflow.run_consolidation_cycle(case.tenant, case.user, queue)
@@ -596,13 +584,13 @@ def test_failed_optional_feedback_commits_memory_and_replay_is_noop(mechanics, m
     assert case.db.is_consolidation_processed(case.tenant, case.user, batch_id)
     assert processed_count(case) == 2
     updated, = memory_rows(case)
-    assert language(updated)['value'] == 'Rust' and dictionary_state(case) == dictionary_before
+    assert fact_text(language(updated)) == 'Rust' and dictionary_state(case) == dictionary_before
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     monkeypatch.setattr(case.db, "upsert_dictionary_keyword", original)
     case.llm.calls = []
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
     updated, = memory_rows(case)
-    assert updated["id"] == before["id"] and language(updated)["value"] == "Rust"
+    assert updated["id"] == before["id"] and fact_text(language(updated)) == "Rust"
     assert updated["mention_count"] == before["mention_count"] + 1
     assert processed_count(case) == 2
     assert case.llm.calls == []
@@ -632,7 +620,8 @@ def test_later_identical_message_is_a_new_batch_and_survives_old_ack(mechanics):
     case.llm.prepare("REINFORCE", "Python", MESSAGE, inserted["id"], 1)
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, second)
     updated, = memory_rows(case)
-    assert updated["id"] == inserted["id"] and updated["mention_count"] == 2
+    assert updated["id"] == inserted["id"] and updated["mention_count"] == inserted["mention_count"] + 1
+    assert language(updated)["_mention_count"] == 2
     assert processed_count(case) == 2
     acknowledge(case)
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == []
@@ -666,7 +655,7 @@ def test_direct_worker_acknowledges_new_and_replayed_success(mechanics, monkeypa
     assert len(memory_rows(case)) == 1 and processed_count(case) == 1
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == []
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is None
-    assert case.llm.calls == ([] if already_processed else ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "reconcile", "mutate", "embed_batch"])
+    assert case.llm.calls == ([] if already_processed else ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile", "mutate", "embed_batch"])
 
 
 @pytest.mark.parametrize("raises", [False, True])
@@ -714,20 +703,18 @@ def test_concurrent_batch_claim_applies_memory_and_feedback_only_once(mechanics,
     """Race prepared persistence on two independent PostgreSQL connections."""
     from concurrent.futures import ThreadPoolExecutor
     from tomte.engine.dictionary.service import DictionaryService
+    from memory_fixtures import simple_entity, simple_fact, prepare_write
     case = lifecycle(mechanics)
     queue = queued_message(case)
     batch_id = ConsolidationWorkflow._batch_id(case.tenant, case.user, queue)
-    entity = case.llm.entity.model_dump(mode="json")
-    operation = {
-        "mode": "INSERT", "tenant_id": case.tenant, "user_id": case.user,
-        **{key: entity[key] for key in ("entity_id", "entity_name", "entity_domain", "entity_type")},
-        "payload": entity, "embedding": case.llm.vector(), "importance": 4,
-        "extracted_facts": entity["facts"],
-        "_dictionary_evidence": [
+    entity = simple_entity(case.llm.entity.entity_name, kind=case.llm.entity.entity_type,
+        domain=case.llm.entity.entity_domain, facts=[simple_fact(f.attribute_name, fact_text(f.model_dump()), importance=f.importance)
+                                                   for f in case.llm.entity.facts])
+    operation = prepare_write(case.tenant, case.user, entity, vector=case.llm.vector())
+    operation["_dictionary_evidence"] = [
             {"keyword": word, "keyword_type": kind, "vector": case.llm.vector(), "dictionary_id": None}
             for word, kind in [(entity["entity_type"], "ENTITY")] +
-            [(f["attribute_name"], "ATTRIBUTE") for f in entity["facts"]]],
-    }
+            [(f["attribute_name"], "ATTRIBUTE") for f in entity["facts"]]]
     config = dotenv_values(".env")
     url = os.environ.get("POSTGRES_URL") or config.get("POSTGRES_URL")
     barrier = threading.Barrier(2, timeout=10)
@@ -757,7 +744,8 @@ def test_concurrent_batch_claim_applies_memory_and_feedback_only_once(mechanics,
                 for future in futures:
                     future.result(timeout=20)
         inserted, = memory_rows(case)
-        assert inserted["entity_id"] == "pre_01" and inserted["mention_count"] == 1
+        assert inserted["entity_id"] == entity["entity_id"] == str(inserted["id"])
+        assert inserted["mention_count"] == 2 and all(f["_mention_count"] == 1 for f in inserted["payload"]["facts"])
         assert processed_count(case) == 1
         matches = case.db.find_dictionary_matches_above_threshold(case.llm.vector(), 0.999)
         assert len(matches) == 3

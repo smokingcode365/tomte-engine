@@ -16,7 +16,7 @@ from evaluate_memory_ordering import rank_candidates
 from tomte.engine import Tomte
 from tomte.engine.core.config import settings
 from tomte.engine.core.enums import ChatSenderRole
-from tomte.engine.core.assertions import project_facts
+from memory_eval_support import MEMORY_FORMAT, current_facts, historical_facts, item_texts
 from tomte.engine.dictionary import service
 from tomte.engine.exceptions import TomteSessionStateUnavailable
 from tomte.engine.providers import openai_provider, redis_provider
@@ -33,7 +33,7 @@ POLICIES=('current','session_recent_semantic','session_semantic_recent','semanti
 
 def load_traces():
     traces=json.loads((INPUT/'traces.json').read_text(encoding='utf-8'))
-    truth={t['trace_id']:t for t in json.loads((INPUT/'truth.json').read_text(encoding='utf-8'))}
+    truth={t['trace_id']:t for t in json.loads((INPUT/'truth_v2.json').read_text(encoding='utf-8'))['traces']}
     assert len(traces)>=12 and len({t['user_id'] for t in traces})>=6
     assert sum(t['trace_class']=='manual' for t in traces)>=5
     assert sum(t['trace_class']=='adversarial' for t in traces)>=4
@@ -53,9 +53,10 @@ def entity_key(row,truth):
 
 
 def fact_matches(fact,spec):
-    key=fact['attribute_name'].lower(); value=str(fact['value']).lower()
+    key=' '.join([fact['attribute_name'], *fact['value']]).lower(); values=[v.lower() for v in item_texts(fact)]
+    value=' '.join(values)
     scalar_color=any(k in ('color','colour','exterior') for k in spec['attribute_contains'])
-    value_match=any(value.strip()==v.lower() if scalar_color else v.lower() in value for v in spec['values'])
+    value_match=any(v.lower() in values if scalar_color else v.lower() in value for v in spec['values'])
     if spec.get('value_rule')=='positive_ownership':
         value_match=value_match and not any(x in value for x in ('no longer','not own','sold','previously owned','unknown','uncertain'))
     return any(k in key for k in spec['attribute_contains']) and value_match
@@ -68,43 +69,38 @@ def evaluate_state(records,truth,sources):
         (groups[k] if k else extra).append(row)
     matched=[]; missing=[]
     for spec in truth['expected_final_facts']:
-        found=any(f.get('assertion_state','ACTIVE')==spec['state'] and fact_matches(f,spec)
-                  for row in groups[spec['entity']] for f in row['payload']['facts'])
+        found=any(fact_matches(f,spec) for row in groups[spec['entity']]
+            for f in (current_facts(row['payload']) if spec['location']=='current' else historical_facts(row['payload'])))
         (matched if found else missing).append(spec)
     forbidden=[spec for spec in truth['forbidden_active'] if any(fact_matches(f,spec)
-        for row in groups[spec['entity']] for f in project_facts(row['payload']['facts']))]
+        for row in groups[spec['entity']] for f in current_facts(row['payload']))]
     aliases={key:all(any(a.lower() in [x.lower() for x in row['payload'].get('aliases',[])] for row in groups[key]) for a in expected)
              for key,expected in truth['expected_aliases'].items()}
     duplicate_entities=sum(max(0,len(items)-1) for items in groups.values())
     duplicates=0; unsupported=[]; contradictions=[]; total=0; checklist_hits=0
     for row in records:
-        active=project_facts(row['payload']['facts']); total+=len(active)
-        counts=Counter((f['attribute_name'].lower(),str(f['value']).lower()) for f in active)
+        active=current_facts(row['payload']); total+=len(active)
+        counts=Counter((f['attribute_name'].lower(),json.dumps({k:(v['text'],v['fact_confidence']) for k,v in f['value'].items()},sort_keys=True,ensure_ascii=False).lower()) for f in active)
         duplicates+=sum(n-1 for n in counts.values())
         key=entity_key(row,truth)
         for f in active:
-            if any(spec['entity']==key and fact_matches(f,spec) for spec in truth['expected_final_facts'] if spec['state']=='ACTIVE'): checklist_hits+=1
-            evidence=f.get('evidence',[])
-            ids={e['source_chat_id'] for e in evidence} or {f.get('source_chat_id')}
-            supplied=[sources.get(x) for x in ids]
-            if any(x is None for x in supplied): unsupported.append(dict(reason='unknown_source',entity=row['entity_name'],fact=f))
-            elif all(x['role']=='assistant' or x['filler'] for x in supplied): unsupported.append(dict(reason='assistant_or_filler_only_evidence',entity=row['entity_name'],fact=f))
+            if any(spec['entity']==key and fact_matches(f,spec) for spec in truth['expected_final_facts'] if spec['location']=='current'): checklist_hits+=1
         for attribute in {f['attribute_name'] for f in active}:
             if any(x in attribute.lower() for x in ('color','colour','purchase_year','birth_year')):
-                values={str(f['value']).lower() for f in active if f['attribute_name']==attribute}
+                values={json.dumps({k:(v['text'],v['fact_confidence']) for k,v in f['value'].items()},sort_keys=True,ensure_ascii=False).lower() for f in active if f['attribute_name']==attribute}
                 if len(values)>1: contradictions.append(dict(entity=row['entity_name'],attribute=attribute,values=sorted(values)))
     return dict(expected_entities=len(groups),found_entities=sum(bool(v) for v in groups.values()),missing_entities=[k for k,v in groups.items() if not v],
         extra_entities=[r['entity_name'] for r in extra],duplicate_entities=duplicate_entities,expected_fact_checklist=len(matched)+len(missing),matched_facts=len(matched),
         checklist_recall=len(matched)/(len(matched)+len(missing)),active_checklist_precision=checklist_hits/total if total else 0,
         missing_facts=missing,forbidden_active=forbidden,duplicate_facts=duplicates,contradictions=contradictions,
-        unsupported_provenance=unsupported,aliases=aliases,active_fact_count=total,
+        unsupported_provenance=None,provenance_scoring='Unavailable from stored memory; inspect recorded model calls and accepted writes',aliases=aliases,active_fact_count=total,
         caveat='Checklist precision is not semantic fact precision; extra supported facts and synonyms require human review.')
 
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--limit',type=int);parser.add_argument('--repeat-critical',type=int,default=3)
     parser.add_argument('--trace-ids',nargs='+')
-    parser.add_argument('--output-dir',default='log/real_world')
+    parser.add_argument('--output-dir',default='log/real_world_v2')
     parser.add_argument('--validate-only',action='store_true');args=parser.parse_args()
     traces,truths=load_traces()
     if args.validate_only:
@@ -256,7 +252,7 @@ def main():
                 out=hook.cog.merge_entities(captured['recent'],captured['raw'],captured['session'])
                 labels=[entity_key(dict(entity_name=e['entity_name'],payload=e),truth) for e in out if e['entity_domain']!='identity_and_demographics']
                 later.append(dict(text=q['text'],required=q['required'],available=[k for k in q['required'] if k in labels],ordered=labels))
-            run=dict(trace_id=tid,repetition=rep,trace_class=trace['trace_class'],tenant=tenant,user=user,turns=trace['turns'],hidden_truth=truth,retrieval=retrieval,turn_results=turn_results,filler=filler,batches=batch_results,final_records=[{k:v for k,v in r.items() if k!='native_id'} for r in final],state_score=evaluation,later=later,
+            run=dict(memory_format=MEMORY_FORMAT,trace_id=tid,repetition=rep,trace_class=trace['trace_class'],tenant=tenant,user=user,turns=trace['turns'],hidden_truth=truth,retrieval=retrieval,turn_results=turn_results,filler=filler,batches=batch_results,final_records=[{k:v for k,v in r.items() if k!='native_id'} for r in final],state_score=evaluation,later=later,
                 terminology_metrics=getattr(workflow,'last_terminology_metrics',None))
             runs.append(run)
             (OUTPUT/'progress.json').write_text(json.dumps(runs,default=str,indent=2),encoding='utf-8')
@@ -292,7 +288,7 @@ def main():
         (OUTPUT/'model_calls.json').write_text(json.dumps(model_calls,default=str,indent=2),encoding='utf-8')
         (OUTPUT/'api_usage.json').write_text(json.dumps(dict(counts=dict(api),requests=requests,retries=retry_diagnostics),indent=2),encoding='utf-8')
     assert cleanup,'Cleanup digest mismatch'
-    report=dict(runs=runs,reliability=reliability,cleanup_verified=cleanup,models=settings.openai.model_dump(),api=dict(api),requests=requests,retries=retry_diagnostics,
+    report=dict(memory_format=MEMORY_FORMAT,runs=runs,reliability=reliability,cleanup_verified=cleanup,models=settings.openai.model_dump(),api=dict(api),requests=requests,retries=retry_diagnostics,
         limitations=['Deterministic fact checklist is lexical, not semantic precision; unmatched facts need human review.',
           'Two-day session gaps simulated using queue clock and only synthetic row recency; no wall-clock idle wait.',
           'Snapshots/cycles manually invoked; daemon scheduler and lock contention not exercised.',

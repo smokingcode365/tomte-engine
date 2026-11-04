@@ -16,8 +16,10 @@ not generate answers. Frozen traces require no generation-model calls. Use
 ## Inputs and hidden truth
 
 `traces.json` contains only identifiers, roles, text, sessions, and relative time.
-`truth.json` holds entity/fact expectations, turn annotations, and retrieval
-checkpoints. Only conversation text enters ChatHook; labels never reach models.
+`truth_v2.json` holds entity/fact expectations, turn annotations, and retrieval
+checkpoints for current values and nested history. The original `truth.json`
+and transcripts are preserved for historical reproduction. Only conversation
+text enters ChatHook; labels never reach models.
 Manual traces are authored; noisy traces are fixed seeded wording variations;
 adversarial traces add ambiguity and long interruptions. These are synthetic
 scenarios, not a representative sample of human chat. Each trace has 54 turns.
@@ -34,14 +36,14 @@ feedback is global, and an existing dictionary must never be overwritten merely
 for evaluation. Run on otherwise idle local infrastructure.
 
 Cleanup deletes only the unique synthetic tenant namespace and recorded new
-anchor IDs, then compares all six table counts/row digests and Redis key counts/
+anchor IDs, then compares all seven table counts/row digests and Redis key counts/
 digests. It never resets volumes or flushes Redis. BIGSERIAL sequence increments
 are not reset. Cleanup is in `finally`, but forced process termination can bypass
 it; do not kill the evaluation while it is running.
 
 ## Results and limits
 
-Ignored outputs live in `log/real_world/`: progress, model calls, API usage,
+Ignored v2 outputs live in `log/real_world_v2/`: progress, model calls, API usage,
 cleanup evidence, JSON report, ranking CSV, and an HTML drill-down. Embeddings
 are cached by unchanged model, dimension, role, and text. Model results are not
 cached; critical repetitions use real model calls.
@@ -51,19 +53,24 @@ cosines for recent/session-only candidates are recorded and use zero in scored
 policies. Persona is excluded. Scoring matches expected entity names/aliases and
 attribute/value patterns. Checklist precision is not semantic fact precision;
 unmatched supported facts, synonyms, and inferred facts need human review.
-Unknown/assistant-only/filler-only evidence is flagged separately. Corrections
-and color history have explicit expectations; conservative ambiguous resolution
+Unknown/assistant-only/filler-only sources can be flagged in raw extraction
+traces. Stored memory no longer contains sources, so the final snapshot alone
+cannot establish accepted-write provenance; that requires reviewing operational
+model/commit evidence. Corrections and color history have explicit expectations;
+conservative ambiguous resolution
 is allowed. True race/load tests and broad semantic adjudication are out of scope;
 the deterministic PostgreSQL/Redis suite supplies separate concurrency coverage.
 
 ## Offline scorer checks
 
-`evals/real_world/test_contract.py` supplies four no-network tests for input/truth
+`evals/real_world/test_contract.py` retains four no-network tests for input/truth
 separation, domain-qualified event versus vehicle identity, exact color values,
-and empty-set ranking stability. The offline report helper corrects identity
+and empty-set ranking stability. `tests/test_memory_evaluation_tools.py` adds v2
+fixture, nested-history and scoring checks. The offline report helper corrects identity
 bookkeeping and recomputes rankings from recorded candidate metadata. Raw live
 results remain available separately. Prefer `analysis.json` and `analysis.html`
-for the adjudicated deterministic checklist and ranking results.
+for the deterministic checklist and ranking results. The current report helper
+requires `memory_format: 2`; use the historical Git revision for v1 evidence.
 
 Profiles share a deliberately small entity catalog. Multiple traces reuse six
 users and dictionary vocabulary; executions are correlated rather than twelve

@@ -39,7 +39,7 @@ def test_junk_filter_returns_output_without_legacy_data(provider, monkeypatch, e
                                 model_settings={"openai_reasoning_effort": "none"})
 
 
-@pytest.mark.parametrize("schema", [TomteMemorySchema, ExtractionMemorySchema])
+@pytest.mark.parametrize("schema", [ExtractionMemorySchema])
 def test_extraction_returns_typed_output_and_passes_dictionary_dependencies(provider, monkeypatch, schema):
     expected = schema()
     run = Mock(return_value=SimpleNamespace(output=expected))
@@ -49,7 +49,7 @@ def test_extraction_returns_typed_output_and_passes_dictionary_dependencies(prov
     run.assert_called_once()
     args, kwargs = run.call_args
     assert args == ("Synthetic extraction",) and kwargs["model"] == provider.strong_model
-    assert kwargs["output_type"] is schema
+    assert "output_type" not in kwargs
     assert kwargs["model_settings"] == {"openai_reasoning_effort": "low"}
     assert kwargs["deps"].taxonomy == ["vehicle"] and kwargs["deps"].lexicon == ["paint_color"]
 

@@ -9,10 +9,9 @@ from dotenv import load_dotenv
 from evaluate_memory_retrieval import state
 from tomte.engine import Tomte
 from tomte.engine.core.config import settings
-from tomte.engine.core.schema import Entity,Fact
+from memory_eval_support import entity as fixture_entity, fixture_write, search_texts, value, item_texts, MEMORY_FORMAT
+from tomte.engine.llm.embedder import changed_search_entries
 from tomte.engine.core.extraction import ExtractionMemorySchema,resolve_extraction
-from tomte.engine.core.assertions import adapt_assertions,project_facts
-from tomte.engine.core.correction_safety import UnsupportedCorrection
 from tomte.engine.dictionary import service
 from tomte.engine.providers import openai_provider
 from tomte.engine.providers.postgres_provider import PostgresProvider
@@ -20,7 +19,7 @@ from tomte.engine.providers.redis_provider import RedisCacheProvider
 from tomte.engine.workflows.consolidation import ConsolidationWorkflow
 from tomte.engine.utils.keys import get_section_key_active_sessions
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/'log/correction_safety'
+OUT=ROOT/'log/correction_safety_v2'
 
 
 def main():
@@ -54,9 +53,15 @@ def main():
     # Reuse actual real-model embeddings for fixture-only candidate search.
     vector=next(iter(vectors.values()))
     def seed(user,name,eid,domain,kind,facts,aliases=()):
-        payload=Entity(entity_id=eid,entity_name=name,entity_domain=domain,entity_type=kind,aliases=list(aliases),facts=[Fact(**{'confidence':1,**f}) for f in facts]).model_dump(mode='json')
-        payload['facts']=adapt_assertions(payload['facts'],prefix+user+eid)
-        assert db.commit_graph_updates([dict(mode='INSERT',tenant_id=prefix,user_id=user,**{k:payload[k] for k in ('entity_id','entity_name','entity_domain','entity_type')},payload=payload,embedding=vector)])
+        payload=fixture_entity(eid,name,domain,kind,aliases,[(f['attribute_name'],f['value']) for f in facts])
+        # Fixed existing vector intentionally controls identity candidates. This is
+        # a planner-safety evaluation, not a semantic retrieval measurement.
+        assert db.commit_graph_updates([fixture_write(prefix,user,payload,{text:vector for text in search_texts(payload)})])
+    def index_operations(prepared):
+        for operation in prepared:
+            operation['embedding']=vector
+            operation['search_entries']=[{**{k:v for k,v in entry.items() if k!='text'},'embedding':vector}
+                for entry in changed_search_entries(operation['payload'],operation.get('_expected_payload'))]
     def rows(user):return db.conn.execute('SELECT id::text,id AS native_id,tenant_id,user_id,entity_id,entity_name,entity_domain,entity_type,payload FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s ORDER BY entity_id',(prefix,user)).fetchall()
     try:
         Tomte._db=Tomte._cache=Tomte._llm=Tomte._worker=None;service._dictionary_service_instance=None
@@ -70,20 +75,22 @@ def main():
             data=dict(CURRENT_BATCH=[item],RECENT_CONTEXT_REFERENCE_ONLY=[dict(role='user',content=case['reference'])])
             # Deliberately inject the erroneous incoming assignment to test planner+gate,
             # not extraction accuracy. Neither model receives expected_correction.
-            incoming=dict(entity_id='temporary',entity_name=case['target'],entity_domain=case['domain'],entity_type=case['kind'],aliases=[],facts=[dict(attribute_name=case['attribute'],value=case['new'],source_chat_id=item['item_id'],confidence=.9,status='active')])
-            op=ConsolidationWorkflow._prepare_operation(prefix,user,incoming,existing[1] if existing[1]['entity_id']=='target' else existing[0])
+            incoming=dict(entity_id='tmp_target',entity_name=case['target'],entity_domain=case['domain'],entity_type=case['kind'],aliases=[],facts=[dict(attribute_name=case['attribute'],value=value(case['new']),source_chat_id=item['item_id'],importance=3,group_participant_handles=[])])
+            op=ConsolidationWorkflow._prepare_operation(prefix,user,incoming,next(r for r in existing if r['entity_name']==case['target']))
             workflow=ConsolidationWorkflow();blocked=False;error=None
             try:
                 prepared=workflow._plan_fact_mutations([op],data,'batch-'+user,existing)
-                for operation in prepared:operation['embedding']=vector
+                index_operations(prepared)
                 workflow._commit_refined_operations(prepared,prefix,user,'batch-'+user)
-            except UnsupportedCorrection:blocked=True
             except Exception as e:error=type(e).__name__
-            final=next(r for r in rows(user) if r['entity_id']=='target')
-            active=project_facts(final['payload']['facts']);old=next(f for f in final['payload']['facts'] if f['value']==case['old'])
-            corrected=old['assertion_state']=='CORRECTED_INVALID' and any(f['value']==case['new'] for f in active)
-            invalidated=old['assertion_state']!='ACTIVE'
-            results.append(dict(case_id=user,expected_correction=case['expected_correction'],blocked=blocked,error=error,corrected=corrected,old_invalidated=invalidated,plan=getattr(workflow,'last_mutation_plan',None),final=final['payload']))
+            final=next(r for r in rows(user) if r['entity_name']==case['target'])
+            active=final['payload']['facts']
+            original=next(r for r in existing if r['entity_name']==case['target'])['payload']['facts'][0]
+            current_fact=next(f for f in active if f['fact_id']==original['fact_id'])
+            corrected=case['new'] in item_texts(current_fact) and case['old'] not in item_texts(current_fact)
+            invalidated=case['old'] not in item_texts(current_fact)
+            blocked=not prepared if error is None else True
+            results.append(dict(memory_format=MEMORY_FORMAT,case_id=user,expected_correction=case['expected_correction'],blocked=blocked,error=error,corrected=corrected,old_invalidated=invalidated,plan=getattr(workflow,'last_mutation_plan',None),final=final['payload']))
             print(user,'corrected',corrected,'blocked',blocked,'error',error,flush=True)
         for rep in range(1,11):
             current['id']=user='failure-repeat-'+str(rep)
@@ -97,18 +104,17 @@ def main():
             extracted=Tomte.get_llm().parse_structured(None,json.dumps(data),ExtractionMemorySchema)
             normalized=resolve_extraction(extracted,data['CURRENT_BATCH']);workflow=ConsolidationWorkflow();entities=workflow._flatten_schema(normalized)
             op=workflow._reconcile_with_golden_records(prefix,user,entities,existing,reference_context=data['RECENT_CONTEXT_REFERENCE_ONLY'],current_batch=data['CURRENT_BATCH'])
-            misassigned=any(e['entity_name']=='Honda Civic' and any(f['value']=='2024' for f in e['facts']) for e in entities)
+            misassigned=any(e['entity_name']=='Honda Civic' and any('2024' in item_texts(f) for f in e['facts']) for e in entities)
             blocked=False;error=None
             try:
                 prepared=workflow._plan_fact_mutations(op,data,'batch-'+user,existing)
-                for operation in prepared:operation['embedding']=vector
+                index_operations(prepared)
                 workflow._commit_refined_operations(prepared,prefix,user,'batch-'+user)
-            except UnsupportedCorrection:blocked=True
             except Exception as e:error=type(e).__name__
             final=next(r for r in rows(user) if r['entity_name']=='Honda Civic')
-            active_years=[f['value'] for f in project_facts(final['payload']['facts']) if f['attribute_name']=='purchase_year']
+            active_years=[text for f in final['payload']['facts'] if f['attribute_name']=='purchase_year' for text in item_texts(f)]
             corrupted='2024' in active_years or '2021' not in active_years
-            results.append(dict(case_id=user,repetition=rep,extraction_misassigned=misassigned,blocked=blocked,error=error,corrupted=corrupted,old_2021_preserved='2021' in active_years,plan=getattr(workflow,'last_mutation_plan',None),final=final['payload']))
+            results.append(dict(memory_format=MEMORY_FORMAT,case_id=user,repetition=rep,extraction_misassigned=misassigned,blocked=blocked,error=error,corrupted=corrupted,old_2021_preserved='2021' in active_years,plan=getattr(workflow,'last_mutation_plan',None),final=final['payload']))
             print(user,'misassigned',misassigned,'corrupted',corrupted,'blocked',blocked,flush=True)
     finally:
         with db.transaction():

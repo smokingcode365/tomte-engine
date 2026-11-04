@@ -6,7 +6,7 @@ from tomte.engine.core.enums import MemoryDomain
 
 class DatabaseProvider(Protocol):
     """
-    The contract for the Tomte Engine's permanent Knowledge Graph.
+    The contract for durable entities, embedded facts and their search index.
     Supports multi-tenancy via (tenant_id, user_id) composite logic.
     """
 
@@ -88,11 +88,11 @@ class DatabaseProvider(Protocol):
         ...
 
     def claim_consolidation_batch(self, tenant_id: str, user_id: str, batch_id: str) -> bool:
-        """Within transaction(), claim once alongside memory and dictionary writes."""
+        """Claim once with memory/search writes; optional dictionary feedback is separate."""
         ...
 
     def get_user_graph_skeleton(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
-        """Retrieves entity_ids and aliases for anchoring new facts."""
+        """Full scoped storage records with canonical UUIDs and internal metadata; not a public projection."""
         ...
 
     def get_resolution_candidates(self, tenant_id: str, user_id: str, names: List[str],
@@ -104,17 +104,21 @@ class DatabaseProvider(Protocol):
     def find_exact_fact(
         self, tenant_id: str, user_id: str, entity_id: str, attribute_name: str
     ) -> Optional[UUID]:
-        """Checks for existing facts to decide between Reinforce or Mutate."""
+        """Legacy existence lookup returning the entity row UUID, not a selected fact UUID."""
         ...
 
     def commit_graph_updates(self, updates: List[Any]) -> bool:
-        """Executes a batch of graph mutations in an atomic transaction."""
+        """Atomically write scoped payloads and index deltas, checking expected payloads and immutable history."""
         ...
 
     # --- Dictionary semantic anchors (bootstrap + feedback) ---
+    def get_history_candidates(self, tenant_id: str, user_id: str, entity_ids: List[str], vector: List[float], limit: int) -> List[Dict[str, Any]]:
+        """Scoped positional history candidates ranked per entity; never returned as memory."""
+        raise NotImplementedError("History candidate lookup is not supported")
+
     def get_semantic_keywords(
         self, vector: List[float], threshold: float, id_limit: int,
-        keyword_type: Optional[str] = None, keyword_limit: int = 5,
+        keyword_type: Optional[str] = None, keyword_limit: int = 5, keyword_context: str = "",
     ) -> List[Dict[str, Any]]:
         """Optional typed top keywords, filtered before limiting; otherwise legacy anchors."""
         ...
@@ -132,7 +136,7 @@ class DatabaseProvider(Protocol):
     def update_dictionary_anchor_vector(self, dictionary_id: UUID, new_vector: List[float]) -> None:
         ...
 
-    def upsert_dictionary_keyword(self, dictionary_id: UUID, keyword: str, keyword_type: str) -> None:
+    def upsert_dictionary_keyword(self, dictionary_id: UUID, keyword: str, keyword_type: str, keyword_context: str = "") -> None:
         ...
 
     def create_dictionary_anchor(self, vector: List[float]) -> UUID:
@@ -141,7 +145,7 @@ class DatabaseProvider(Protocol):
 
 
     def get_anchor_keywords(self, dictionary_id: str) -> List[Dict[str, Any]]:
-        """Keyword rows for one semantic anchor (maintenance / merge UIs)."""
+        """Keyword rows including keyword_type and keyword_context for one anchor."""
         ...
 
     def execute_dictionary_trim(self) -> int:
@@ -149,10 +153,12 @@ class DatabaseProvider(Protocol):
     def get_cross_anchor_merge_candidates(self) -> List[Dict[str, Any]]:
         ...
     def consolidate_duplicate_anchors(self, id_a: str, id_b: str, merged_vector: List[float], merged_kws: Dict) -> bool:
+        """Merge only matching role/context groups; keyword map keys include both."""
         ...
     def get_anchors_for_internal_merge(self) -> List[str]:
         ...
     def apply_internal_merges(self, anchor_id: str, merges: List[Dict[str, Any]]) -> None:
+        """Apply approved survivors/victims only within each supplied role and parent context."""
         ...
     def mark_anchor_internal_merge_complete(self, anchor_id: str) -> None:
         ...

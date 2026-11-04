@@ -19,6 +19,7 @@ from tomte.engine.database.postgre import schema, transactions
 from tomte.engine.dictionary.service import DictionaryService
 from tomte.engine.providers.postgres_provider import PostgresProvider
 from tomte.engine.workflows.consolidation import ConsolidationWorkflow
+from memory_fixtures import simple_entity, simple_fact, prepare_write
 
 
 @pytest.fixture
@@ -31,6 +32,7 @@ def local_db():
     db = None
     try:
         db = PostgresProvider(url)
+        db.ensure_infrastructure(1536)
         observer = psycopg.connect(url, autocommit=True, options="-c default_transaction_read_only=on")
     except Exception:
         if db is not None:
@@ -185,24 +187,25 @@ def test_caught_failed_sql_does_not_silently_commit(local_db):
 
 
 def memory_update(tenant, user):
-    entity = {"entity_id": "pref_01", "entity_name": "Synthetic preference", "entity_domain": "preferences_and_traits", "entity_type": "preference", "aliases": [], "facts": []}
-    return {"mode": "INSERT", "tenant_id": tenant, "user_id": user, **entity, "payload": entity, "embedding": [1.0] + [0.0] * 1535, "extracted_facts": [], "importance": 3}
+    entity = simple_entity("Synthetic preference", kind="preference", domain="preferences_and_traits",
+                           facts=[simple_fact("favorite_language", "Python")])
+    return prepare_write(tenant, user, entity)
 
 
 @pytest.mark.parametrize("method", ["get_important_entities", "get_recent_entities", "get_frequent_entities", "semantic_retrieval"])
 def test_caught_normalization_failure_rolls_back_earlier_writes(local_db, method):
     db, tenant, user = local_db.db, local_db.tenant, local_db.users[0]
-    malformed = {**memory_update(tenant, user), "payload": {}}
+    initial = memory_update(tenant, user)
     with pytest.raises(transactions.TransactionScopeError, match="entire transaction"):
         with db.transaction():
             db.upsert_user_activity(tenant, user)
-            assert db.commit_graph_updates([malformed])
-            # Simulate corrupt storage; canonical identity now comes from the row.
-            db.conn.execute("UPDATE tomte_memory_engine SET payload='[]'::jsonb WHERE tenant_id=%s AND user_id=%s", (tenant,user))
+            assert db.commit_graph_updates([initial])
+            # Bypass application validation while retaining the SQL identity check.
+            db.conn.execute("UPDATE tomte_memory_engine SET payload=jsonb_set(payload,'{facts}','[{}]'::jsonb) WHERE tenant_id=%s AND user_id=%s", (tenant,user))
             assert local_db.visible(user) == 0
             arguments = (tenant, user, [1.0] + [0.0] * 1535) if method == "semantic_retrieval" else (tenant, user)
             # The SQL read succeeds; provider normalization fails and is caught.
-            with pytest.raises(ValueError, match="dictionary payload"):
+            with pytest.raises(ValueError, match="invalid stored entity"):
                 getattr(db, method)(*arguments)
     assert local_db.visible(user) == 0
     assert local_db.observer.execute(
@@ -218,7 +221,7 @@ def test_bulk_memory_operations_join_outer_transaction(local_db):
     with pytest.raises(RuntimeError, match="forced failure"):
         with db.transaction():
             assert db.commit_graph_updates([op])
-            assert db.get_recent_entities(tenant, user)[0]["entity_id"] == "pref_01"
+            assert db.get_recent_entities(tenant, user)[0]["entity_id"] == op["entity_id"]
             assert local_db.observer.execute("SELECT count(*) FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s", (tenant, user)).fetchone()[0] == 0
             raise RuntimeError("forced failure")
     assert db.get_recent_entities(tenant, user) == []
@@ -234,7 +237,10 @@ def test_standalone_bulk_write_commits_and_failed_batch_rolls_back(local_db):
         "SELECT count(*) FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s", (tenant, user)
     ).fetchone()[0] == 1
     good = memory_update(tenant, local_db.users[1])
-    bad = {**good, "entity_id": "pref_02", "embedding": [1.0]}
+    bad = memory_update(tenant, local_db.users[1])
+    bad["embedding"] = [1.0]
+    for entry in bad["search_entries"]:
+        entry["embedding"] = [1.0]
     assert db.commit_graph_updates([good, bad]) is False
     idle(db)
     assert db.get_recent_entities(tenant, local_db.users[1]) == []
@@ -244,7 +250,10 @@ def test_standalone_bulk_write_commits_and_failed_batch_rolls_back(local_db):
 def test_failed_bulk_write_in_outer_scope_propagates_and_rolls_back(local_db):
     db, tenant, user = local_db.db, local_db.tenant, local_db.users[0]
     good = memory_update(tenant, user)
-    bad = {**good, "entity_id": "pref_02", "embedding": [1.0]}
+    bad = memory_update(tenant, user)
+    bad["embedding"] = [1.0]
+    for entry in bad["search_entries"]:
+        entry["embedding"] = [1.0]
     with pytest.raises(psycopg.Error):
         with db.transaction():
             db.upsert_user_activity(tenant, user)

@@ -5,6 +5,8 @@ from tomte.engine.core.enums import ChatSenderRole, MemoryDomain, ProviderDictio
 from tomte.engine.exceptions import TomteInvalidIdError, TomteInvalidInputError, TomteSecurityViolationError, TomteSessionStateUnavailable
 from tomte.engine import tomtelog, Tomte
 from tomte.engine.core.schema import ChatHookPayload
+from tomte.engine.core.memory import public_entity
+from tomte.engine.core.retrieval import prepare_memory_views
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine.llm.interfaces import LLMProvider
@@ -62,12 +64,8 @@ class ChatHookWorkflow:
     # ==========================================
 
     def _handle_security_and_sanitization(self, message: str, user_id: Optional[str]) -> str:
-        """Sanitizes input and checks for injection."""
-        clean_msg = self.security.sanitize_input(message)
-        if not self.security.check_for_injection(clean_msg):
-            tomtelog.warn(f"Security: Injection attempt blocked for User: {user_id or 'Guest'}")
-            raise TomteSecurityViolationError(f"Security violation detected.Security: Injection attempt blocked for User: {user_id or 'Guest'}")
-        return clean_msg
+        """Preserve language; prompt trust boundaries handle embedded instructions."""
+        return self.security.sanitize_input(message)
 
     def _handle_assistant_sender(self, tenant_id: str, session_id: str, user_id: Optional[str], message: str) -> ChatHookPayload:
         """Logs AI responses to history."""
@@ -109,7 +107,10 @@ class ChatHookWorkflow:
         # Semantic rank first; append only unique current-message lexical hits.
         query_matches = self.cog.merge_entities(semantic, lexical)
         relevant, background = self._group_memories(persona, recent, query_matches, session_entities)
-        context_text = self._build_knowledge_context(persona, recent, query_matches, session_entities)
+        selected = prepare_memory_views(relevant + background, message, query_vector, tenant_id, user_id, self.db, self.llm)
+        relevant, background = selected[:len(relevant)], selected[len(relevant):]
+        context_text = ("QUERY-RELEVANT MEMORIES\n" + self.cog.format_entities(relevant)
+                        + "\n\nBACKGROUND/CONTINUITY\n" + self.cog.format_entities(background)) if selected else ""
 
         # 3. History Handshake (Append Last Rule)
         chat_history = self.cache.get_chat_history(tenant_id, session_id, user_id=user_id,limit=settings.history_chat_number)
@@ -223,8 +224,8 @@ class ChatHookWorkflow:
             
         return ChatHookPayload(
             context_text=context_text,
-            query_relevant_memories=query_relevant_memories or [],
-            background_memories=background_memories or [],
+            query_relevant_memories=[public_entity(e, e.get("_history_selection")) for e in (query_relevant_memories or [])],
+            background_memories=[public_entity(e, e.get("_history_selection")) for e in (background_memories or [])],
             chat_history=chat_history or [],
             user_id=user_id,
             clean_message=clean_message

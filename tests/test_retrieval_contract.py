@@ -11,19 +11,15 @@ from tomte.engine.providers.postgres_provider import PostgresProvider
 from tomte.engine.providers import postgres_provider
 from tomte.engine.utils.cognitive import CognitiveProcessor
 from tomte.engine.workflows import chat_hook
+from test_memory_values import apply, fields
 
 
 @pytest.fixture
 def entity():
-    return {
-        "entity_id": "pref_01",
-        "entity_name": "Programming preference",
-        "entity_domain": MemoryDomain.IDENTITY.value,
-        "entity_type": "preference",
-        "aliases": ["my favorite language"],
-        "facts": [{"attribute_name": "favorite_language", "value": "Python", "importance": 4}],
-        "metadata": {"source": "synthetic", "confidence": 1.0},
-    }
+    facts = apply([], {"operation": "ADD", "attribute_name": "favorite_language", "fields": fields(language="Python"), "importance": 4})
+    return {"entity_id": "b2c7b21b-306d-4f8b-8af1-319e508dff45", "entity_name": "Programming preference",
+            "entity_domain": MemoryDomain.IDENTITY.value, "entity_type": "preference",
+            "aliases": ["my favorite language"], "facts": facts}
 
 
 @pytest.fixture
@@ -57,19 +53,14 @@ def test_retrieval_preserves_entity_and_context(monkeypatch, provider, entity, m
     retrieved = getattr(provider, method)("synthetic-tenant", "synthetic-user", *extra)
 
     fetch.assert_called_once_with(provider.conn, "synthetic-tenant", "synthetic-user", *extra)
-    adapted=retrieved[0]["facts"][0]
-    from uuid import UUID
-    assert UUID(adapted["fact_id"]).version==5 and adapted["assertion_state"]=="ACTIVE"
-    assert {k:adapted[k] for k in entity["facts"][0]}==entity["facts"][0]
-    assert adapted["origin"]=="LEGACY" and adapted["evidence"]==[]
-    expected["facts"]=deepcopy(retrieved[0]["facts"])
+    assert retrieved[0]["facts"] == entity["facts"]  # No read-time IDs or legacy provenance.
     assert retrieved == [expected]
     assert row == original  # Normalization does not mutate the database result.
     cog = CognitiveProcessor()
     merged = cog.merge_entities(retrieved)
     assert merged == [expected]
     assert cog.format_entities(merged) == cog.format_entities([expected])
-    assert "favorite_language: Python" in cog.format_entities(merged)
+    assert "favorite_language" in cog.format_entities(merged) and "Python" in cog.format_entities(merged)
 
 
 @pytest.mark.parametrize("row", [None, {"payload": None}, {"payload": []}, {"payload": {}}, {"entity_id": ""}, {"payload": {"entity_id": 42}}])
@@ -81,7 +72,7 @@ def test_malformed_retrieval_raises_without_exposing_payload(monkeypatch, provid
 
 def test_row_metadata_precedence_and_empty_results(monkeypatch, provider, entity):
     monkeypatch.setattr(postgres_provider.operations, "get_semantic_context", lambda *args: [
-        {"payload": {**entity, "relevance_score": 0.1}, "relevance_score": 0.9}
+        {"payload": entity, "relevance_score": 0.9}
     ])
     assert provider.semantic_retrieval("synthetic-tenant", "synthetic-user", [1.0])[0]["relevance_score"] == 0.9
     monkeypatch.setattr(postgres_provider.operations, "get_recent_entities", lambda *args: [])
@@ -123,12 +114,13 @@ def test_registered_chat_context_equivalent_for_flat_and_postgres_rows(monkeypat
         results.append(result)
         llm.embed_text.assert_called_once_with("What language do I like?")
         adapted=provider.get_important_entities("synthetic-tenant", "synthetic-user")[0]
-        assert adapted["facts"][0]["assertion_state"]=="ACTIVE" and adapted["facts"][0]["fact_id"]
+        assert adapted["facts"][0]["fact_id"] == entity["facts"][0]["fact_id"]
         assert {k:adapted[k] for k in entity if k!="facts"}=={k:entity[k] for k in entity if k!="facts"}
         assert {k:adapted["facts"][0][k] for k in entity["facts"][0]}==entity["facts"][0]
         cache.set_persona_entities.assert_not_called()
         cache.append_chat_history.assert_called_once()
         cache.enqueue_for_consolidation.assert_called_once()
     assert results[0] == results[1]
-    assert "favorite_language: Python" in results[1]["context_text"]
-    assert results[1]["context_text"].count("[[ENTITY: pref_01") == 1
+    assert "favorite_language" in results[1]["context_text"] and "Python" in results[1]["context_text"]
+    assert results[1]["context_text"].count(entity["entity_id"]) == 1
+    assert "_recorded_at" not in results[1]["context_text"]

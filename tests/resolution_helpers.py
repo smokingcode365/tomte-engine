@@ -27,31 +27,34 @@ def resolution_response(schema, prescribed, user_text):
 
 # Prescribed fixture semantics only: production never uses this slot-based policy.
 def mutation_response(schema, user_text):
-    from tomte.engine.dictionary.terminology import canonical_attribute
-    data=json.loads(user_text)
-    sources={m["item_id"] for m in data["CURRENT_BATCH"]}
-    plans=[]
+    """A prescribed single-slot fixture policy, never production semantic logic."""
+    data = json.loads(user_text)
+    plans = []
     for target in data["TARGETS"]:
-        operations=[]
+        operations = []
         for incoming in target["incoming_semantics"]:
-            attribute=canonical_attribute(incoming["attribute_name"])
-            active=[f for f in target["assertions"] if f["assertion_state"]=="ACTIVE" and f["attribute_name"]==attribute]
-            same=next((f for f in active if f["value"]==incoming["value"]),None)
-            kind="REINFORCE" if same else "SUPERSEDE" if active else "ADD"
-            chosen=same or (active[0] if active else None)
-            source=incoming.get("source_chat_id")
-            if source not in sources:source=data["CURRENT_BATCH"][0]["item_id"]
-            operations.append({"operation":kind,"target_fact_id":chosen["fact_id"] if chosen else None,
-                "attribute_name":attribute,"new_value":None if kind=="REINFORCE" else incoming["value"],
-                "source_chat_ids":[source],"interpretation_confidence":incoming.get("confidence",1),
-                "evidence_type":"USER_EXPLICIT"})
-        plans.append({"target_key":target["target_key"],"operations":operations})
-    return schema.model_validate({"plans":plans})
+            attribute = incoming["attribute_name"]
+            existing = [f for f in target["facts"] if f["attribute_name"] == attribute]
+            same = next((f for f in existing if f["value"] == incoming["value"]), None)
+            chosen = same or (existing[0] if existing else None)
+            kind = "MENTION" if same else "UPDATE" if chosen else "ADD"
+            source = incoming.get("source_chat_id") or data["CURRENT_BATCH"][0]["item_id"]
+            operation = {"operation": kind, "target_fact_id": chosen["fact_id"] if chosen else None,
+                "attribute_name": attribute, "incoming_fact_key": incoming.get("incoming_fact_key"),
+                "fields": [] if kind == "MENTION" else [{"field_name": k, **v} for k, v in incoming["value"].items()],
+                "source_chat_ids": [source]}
+            if kind != "MENTION":
+                operation["importance"] = incoming.get("importance", 3)
+            if kind == "UPDATE":
+                operation.update(change_type="real_change", update_mode="replace_value")
+            operations.append(operation)
+        plans.append({"target_key": target["target_key"], "operations": operations})
+    return schema.model_validate({"plans": plans})
 
 
 def mutation_aware(model):
     def wrapped(system_prompt,user_text,schema,**kwargs):
-        if schema.__name__ == "TerminologyAlignmentResponse":
+        if schema.__name__ in ("TerminologyAlignmentResponse", "FieldAlignmentResponse", "ContextualActionResponse"):
             return schema()  # Prescribed KEEP_RAW; decision mechanics tested separately.
         if schema.__name__=="MutationPlanResponse":
             return mutation_response(schema,user_text)

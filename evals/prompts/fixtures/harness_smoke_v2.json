@@ -1,0 +1,252 @@
+{
+  "schema_version": 2,
+  "smoke_only": true,
+  "purpose": "Artificial v2 loader/dispatch/scorer fixtures, not a semantic benchmark. The v1 fixture is retained unchanged.",
+  "cases": [
+    {
+      "case_id": "harness-smoke-junk",
+      "schema_version": 2,
+      "stage": "junk",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "expected_junk": true
+      }
+    },
+    {
+      "case_id": "harness-smoke-extraction",
+      "schema_version": 2,
+      "stage": "extraction",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "RECENT_CONTEXT_REFERENCE_ONLY": []
+      },
+      "expected": {
+        "required_entities": [],
+        "forbidden_entities": [],
+        "required_facts": [],
+        "forbidden_facts": [],
+        "exact_entity_count": 0,
+        "exact_fact_count": 0
+      }
+    },
+    {
+      "case_id": "harness-smoke-terminology",
+      "schema_version": 2,
+      "stage": "terminology",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "entities": []
+      },
+      "expected": {
+        "decisions": []
+      }
+    },
+    {
+      "case_id": "harness-smoke-identity_resolution",
+      "schema_version": 2,
+      "stage": "identity_resolution",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "EXTRACTED_SEMANTIC_INFORMATION": [],
+        "CANDIDATES_BY_OBJECT": {}
+      },
+      "expected": {
+        "resolutions": []
+      }
+    },
+    {
+      "case_id": "harness-smoke-contextual_action",
+      "schema_version": 2,
+      "stage": "contextual_action",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "CANDIDATES": []
+      },
+      "expected": {
+        "expected_action_count": 0,
+        "require_no_action": true
+      }
+    },
+    {
+      "case_id": "harness-smoke-fact_mutation",
+      "schema_version": 2,
+      "stage": "fact_mutation",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "CURRENT_BATCH": [],
+        "REFERENCE_ONLY_CONTEXT": [],
+        "TARGETS": []
+      },
+      "expected": {
+        "required_operations": [],
+        "forbidden_operations": [],
+        "allow_noop": true
+      }
+    },
+    {
+      "case_id": "harness-smoke-cross_anchor_merge",
+      "schema_version": 2,
+      "stage": "cross_anchor_merge",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": "Group A: [{'keyword': 'token', 'keyword_type': 'ATTRIBUTE', 'keyword_context': ''}]\nGroup B: [{'keyword': 'other', 'keyword_type': 'ATTRIBUTE', 'keyword_context': ''}]\nAre these exact synonyms?",
+      "expected": {
+        "expected_merge": false
+      }
+    },
+    {
+      "case_id": "harness-smoke-internal_keyword_merge",
+      "schema_version": 2,
+      "stage": "internal_keyword_merge",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": "{\"keyword_type\": \"ATTRIBUTE\", \"keyword_context\": \"\", \"keywords\": [\"token_a\", \"token_b\"]}",
+      "expected": {
+        "required_pairs": [],
+        "forbidden_pairs": []
+      }
+    },
+    {
+      "case_id": "harness-smoke-field_terminology",
+      "schema_version": 2,
+      "stage": "field_terminology",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "fields": [
+          {
+            "entity_handle": "e",
+            "fact_handle": "f",
+            "field_handle": "v",
+            "parent_context": "[\"relationships\",\"person\",\"employment\"]",
+            "candidates": [
+              {
+                "candidate_handle": "c",
+                "keyword": "employer_name"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "decisions": [
+          {
+            "entity_handle": "e",
+            "fact_handle": "f",
+            "field_handle": "v",
+            "expected_decision": "KEEP_RAW"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "harness-smoke-history_selection",
+      "schema_version": 2,
+      "stage": "history_selection",
+      "partition": "dev",
+      "severity": "LOW",
+      "tags": [
+        "harness-smoke-not-benchmark"
+      ],
+      "input": {
+        "query": "Synthetic historical question",
+        "history_candidates": [
+          {
+            "fact_id": "f",
+            "history_index": 0,
+            "value": {
+              "detail": {
+                "text": "old",
+                "fact_confidence": "high"
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "choices": [
+          {
+            "fact_id": "f",
+            "history_indices": [
+              0
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "offline_outputs": {
+    "harness-smoke-junk": true,
+    "harness-smoke-extraction": {},
+    "harness-smoke-terminology": {},
+    "harness-smoke-identity_resolution": {
+      "resolutions": []
+    },
+    "harness-smoke-contextual_action": {
+      "actions": []
+    },
+    "harness-smoke-fact_mutation": {
+      "plans": []
+    },
+    "harness-smoke-cross_anchor_merge": false,
+    "harness-smoke-internal_keyword_merge": {
+      "groups": []
+    },
+    "harness-smoke-field_terminology": {
+      "field_decisions": []
+    },
+    "harness-smoke-history_selection": {
+      "choices": [
+        {
+          "fact_id": "f",
+          "history_indices": [
+            0
+          ]
+        }
+      ],
+      "coverage": []
+    }
+  }
+}

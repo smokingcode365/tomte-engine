@@ -3,6 +3,14 @@
 Tomte is a Python memory-engine library. Local development runs Python on the
 Windows host and PostgreSQL with pgvector plus Redis in Docker.
 
+## Memory contract
+
+Entities use canonical UUIDs and stable fact UUIDs. Fact values contain multiple
+text items with individual confidence; changes keep history inside the same fact.
+See [the current entity/fact design](docs/memory-design.md) for public JSON,
+internal metadata, dictionary alignment, search, safeguards and breaking-upgrade
+requirements. Old scalar/assertion payloads are not automatically migrated.
+
 ## Local development
 
 For a small runnable chat interface, see the [Tomte V1 local demo](docs/demo.md).
@@ -85,7 +93,8 @@ Queue messages receive stable UUIDs. A worker freezes one Redis snapshot per
 session; later messages remain in the pending queue. The ordered item identities
 and tenant/user/session define a stable batch key, independent of message content.
 PostgreSQL claims that key in `tomte_processed_consolidations` in the same
-transaction as memory writes and dictionary feedback. A committed replay succeeds
+transaction as memory and search-index writes. Optional dictionary feedback runs
+after commit in a separate transaction. A committed replay succeeds
 without reapplying changes; failed transactions leave no marker. Redis then
 acknowledges only that snapshot. No distributed transaction is used.
 
@@ -116,7 +125,8 @@ constraints, ignoring deleted IDs. Use one `session_id` per conversation.
 
 Activation uses exact case-normalized full canonical-name/alias phrases (no fuzzy
 or prefix matching), or raw cosine of at least **0.25**. That floor is empirical
-for `text-embedding-3-small` and Tomte's current-message/entity-summary pairing;
+from earlier aggregate-summary evaluations. Search now also matches individual
+current/history items, so activation quality needs a new model evaluation;
 it is not a universal embedding threshold. Session activation does not use
 mention counts or age decay and does not update those statistics. Exact matches
 take priority, then cosine descending, then stable entity ID. At most **5** IDs

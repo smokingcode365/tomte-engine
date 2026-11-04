@@ -1,3 +1,5 @@
+from memory_eval_support import (MEMORY_FORMAT, entity as fixture_entity, fact as fixture_fact, value as fixture_value,
+    fixture_write, fixture_uuid, label_map, search_texts, similarity, database_scores)
 """Evaluation-only session entity policies; no production/Redis state changes.
 
 Run from tomte-engine. Uses the prior memory benchmark fixtures/cache, real
@@ -31,7 +33,7 @@ from tomte.engine.utils.security import SecurityGuard
 from tomte.engine.utils.keys import generate_common_key, validate_id
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "log" / "session_entity_evaluation.json"
+OUTPUT = ROOT / "log" / "session_entity_evaluation_v2.json"
 CACHE = ROOT / "log" / "memory_retrieval_embeddings.json"
 USAGE = ROOT / "log" / "session_entity_api_usage.json"
 
@@ -130,7 +132,7 @@ def representations(conversations):
         history = []
         for index, turn in enumerate(conversation["turns"]):
             text = guard.sanitize_input(turn["text"])
-            assert text == turn["text"] and guard.check_for_injection(text)
+            assert text == turn["text"]
             if turn["role"] == "user":
                 context = {}
                 for n in (2, 4):
@@ -315,16 +317,16 @@ def main():
     OUTPUT.parent.mkdir(exist_ok=True)
     httpx.AsyncClient.send = embeddings_only
     try:
-        docs = embed("document", summaries.values())
+        docs = embed("document", [text for payload in bank.values() for text in search_texts(payload)])
         queries = embed("query", [text for t in turns for text in (t["text"], t["context"]["2"], t["context"]["4"])])
     finally:
         httpx.AsyncClient.send = original_send
     print(f"Embeddings ready: {len(bank)} entities, {len(turns)} user turns, {len(queries)} query representations", flush=True)
     scores = {}
     for t in turns:
-        raw = {k: cosine(queries[t["text"]], docs[s]) for k, s in summaries.items()}
-        c2 = {k: cosine(queries[t["context"]["2"]], docs[s]) for k, s in summaries.items()}
-        c4 = {k: cosine(queries[t["context"]["4"]], docs[s]) for k, s in summaries.items()}
+        raw = {k: similarity(queries[t["text"]], payload, docs) for k, payload in bank.items()}
+        c2 = {k: similarity(queries[t["context"]["2"]], payload, docs) for k, payload in bank.items()}
+        c4 = {k: similarity(queries[t["context"]["4"]], payload, docs) for k, payload in bank.items()}
         scores[(t["conversation"], t["index"])] = dict(current=raw, context2=c2, context4=c4,
             **{f"dual{w}": {k: max(raw[k], w*c4[k]) for k in bank} for w in (.5, .7, .9)})
 
@@ -340,30 +342,29 @@ def main():
                 updates = []
                 for t, u in [(tenant, "equal"), (tenant, "weighted"), (tenant, "other-user"), (tenant+"-other", "equal")]:
                     for identity, payload in bank.items():
-                        updates.append(dict(mode="INSERT", tenant_id=t, user_id=u,
-                            **{k: payload[k] for k in ("entity_id", "entity_name", "entity_domain", "entity_type")},
-                            payload=deepcopy(payload), embedding=docs[summaries[identity]]))
+                        updates.append(fixture_write(t, u, payload, docs))
                 assert db.commit_graph_updates(updates)
                 db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=NOW()-interval '24 hours' "
-                    "WHERE tenant_id=%s AND user_id='weighted' AND entity_id='tesla'", (tenant,))
+                    "WHERE tenant_id=%s AND user_id='weighted' AND entity_id=%s", (tenant, fixture_uuid(tenant, 'weighted', bank['tesla']['entity_id'])))
                 db.conn.execute("UPDATE tomte_memory_engine SET mention_count=5 WHERE tenant_id=%s "
-                    "AND user_id='weighted' AND entity_id='honda'", (tenant,))
+                    "AND user_id='weighted' AND entity_id=%s", (tenant, fixture_uuid(tenant, 'weighted', bank['honda']['entity_id'])))
                 db.conn.execute("UPDATE tomte_memory_engine SET mention_count=8 WHERE tenant_id=%s "
-                    "AND user_id='weighted' AND entity_id='python'", (tenant,))
+                    "AND user_id='weighted' AND entity_id=%s", (tenant, fixture_uuid(tenant, 'weighted', bank['python']['entity_id'])))
                 for user in ("equal", "weighted"):
-                    factors[user] = {r["entity_id"]: float(r["factor"]) for r in db.conn.execute(
+                    labels = label_map(tenant, user, bank)
+                    uuid_by_label = {label: identity for identity, label in labels.items()}
+                    factors[user] = {labels[r["entity_id"]]: float(r["factor"]) for r in db.conn.execute(
                         "SELECT entity_id, mention_count*exp(-0.0001*extract(epoch FROM (now()-last_mentioned_at))) factor "
                         "FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s", (tenant, user)).fetchall()}
                     # Every distinct representation checked through production API.
                     for text, vector in queries.items():
                         rows = db.semantic_retrieval(tenant, user, vector)
                         assert all(r["tenant_id"] == tenant and r["user_id"] == user for r in rows)
-                        raw = {k: cosine(vector, docs[s]) for k, s in summaries.items()}
-                        expected = sorted(bank, key=lambda k: (-raw[k]*factors[user][k], k))[:settings.semantic_retrieval_limit]
-                        assert [r["entity_id"] for r in rows] == expected
-                        pg = db.conn.execute("SELECT entity_id, 1-(embedding <=> %s::vector) cosine FROM tomte_memory_engine "
-                            "WHERE tenant_id=%s AND user_id=%s", (vector, tenant, user)).fetchall()
-                        max_difference = max(max_difference, max(abs(raw[r["entity_id"]]-float(r["cosine"])) for r in pg))
+                        raw = {k: similarity(vector, payload, docs) for k, payload in bank.items()}
+                        expected = sorted(bank, key=lambda k: (-raw[k]*factors[user][k], uuid_by_label[k]))[:settings.semantic_retrieval_limit]
+                        assert [labels[r["entity_id"]] for r in rows] == expected
+                        pg = database_scores(db, tenant, user, vector)
+                        max_difference = max(max_difference, max(abs(raw[labels[r["entity_id"]]]-float(r["cosine"])) for r in pg))
                         checks += 1
                 for t, u in [(tenant, "other-user"), (tenant+"-other", "equal")]:
                     rows = db.semantic_retrieval(t, u, queries[turns[0]["text"]])
@@ -406,7 +407,7 @@ def main():
     selected_records, _ = simulate(conversations, turns, bank, scores, factors[selected["weighting"]],
         selected["representation"], selected["policy"], selected["retention"], selected["returned"])
     traces["calibration_selected"] = selected_records
-    report = dict(entities=bank, conversations=conversations, user_turns=turns,
+    report = dict(memory_format=MEMORY_FORMAT,entities=bank, conversations=conversations, user_turns=turns,
         entity_count=len(bank), conversation_count=len(conversations), user_turn_count=len(turns),
         assistant_turn_count=sum(t["role"] == "assistant" for c in conversations for t in c["turns"]),
         model=settings.openai.embed_model, dimension=settings.openai.vector_dimension,

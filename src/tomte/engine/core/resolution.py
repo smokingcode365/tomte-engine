@@ -2,6 +2,7 @@
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from tomte.engine.core.proposals import ProposalResponse
 
 Evidence = Literal["EXPLICIT", "ALIAS", "RESOLVED_REFERENCE", "GROUP_EXPLICIT", "GROUP_INFERRED", "SEMANTIC_CANDIDATE"]
 STRONG_EVIDENCE = {"EXPLICIT", "ALIAS", "RESOLVED_REFERENCE", "GROUP_EXPLICIT"}
@@ -11,7 +12,7 @@ CANDIDATE_LIMIT = 5
 
 class ResolvedTarget(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    db_id: UUID = Field(description="The offered candidate's id UUID, never its entity_id or an extraction handle.")
+    db_id: UUID = Field(description="Copy the offered candidate's id UUID. Its entity_id is the same canonical UUID; never use an extraction handle.")
     resolution_confidence: float = Field(ge=0, le=1)
     evidence: Evidence
 
@@ -43,10 +44,34 @@ class EntityResolution(BaseModel):
     group_evidence_quote: str | None = Field(default=None, description="Exact quote from group_source_chat_id establishing shared applicability. Context must identify every member; similarity/type alone is insufficient.")
     group_member_handles: list[str] = Field(default_factory=list, description="When extraction names participants, exact tmp_ handles whose single-target mappings equal the complete selected group.")
 
+    @model_validator(mode="before")
+    @classmethod
+    def optional_aliases(cls, data):
+        if not isinstance(data, dict):
+            return data
+        from copy import deepcopy
+        from pydantic import ValidationError
+        data = deepcopy(data)
+        if data.get("kind") in ("MATCH_MANY", "UNRESOLVED"):
+            data.update(accepted_aliases=[], alias_evidence=[])
+            return data
+        accepted = data.get("accepted_aliases", [])
+        data["accepted_aliases"] = list(dict.fromkeys(a for a in accepted if isinstance(a, str) and a.strip())) if isinstance(accepted, list) else []
+        citations = data.get("alias_evidence", [])
+        clean = []
+        for raw in citations if isinstance(citations, list) else []:
+            try:
+                citation = AliasEvidence.model_validate(raw).model_dump(mode="json")
+            except ValidationError:
+                continue
+            if citation not in clean:
+                clean.append(citation)
+        data["alias_evidence"] = clean
+        return data
+
     @model_validator(mode="after")
     def check_cardinality(self):
-        if any(not alias.strip() for alias in self.accepted_aliases) or len(set(self.accepted_aliases)) != len(self.accepted_aliases):
-            raise ValueError("Accepted aliases must be nonblank and unique")
+        self.accepted_aliases = list(dict.fromkeys(a for a in self.accepted_aliases if a.strip()))
         if self.kind in {"MATCH_MANY", "UNRESOLVED"} and (self.accepted_aliases or self.alias_evidence):
             raise ValueError("Alias authorization requires one resolved entity")
         if len({t.db_id for t in self.targets}) != len(self.targets):
@@ -62,6 +87,7 @@ class EntityResolution(BaseModel):
         return self
 
 
-class ResolutionResponse(BaseModel):
+class ResolutionResponse(ProposalResponse):
+    proposal_collections = {"resolutions": None}
     model_config = ConfigDict(extra="forbid")
     resolutions: list[EntityResolution]

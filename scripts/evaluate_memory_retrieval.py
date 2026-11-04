@@ -23,27 +23,25 @@ import psycopg
 import redis
 
 from tomte.engine.core.config import settings
-from tomte.engine.core.schema import Entity, Fact
+from memory_eval_support import (MEMORY_FORMAT, entity as fixture_entity, fact as fixture_fact, value as fixture_value,
+    fixture_write, fixture_uuid, label_map, search_texts, similarity, database_scores)
 from tomte.engine.llm.embedder import get_entity_summary
 from tomte.engine.providers.openai_provider import OpenAILLMProvider
 from tomte.engine.providers.postgres_provider import PostgresProvider
 from tomte.engine.utils.security import SecurityGuard
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "log" / "memory_retrieval_evaluation.json"
+OUTPUT = ROOT / "log" / "memory_retrieval_evaluation_v2.json"
 CACHE = ROOT / "log" / "memory_retrieval_embeddings.json"
-USAGE = ROOT / "log" / "memory_retrieval_api_usage.json"
-TABLES = ["tomte_user_registry", "tomte_memory_engine", "tomte_keyword_audit_log",
+USAGE = ROOT / "log" / "memory_retrieval_api_usage_v2.json"
+TABLES = ["tomte_user_registry", "tomte_memory_engine", "tomte_memory_search", "tomte_keyword_audit_log",
           "tomte_semantic_anchors", "tomte_keyword_registry", "tomte_processed_consolidations"]
 STAMP = "2026-01-01T00:00:00Z"
 
 
 def entity(key, name, domain, kind, aliases, pairs):
-    facts = [Fact(attribute_name=k, value=v, confidence=1.0,
-                  source_chat_id="synthetic-retrieval", last_mentioned_at=STAMP)
-             for k, v in pairs]
-    return Entity(entity_id=key, entity_name=name, entity_domain=domain,
-                  entity_type=kind, aliases=aliases, facts=facts).model_dump(mode="json")
+    return fixture_entity(key, name, domain, kind, aliases, pairs)
+
 
 
 def dataset():
@@ -156,12 +154,11 @@ def dataset():
             ("travel_souvenir", "Lisbon keychain"), ("air_freshener", "pine"),
             ("sunshade", "silver"), ("cleaning_schedule", "Saturdays"),
             ("phone_mount", "magnetic"), ("cup_holder", "two cups"), ("tool_kit", "compact")]
-    forty = bank["tesla"]["facts"][:3] + [Fact(attribute_name=k, value=v, confidence=1,
-        source_chat_id="synthetic-retrieval", last_mentioned_at=STAMP).model_dump(mode="json") for k, v in more]
+    forty = bank["tesla"]["facts"][:3] + [fixture_fact(k, v, key="tesla:"+k) for k, v in more]
     assert len(forty) == 40
     size_queries = ["What color is my car?", "What color is my Tesla?", "Which car did I buy in 2024?",
                     "Which vehicle do I charge at home?", "Tell me about Little Dog.", "Tell me about my Tesla Model Y."]
-    for size in (0, 1, 3, 5, 10, 20, 40):
+    for size in (1, 3, 5, 10, 20, 40):
         scenario = f"size_{size}"
         scenarios[scenario] = deepcopy(bank)
         scenarios[scenario]["tesla"]["aliases"] = []  # fixed for every size; nickname becomes a fact at size 5
@@ -215,13 +212,11 @@ def dataset():
         add("baseline", "confusable", text, ids, family=family)
     scenarios["history"] = deepcopy(bank)
     historical = scenarios["history"]["tesla"]
-    historical["facts"][1]["value"] = "sold"
-    for key, value in [("paint_color", "red"), ("ownership_status", "owned")]:
-        fact = Fact(attribute_name=key, value=value, status="past", confidence=1,
-                    source_chat_id="synthetic-past", last_mentioned_at=STAMP).model_dump(mode="json")
-        historical["facts"].append(fact)
-    historical["facts"].append(Fact(attribute_name="temporary_condition", value="muddy today",
-        importance=1, confidence=1, source_chat_id="synthetic", last_mentioned_at=STAMP).model_dump(mode="json"))
+    historical["facts"][1]["value"]["detail"]["text"] = "sold"
+    for key, text in [("paint_color", "red"), ("ownership_status", "owned")]:
+        target = next(f for f in historical["facts"] if f["attribute_name"] == key)
+        target["history_values"].append({"_archived_at": STAMP, "value": fixture_fact(key, text, stamp=STAMP)["value"]})
+    historical["facts"].append(fixture_fact("temporary_condition", "muddy today", importance=1))
     for text in ("What car did I sell?", "What color is my old Tesla?", "What do you remember about the Tesla?"):
         add("history", "history", text, ["tesla", "toyota"] if text == "What car did I sell?" else ["tesla"],
             target="tesla")
@@ -291,7 +286,7 @@ def main():
     guard = SecurityGuard()
     for case in cases:
         case["query"] = guard.sanitize_input(case["text"])
-        assert guard.check_for_injection(case["query"])
+
         assert case["text"] == case["query"]
     cache_data = json.loads(CACHE.read_text()) if CACHE.exists() else {}
     usage = json.loads(USAGE.read_text()) if USAGE.exists() else []
@@ -330,7 +325,7 @@ def main():
 
     httpx.AsyncClient.send = embeddings_only
     try:
-        docs = embed("document", [t for bank in summaries.values() for t in bank.values()])
+        docs = embed("document", [text for bank in scenarios.values() for payload in bank.values() for text in search_texts(payload)])
         queries = embed("query", [c["query"] for c in cases])
         parity, parity_cosines = [], []
         for style in ("name", "alias", "type", "fact", "indirect", "state"):
@@ -360,38 +355,33 @@ def main():
                 for scenario, bank in scenarios.items():
                     db.upsert_user_activity(tenant, scenario)
                     for key, payload in bank.items():
-                        updates.append(dict(mode="INSERT", tenant_id=tenant, user_id=scenario,
-                            **{k: payload[k] for k in ("entity_id", "entity_name", "entity_domain", "entity_type")},
-                            payload=deepcopy(payload), embedding=docs[summaries[scenario][key]]))
-                # Exact duplicates under independent tenant and user namespaces.
+                        updates.append(fixture_write(tenant, scenario, payload, docs))
+                # Exact business data under independent UUID and tenant/user namespaces.
                 for other_tenant, other_user in [(tenant+"-other", "baseline"), (tenant, "other-user")]:
-                    payload = deepcopy(scenarios["baseline"]["tesla"])
-                    updates.append(dict(mode="INSERT", tenant_id=other_tenant, user_id=other_user,
-                        **{k: payload[k] for k in ("entity_id", "entity_name", "entity_domain", "entity_type")},
-                        payload=payload, embedding=docs[summaries["baseline"]["tesla"]]))
+                    updates.append(fixture_write(other_tenant, other_user, scenarios["baseline"]["tesla"], docs))
                 assert db.commit_graph_updates(updates)
                 # All baseline rows get identical NOW() and mention_count=1.
                 db.conn.execute("UPDATE tomte_memory_engine SET mention_count=5 WHERE tenant_id=%s "
-                    "AND user_id='weight_mentions' AND entity_id='honda'", (tenant,))
+                    "AND user_id='weight_mentions' AND entity_id=%s", (tenant, fixture_uuid(tenant, 'weight_mentions', scenarios['weight_mentions']['honda']['entity_id'])))
                 db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=NOW()-interval '24 hours' "
-                    "WHERE tenant_id=%s AND user_id='weight_age' AND entity_id='tesla'", (tenant,))
+                    "WHERE tenant_id=%s AND user_id='weight_age' AND entity_id=%s", (tenant, fixture_uuid(tenant, 'weight_age', scenarios['weight_age']['tesla']['entity_id'])))
                 for case in cases:
                     scenario, vector = case["scenario"], queries[case["query"]]
                     found = db.semantic_retrieval(tenant, scenario, vector)
                     assert all(r["tenant_id"] == tenant and r["user_id"] == scenario for r in found)
                     isolation_checks += 1
-                    sql = db.conn.execute("SELECT entity_id, 1-(embedding <=> %s::vector) AS cosine, "
-                        "mention_count*exp(-0.0001*extract(epoch FROM (now()-last_mentioned_at))) AS factor "
-                        "FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s", (vector, tenant, scenario)).fetchall()
-                    scores = {r["entity_id"]: float(r["cosine"]) for r in sql}
-                    weighted = {r["entity_id"]: float(r["cosine"])*float(r["factor"]) for r in sql}
-                    ranking = sorted(scores, key=lambda k: weighted[k], reverse=True)
-                    assert [r["entity_id"] for r in found] == ranking[:settings.semantic_retrieval_limit]
-                    for key, summary in summaries[scenario].items():
-                        max_difference = max(max_difference, abs(cosine(vector, docs[summary])-scores[key]))
+                    labels = label_map(tenant, scenario, scenarios[scenario])
+                    sql = database_scores(db, tenant, scenario, vector)
+                    scores = {labels[r["entity_id"]]: float(r["cosine"]) for r in sql}
+                    weighted = {labels[r["entity_id"]]: float(r["cosine"])*float(r["factor"]) for r in sql}
+                    uuid_by_label = {label: identity for identity, label in labels.items()}
+                    ranking = sorted(scores, key=lambda k: (-weighted[k], uuid_by_label[k]))
+                    assert [labels[r["entity_id"]] for r in found] == ranking[:settings.semantic_retrieval_limit]
+                    for key, payload in scenarios[scenario].items():
+                        max_difference = max(max_difference, abs(similarity(vector, payload, docs)-scores[key]))
                     target = case.get("target")
                     results.append(dict(**case, cosines=scores, weighted_scores=weighted, ranking=ranking,
-                        top5=[r["entity_id"] for r in found],
+                        top5=[labels[r["entity_id"]] for r in found],
                         target_rank=ranking.index(target)+1 if target else None))
                 for t, u, expected in [(tenant+"-other", "baseline", 1), (tenant, "other-user", 1),
                                         (tenant+"-absent", "baseline", 0), (tenant, "absent-user", 0)]:
@@ -414,7 +404,7 @@ def main():
         for label in ("size", "topics", "family", "scenario"):
             if label in row:
                 grouped[f"{label}:{row[label]}"].append(row)
-    report = dict(model=settings.openai.embed_model, dimension=settings.openai.vector_dimension,
+    report = dict(memory_format=MEMORY_FORMAT,model=settings.openai.embed_model, dimension=settings.openai.vector_dimension,
         semantic_limit=settings.semantic_retrieval_limit, query_independent_limit=settings.query_entities_limit,
         production_threshold=None, diagnostic_threshold=.75,
         scenarios=len(scenarios), entities_per_scenario=len(scenarios["baseline"]),

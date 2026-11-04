@@ -34,8 +34,12 @@ class LLMProvider(Protocol):
         lexicon: Optional[List[str]] = None 
     ) -> T:
         """
-        Uses a high-intelligence model to perform deterministic extraction.
-        Must return an instantiated Pydantic model (TomteMemorySchema).
+        Uses a model for semantic decisions; output validity does not prove truth.
+        Must return an instance of the requested wire schema; stored entities are not extraction output.
+        ProposalResponse schemas preserve rejected-item metadata. Built-in adapters
+        permit one native output repair, preserving accepted first-response items;
+        custom adapters must bound repairs and preserve that metadata too. The
+        workflow does not add another model retry.
         taxonomy supplies established entity types; lexicon supplies attribute names,
         not fact values. These argument names are retained for caller compatibility.
         """

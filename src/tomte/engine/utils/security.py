@@ -1,29 +1,19 @@
-import re
 from typing import Optional
 from tomte.engine.core.config import settings
-from tomte.engine.exceptions import TomteSecurityViolationError
+from tomte.engine.exceptions import TomteInvalidInputError
 from tomte.engine import tomtelog
 
 
 class SecurityGuard:
     """
     The Tomte Engine Security Middleware.
-    Enforces namespace isolation, sanitizes inputs, blocks injections, 
+    Validates input structure
     and offers optional PII scrubbing.
     """
-    
-    INJECTION_PATTERNS = [
-        r"(?i)(ignore|disregard)\s+(all\s+)?(previous\s+)?(instructions|prompts)",
-        r"(?i)system\s+prompt",
-        r"(?i)you\s+are\s+now",
-        r"(?i)drop\s+table",
-        r"(?i)```(sql|python|bash)"
-    ]
     
     def __init__(
         self
     ):
-        self._compiled_patterns = [re.compile(p) for p in self.INJECTION_PATTERNS]
         # Optional PII Scrubbing
         self.analyzer = None
         self.anonymizer = None
@@ -54,20 +44,16 @@ class SecurityGuard:
 
 
     def sanitize_input(self, raw_text: str) -> str:
-        """Cleans input to prevent database crashes and token overflow."""
-        if not raw_text:
-            return ""
-        clean_text = raw_text[:settings.max_input_length]
-        clean_text = clean_text.replace('\x00', '')
-        clean_text = ''.join(c for c in clean_text if c.isprintable() or c in '\n\r\t')
-        return clean_text.strip()
-
-    def check_for_injection(self, text: str) -> bool:
-        """Raises an error if prompt injection is detected."""
-        for pattern in self._compiled_patterns:
-            if pattern.search(text):
-                return False
-        return True
+        """Validate storage/size constraints without interpreting or altering language."""
+        if not isinstance(raw_text, str) or not raw_text.strip():
+            raise TomteInvalidInputError("Message must be nonempty text")
+        if len(raw_text) > settings.max_input_length or "\x00" in raw_text:
+            raise TomteInvalidInputError("Message exceeds storage constraints")
+        try:
+            raw_text.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise TomteInvalidInputError("Message contains invalid Unicode") from exc
+        return raw_text
 
     def scrub_pii(self, text: str) -> str:
         """Masks sensitive data (e.g., replaces SSN with <US_SSN>)."""

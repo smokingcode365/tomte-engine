@@ -3,21 +3,21 @@
 import hashlib
 import json
 import re
+from collections import Counter
 from copy import deepcopy
 from uuid import uuid4
 
 from typing import List, Dict, Any
-from tomte.engine.llm.embedder import  get_entity_summary
+from tomte.engine.llm.embedder import get_entity_summary, changed_search_entries, embed_texts
+from tomte.engine.core.memory import public_fact, public_entity, public_value
 from tomte.engine.dictionary.service import get_dictionary_service
 from tomte.engine.dictionary.alignment import align_terms
-from tomte.engine.core.schema import TomteMemorySchema
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.llm.prompts.contextual_action import CONTEXTUAL_ACTION_PROMPT
-from tomte.engine.core.assertions import MutationPlanResponse, adapt_assertions, apply_mutations, fact_values, project_facts
+from tomte.engine.core.assertions import MutationPlanResponse, InvalidMutation, validate_facts, apply_mutations, fact_values
 from tomte.engine.llm.prompts.fact_mutation import MUTATION_SYSTEM_PROMPT
 from tomte.engine.core.resolution import ResolutionResponse, CANDIDATE_LIMIT, MIN_RESOLUTION_CONFIDENCE, STRONG_EVIDENCE
-from tomte.engine.dictionary.terminology import canonical_attribute, ATTRIBUTE_ALIASES
-from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS, ExtractionMemorySchema, build_extraction_input, resolve_extraction, validate_operation_provenance
+from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS, ExtractionMemorySchema, ResolvedExtractionMemory, build_extraction_input, resolve_extraction, validate_operation_provenance
 from tomte.engine import tomtelog, Tomte
 from tomte.engine.llm.prompts.consolidation_golden_record import RECONCILER_SYSTEM_PROMPT
 
@@ -30,13 +30,30 @@ class ConsolidationWorkflow:
         self.control = control
         from tomte.engine.dictionary.service import DictionaryService
         self.dict_service = DictionaryService(self.db, self.llm)
+
+    def _parse_proposals(self, **kwargs):
+        """A failed model format cannot invalidate another independent stage."""
+        from pydantic_ai.exceptions import UnexpectedModelBehavior
+        schema = kwargs["schema"]
+        unusable = False
+        try:
+            response = self.llm.parse_structured(**kwargs)
+        except UnexpectedModelBehavior:
+            # Providers have already spent their single output-repair allowance.
+            # No transport, persistence, cancellation or capacity exceptions here.
+            response = schema.model_validate({name: [] for name in schema.proposal_collections})
+            unusable = True
+        if not hasattr(self, "last_proposal_recovery"):
+            self.last_proposal_recovery = {}
+        self.last_proposal_recovery[schema.__name__] = {**response.recovery_summary(), "unusable_response": unusable}
+        return response
     # ==========================================
     # CONSOLIDATION CYCLE
     # ==========================================
 
     def run_consolidation_cycle(self, tenant_id: str, user_id: str, chat_items: List[Dict[str, Any]]) -> bool:
         """
-        Executes the full 4-Phase consolidation cycle[cite: 137, 152, 157].
+        Extract, align vocabulary, resolve identity, plan and commit scoped memory.
         """
         if not chat_items:
             return False
@@ -57,7 +74,7 @@ class ConsolidationWorkflow:
             tomtelog.warn(f"Missing user vectors for consolidation session: {user_id}")
             return False
         chat_vectors = [m["vector"] for m in user_items]
-        # CRITICAL FIX: Inject the Junk Filter here
+        # A junk decision is a completed no-op with a replay marker.
         if self.llm.is_junk(extraction_input):
             tomtelog.info(f"Consolidation no-op: Chat log is junk/small-talk for {user_id}.")
             self._commit_refined_operations([], tenant_id, user_id, batch_id)
@@ -65,7 +82,7 @@ class ConsolidationWorkflow:
         # Raw extraction is authoritative; dictionary alignment happens only after
         # deterministic current-batch provenance validation.
         tomtelog.debug(f"Phase 2: Executing primary extraction")
-        extracted_result = self.llm.parse_structured(
+        extracted_result = self._parse_proposals(
             system_prompt=None, 
             user_text=extraction_input,
             schema=ExtractionMemorySchema,
@@ -74,7 +91,7 @@ class ConsolidationWorkflow:
         extracted_schema = resolve_extraction(extracted_result, chat_items)
 
         # --- PHASE 3: Golden Record Reconciliation ---
-        # Second LLM Call: Matches extraction against the DB skeleton [cite: 157-159]
+        # Identity resolution selects only offered scoped candidates.
         tomtelog.debug(f"Phase 3: Reconciling with Golden Records")
         # Reuse current-message vectors; no extra embedding/model request is needed.
         raw_entities = self._flatten_schema(extracted_schema)
@@ -99,7 +116,7 @@ class ConsolidationWorkflow:
             skeleton = list({str(row["id"]): row for rows in candidate_sets.values() for row in rows}.values())
             correction_context = skeleton
         
-            # This helper determines if we INSERT, MUTATE, or REINFORCE [cite: 164-169]
+            # Prepare targets; the mutation planner decides their fact changes.
             refined_ops = self._reconcile_with_golden_records(
                 tenant_id,
                 user_id,
@@ -110,200 +127,250 @@ class ConsolidationWorkflow:
             )
 
         else:
-            refined_ops = self._resolve_contextual_actions(tenant_id, user_id, input_data, vector, correction_context)
+            refined_ops = []
+        contextual = self._resolve_contextual_actions(tenant_id, user_id, input_data, vector, correction_context, refined_ops)
+        by_id = {op.get("db_id"): op for op in refined_ops if op.get("db_id")}
+        for op in contextual:
+            if op["db_id"] in by_id:
+                by_id[op["db_id"]].setdefault("_contextual_actions", []).extend(op["_contextual_actions"])
+            else:
+                refined_ops.append(op)
 
         refined_ops = self._plan_fact_mutations(refined_ops, input_data, batch_id, correction_context)
         validate_operation_provenance(refined_ops)
 
         # Before committing, we must generate vectors for any new or changed entities.
-        # These vectors anchor the facts in the Knowledge Graph [cite: 160-171].
+        # Every current/history item receives its own searchable chunks.
         tomtelog.debug(f"Consolidation: Generating embeddings for {len(refined_ops)} operations")
-        if refined_ops:
-            summaries_to_embed = [get_entity_summary(op['payload']) for op in refined_ops]
-            batch_vectors = self.llm.embed_batch(summaries_to_embed)
-            for i, op in enumerate(refined_ops):
-                op['embedding'] = batch_vectors[i]
-                
+        for op in refined_ops:
+            if not op.get("_semantic_changed", True):
+                continue
+            entries = changed_search_entries(op["payload"], op.get("_expected_payload"))
+            vectors = embed_texts(self.llm, [get_entity_summary(op["payload"]), *[e["text"] for e in entries]])
+            op["embedding"] = vectors[0]
+            op["search_entries"] = [{**{k: v for k, v in entry.items() if k != "text"}, "embedding": vector}
+                                    for entry, vector in zip(entries, vectors[1:])]
+
         # Memory and its replay marker commit before optional dictionary feedback.
         self._commit_refined_operations(refined_ops, tenant_id, user_id, batch_id)
 
         tomtelog.info(f"Consolidation cycle complete for {user_id}")
         return True
 
-    def _resolve_contextual_actions(self, tenant_id, user_id, input_data, vector, correction_context=None):
-        """Narrow reference resolver for empty extraction; never creates new entities."""
+    def _resolve_contextual_actions(self, tenant_id, user_id, input_data, vector, correction_context=None, prepared=()):
+        """Resolve remaining references/mentions, including mixed-message batches."""
         current = input_data["CURRENT_BATCH"]
         reference = input_data["RECENT_CONTEXT_REFERENCE_ONLY"]
         context = "\n".join(item["content"] for item in current + reference)
-        candidates = self.db.get_resolution_candidates(
-            tenant_id, user_id, [], "", vector, context, CANDIDATE_LIMIT)
+        candidates = self.db.get_resolution_candidates(tenant_id, user_id, [], "", vector, context, CANDIDATE_LIMIT)
         if correction_context is not None:
             correction_context.extend(candidates[:CANDIDATE_LIMIT])
-        offered = {}
-        view = []
+        offered, view = {}, []
         for row in candidates[:CANDIDATE_LIMIT]:
             key = str(row["id"])
-            assertions = adapt_assertions(row["payload"].get("facts", []), key)
-            facts = (project_facts(assertions) + [f for f in assertions if f["assertion_state"] != "ACTIVE"][-15:])[:50]
+            facts = validate_facts(row["payload"].get("facts", []))[:50]
             offered[key] = (row, {f["fact_id"] for f in facts})
-            view.append({"db_id":key, "entity_name":row["entity_name"],
-                "entity_domain":row["entity_domain"], "entity_type":row["entity_type"],
-                "aliases":row["payload"].get("aliases", []),
-                "assertions":[{name:f.get(name) for name in ("fact_id", "attribute_name", "value", "assertion_state")} for f in facts]})
-        response = self.llm.parse_structured(system_prompt=CONTEXTUAL_ACTION_PROMPT,
-            user_text=json.dumps({"CURRENT_BATCH":current, "REFERENCE_ONLY_CONTEXT":reference,
-                "CANDIDATES":view}, ensure_ascii=False), schema=ContextualActionResponse)
+            view.append({"db_id": key, "entity_name": row["entity_name"], "entity_domain": row["entity_domain"],
+                         "entity_type": row["entity_type"], "aliases": row["payload"].get("aliases", []),
+                         "facts": [public_fact(f, []) for f in facts]})
+        if not view:
+            return []
+        response = self._parse_proposals(system_prompt=CONTEXTUAL_ACTION_PROMPT,
+            user_text=json.dumps({"CURRENT_BATCH": current, "REFERENCE_ONLY_CONTEXT": reference,
+                "ALREADY_RESOLVED_PROPOSALS": [{"db_id": op.get("db_id"), "incoming": op["extracted_facts"]} for op in prepared],
+                "CANDIDATES": view}, ensure_ascii=False), schema=ContextualActionResponse)
         self.last_contextual_route = response.model_dump(mode="json")
         sources = {item["item_id"] for item in current}
-        user_sources = {item["item_id"] for item in current if item["role"] == "user"}
-        user_texts = [item["content"] for item in current if item["role"] == "user"]
+        user_sources = {item["item_id"]: item["content"] for item in current if item["role"] == "user"}
         operations = {}
         for action in response.actions:
             if not set(action.source_chat_ids) <= sources:
-                raise ValueError("Contextual evidence must reference current frozen batch sources")
-            if action.replacement_text is not None and not any(action.replacement_text in item["content"] for item in current):
-                raise ValueError("Contextual replacement text must quote current evidence")
+                continue
             if action.target is None:
                 continue
             key = str(action.target.db_id)
             if key not in offered or action.target_fact_id not in offered[key][1]:
-                raise ValueError("Contextual target must name an offered scoped entity/assertion")
-            if not set(action.source_chat_ids) <= user_sources:
                 continue
-            if action.replacement_text is not None and not any(action.replacement_text in text for text in user_texts):
+            if not set(action.source_chat_ids) <= user_sources.keys():
                 continue
-            record = offered[key][0]
-            if (action.target.resolution_confidence < MIN_RESOLUTION_CONFIDENCE or
-                    action.target.evidence not in STRONG_EVIDENCE):
+            if not any(action.evidence_quote in user_sources[s] for s in action.source_chat_ids):
+                continue
+            if action.target.resolution_confidence < MIN_RESOLUTION_CONFIDENCE or action.target.evidence not in STRONG_EVIDENCE:
                 continue
             if key not in operations:
-                # Reference preparation asserts no new facts or aliases; stable metadata remains authoritative.
-                entity = {**deepcopy(record["payload"]), "facts":[]}
+                record = offered[key][0]
+                entity = {**deepcopy(record["payload"]), "facts": []}
                 operations[key] = self._prepare_operation(tenant_id, user_id, entity, record)
-                operations[key]["_contextual_fact_ids"] = []
                 operations[key]["_contextual_actions"] = []
-            operations[key]["_contextual_fact_ids"].append(action.target_fact_id)
             operations[key]["_contextual_actions"].append(action.model_dump(mode="json"))
         return list(operations.values())
 
     def _plan_fact_mutations(self, operations, input_data, batch_id, correction_context=()):
-        """One bounded semantic call after identity acceptance, before any SQL writes."""
+        """One semantic plan; deterministic mechanics never turn abstention into writes."""
         if not operations:
             return []
-        prepared = deepcopy(operations)
-        for op in prepared:
-            op['_group_sets'] = [f['_group_targets'] for f in op['extracted_facts'] if f.get('_group_targets')]
-            op['_required_groups'] = {f['_group_key']: f['_group_targets'] for f in op['extracted_facts'] if f.get('_group_key')}
-        offered = {}
-        targets = []
-        for index, operation in enumerate(prepared):
+        offered, targets = {}, []
+        for index, operation in enumerate(deepcopy(operations)):
             key = f"target_{index}"
-            scope = operation.get("db_id") or operation.get("reserved_id") or json.dumps([operation["tenant_id"], operation["user_id"], operation["entity_id"]])
-            assertions = adapt_assertions(operation["payload"].get("facts", []), scope)
-            operation["payload"]["facts"] = assertions
-            active = project_facts(assertions)
-            inactive = [f for f in assertions if f["assertion_state"] != "ACTIVE"]
-            # Bound model history; omitted fact IDs cannot be targeted by a plan.
-            selected = (active + inactive[-15:])[:50]
-            if "_contextual_fact_ids" in operation:
-                selected = [f for f in selected if f["fact_id"] in operation["_contextual_fact_ids"]]
-            offered[key] = (operation, scope, {f["fact_id"] for f in selected})
-            targets.append({"target_key":key, "identity":{name:operation[name] for name in
-                            ("entity_id", "entity_name", "entity_domain", "entity_type")},
-                            "db_uuid": scope,
-                            "mention_context": operation.get('_mention_context'),
-                            "incoming_semantics":[{field:f.get(field) for field in ("attribute_name", "value", "status", "source_chat_id", "confidence", "incoming_fact_key", "evidence_context", "related_entity_uuids", "group_participant_handles", "_group_targets")}
-                                                  for f in operation["extracted_facts"]],
-                            "assertions":[{name:f.get(name) for name in ("fact_id", "attribute_name", "value",
-                                "assertion_state", "effective_at", "supersedes_fact_id", "corrects_fact_id", "related_entity_uuids", "related_entity_ids")}
-                                for f in selected], "assertions_truncated":len(selected)<len(assertions)})
-            if "_contextual_actions" in operation:
-                targets[-1]["contextual_actions"] = operation["_contextual_actions"]
-        response = self.llm.parse_structured(system_prompt=MUTATION_SYSTEM_PROMPT,
-            user_text=json.dumps({"CURRENT_BATCH":input_data["CURRENT_BATCH"],
-                "REFERENCE_ONLY_CONTEXT":input_data["RECENT_CONTEXT_REFERENCE_ONLY"],
-                "CANONICAL_ATTRIBUTE_GUIDANCE":{alias:key for key,aliases in ATTRIBUTE_ALIASES.items() for alias in sorted(aliases)},
-                "TARGETS":targets}, ensure_ascii=False), schema=MutationPlanResponse)
-        plans = {}
-        for plan in response.plans:
-            if plan.target_key not in offered or plan.target_key in plans:
-                raise ValueError("Mutation plans must name unique offered targets")
-            plans[plan.target_key] = plan.operations
+            scope = operation.get("db_id") or operation["reserved_id"]
+            facts = validate_facts(operation["payload"].get("facts", []))
+            operation["payload"]["facts"] = facts
+            requested = {a["target_fact_id"] for a in operation.get("_contextual_actions", [])}
+            selected = sorted(facts, key=lambda f: f["fact_id"] not in requested)[:50]
+            history = {f["fact_id"]: list(range(max(0, len(f["history_values"]) - 15), len(f["history_values"]))) for f in selected}
+            fact_view = []
+            for fact in selected:
+                item = public_fact(fact, history[fact["fact_id"]])
+                for entry, source_index in zip(item["history_values"], history[fact["fact_id"]]):
+                    entry["history_index"] = source_index
+                fact_view.append(item)
+            offered[key] = (operation, scope, {f["fact_id"] for f in selected}, history)
+            operation["_required_groups"] = {f["_group_key"]: f["_group_targets"] for f in operation["extracted_facts"] if f.get("_group_key")}
+            targets.append({"target_key": key, "identity": {name: operation[name] for name in
+                ("entity_id", "entity_name", "entity_domain", "entity_type")},
+                "incoming_semantics": operation["extracted_facts"], "facts": fact_view,
+                "facts_truncated": len(selected) < len(facts),
+                "contextual_actions": operation.get("_contextual_actions", [])})
+        response = self._parse_proposals(system_prompt=MUTATION_SYSTEM_PROMPT,
+            user_text=json.dumps({"CURRENT_BATCH": input_data["CURRENT_BATCH"],
+                "REFERENCE_ONLY_CONTEXT": input_data["RECENT_CONTEXT_REFERENCE_ONLY"], "TARGETS": targets}, ensure_ascii=False),
+            schema=MutationPlanResponse)
+        from datetime import datetime, timezone
+        from tomte.engine.core.assertions import stable_id
+        from tomte.engine.core.proposals import at_path
+        from tomte.engine.core.relationships import incomplete_groups
+
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        counts = Counter(plan.target_key for plan in response.plans)
+        plans = {plan.target_key: (i, plan.operations) for i, plan in enumerate(response.plans)
+                 if plan.target_key in offered and counts[plan.target_key] == 1}
         self.last_mutation_plan = response.model_dump(mode="json")
-        sources = {item["item_id"] for item in input_data["CURRENT_BATCH"]}
-        user_sources = {item["item_id"] for item in input_data["CURRENT_BATCH"] if item["role"] == "user"}
-        accepted = []
-        for key, (operation, scope, ids) in offered.items():
-            proposals = plans.get(key, [])  # Omitted targets abstain; never fall back to ADD.
-            for mutation in proposals:
-                if not set(mutation.source_chat_ids) <= sources:
-                    raise ValueError("Mutation evidence must reference current frozen batch sources")
-                if mutation.target_fact_id is not None and mutation.target_fact_id not in ids:
-                    raise ValueError("Target fact does not belong to offered entity assertions")
-            mutations = [mutation for mutation in proposals if set(mutation.source_chat_ids) <= user_sources]
-            # Never recreate a rejected dependent proposal as an unlinked fact.
-            # Bind new/replacement relationship semantics to one offered template.
-            safe = []
-            for mutation in mutations:
-                if mutation.operation == 'REINFORCE':
-                    old = next(f for f in operation['payload']['facts'] if f['fact_id'] == mutation.target_fact_id)
-                    linked = [f for f in operation['extracted_facts'] if f.get('related_entity_uuids')
-                              and f['attribute_name'] == old['attribute_name'] and f['value'] == old['value']
-                              and f['source_chat_id'] in mutation.source_chat_ids]
-                    if linked and any(set(f['related_entity_uuids']) != set(old.get('related_entity_uuids', [])) for f in linked):
-                        continue  # Equal text does not prove equal relationship endpoints.
-                if mutation.new_value is not None:
-                    candidates = [f for f in operation['extracted_facts'] if
-                        (f.get('incoming_fact_key') == mutation.incoming_fact_key if mutation.incoming_fact_key else
-                         f['value'] == mutation.new_value and (not mutation.attribute_name or canonical_attribute(f['attribute_name']) == canonical_attribute(mutation.attribute_name)))
-                        and f.get('source_chat_id') in mutation.source_chat_ids]
-                    dependent = any(f.get('related_entity_uuids') for f in operation['extracted_facts']) or operation.get('_rejected_facts')
-                    if dependent and len(candidates) != 1:
+        rejected_plans, blocked = set(), {}
+
+        def tokens(raw, position):
+            data = raw.model_dump(mode="json") if hasattr(raw, "model_dump") else raw
+            if not isinstance(data, dict):
+                return {("slot", position)}
+            keys = {(name, data[name]) for name in ("target_fact_id", "incoming_fact_key")
+                    if isinstance(data.get(name), str) and data[name]}
+            return keys or {("slot", position)}
+
+        for path, raw in response.rejected_items():
+            parent = at_path(response._raw, path[:2])
+            key = parent.get("target_key") if isinstance(parent, dict) else None
+            if not isinstance(key, str) or key not in offered:
+                continue
+            if len(path) == 2:
+                rejected_plans.add(key)
+            else:
+                blocked.setdefault(key, set()).update(tokens(raw, path[-1]))
+
+        units_by_target = {}
+        skipped_units = 0
+        for key, (operation, scope, ids, history) in offered.items():
+            if key in rejected_plans:
+                continue
+            plan_index, mutations = plans.get(key, (0, []))
+            proposals = {f["incoming_fact_key"]: f for f in operation["extracted_facts"]}
+            units = []
+            for i, mutation in enumerate(mutations):
+                position = response.original_index("plans", plan_index, "operations", i)
+                keys = tokens(mutation, position)
+                group = proposals.get(mutation.incoming_fact_key, {}).get("_group_key")
+                unit = {"tokens": keys, "items": [(position, mutation)], "groups": {group} if group else set()}
+                # Same fact or same incoming proposal forms one dependent unit.
+                overlaps = [u for u in units if u["tokens"] & keys]
+                for other in overlaps:
+                    unit["tokens"] |= other["tokens"]
+                    unit["items"] += other["items"]
+                    unit["groups"] |= other["groups"]
+                    units.remove(other)
+                units.append(unit)
+            usable = []
+            for unit in units:
+                unit["items"].sort(key=lambda pair: pair[0])
+                needs_key = any(m.incoming_fact_key is None and any(
+                    f.get("_group_key") and f["source_chat_id"] in m.source_chat_ids
+                    for f in operation["extracted_facts"]) for _, m in unit["items"])
+                if unit["tokens"] & blocked.get(key, set()) or needs_key:
+                    skipped_units += 1
+                    continue
+                try:
+                    apply_mutations(operation["payload"]["facts"], [m for _, m in unit["items"]],
+                        input_data["CURRENT_BATCH"], scope, batch_id, operation["extracted_facts"], ids,
+                        offered_history=history, recorded_at=stamp,
+                        operation_indices=[i for i, _ in unit["items"]])
+                except InvalidMutation:
+                    skipped_units += 1
+                    continue
+                usable.append(unit)
+            units_by_target[key] = usable
+
+        def build_operations():
+            accepted = []
+            for key, units in units_by_target.items():
+                if not units:
+                    continue
+                original, scope, ids, history = offered[key]
+                operation = deepcopy(original)
+                old = operation["payload"]["facts"]
+                items = sorted((item for unit in units for item in unit["items"]), key=lambda pair: pair[0])
+                mutations = [m for _, m in items]
+                operation["payload"]["facts"] = apply_mutations(old, mutations, input_data["CURRENT_BATCH"],
+                    scope, batch_id, operation["extracted_facts"], ids, offered_history=history,
+                    recorded_at=stamp, operation_indices=[i for i, _ in items])
+                groups = {group for unit in units for group in unit["groups"]}
+                operation["_required_groups"] = {f["_group_key"]: f["_group_targets"]
+                    for f in operation["extracted_facts"] if f.get("_group_key") in groups}
+                operation["_accepted_group_keys"] = []
+                by_id = {f["fact_id"]: f for f in operation["payload"]["facts"]}
+                for proposal in operation["extracted_facts"]:
+                    if proposal.get("_group_key") not in groups:
                         continue
-                    if mutation.incoming_fact_key and len(candidates) != 1:
-                        continue
-                safe.append(mutation)
-            mutations = safe
-            operation['_accepted_group_keys'] = []
-            for mutation in mutations:
-                for fact in operation['extracted_facts']:
-                    if not fact.get('_group_key') or fact['source_chat_id'] not in mutation.source_chat_ids:
-                        continue
-                    old = next((f for f in operation['payload']['facts'] if f['fact_id'] == mutation.target_fact_id), {})
-                    attribute = mutation.attribute_name or old.get('attribute_name')
-                    value = mutation.new_value if mutation.new_value is not None else old.get('value')
-                    if attribute == fact['attribute_name'] and value == fact['value']:
-                        operation['_accepted_group_keys'].append(fact['_group_key'])
-            if not mutations:
-                continue  # No authorization for aliases, row metadata or dictionary feedback.
-            operation["payload"]["facts"] = apply_mutations(operation["payload"]["facts"], mutations,
-                input_data["CURRENT_BATCH"], scope, batch_id, operation["extracted_facts"], ids)
-            operation["importance"] = max((f.get("importance",3) for f in project_facts(operation["payload"]["facts"])), default=3)
-            if operation.get("db_id"):
-                operation["mode"] = "REINFORCE" if mutations and all(m.operation == "REINFORCE" for m in mutations) else "MUTATE"
-            operation["extracted_facts"] = [
-                {"attribute_name":canonical_attribute(m.attribute_name) if m.attribute_name else
-                    next(f["attribute_name"] for f in operation["payload"]["facts"] if f["fact_id"] == m.target_fact_id)}
-                for m in mutations]
-            # Fully prepare feedback before the persistence transaction. The
-            # dictionary writer only applies accepted, already-embedded evidence.
-            accepted_attributes = {f["attribute_name"] for f in operation["extracted_facts"]}
-            operation["_dictionary_evidence"] = [e for e in operation.get("_dictionary_evidence", [])
-                if e["keyword_type"] == "ENTITY" or e["keyword"] in accepted_attributes]
-            accepted.append(operation)
-        # A NEW target with no accepted facts/aliases must not create an empty guessed memory.
-        # An explicitly introduced NEW endpoint may be a supported graph node
-        # without a redundant name/type fact. Keep it only if an accepted edge
-        # needs it; never persist an unreferenced empty guess.
-        referenced = {uid for op in accepted for f in op['payload']['facts'] for uid in f.get('related_entity_uuids', [])}
-        accepted_ids = {op.get('reserved_id') for op in accepted}
-        for op in prepared:
-            if op.get('reserved_id') in referenced - accepted_ids and not op['extracted_facts'] and not op.get('_rejected_facts'):
-                accepted.append(op)
-        from tomte.engine.core.relationships import prune_missing_new_targets
-        return prune_missing_new_targets(
-            accepted,
-            {uid for op in operations for uid in op.get('_batch_reserved_ids', [op.get('reserved_id')]) if uid})
+                    for index, mutation in items:
+                        if mutation.incoming_fact_key != proposal["incoming_fact_key"]:
+                            continue
+                        fid = mutation.target_fact_id or stable_id("tomte-fact-v2", scope, batch_id, index)
+                        fact = by_id[fid]
+                        if (fact["attribute_name"] == proposal["attribute_name"] and
+                                all(public_value(fact["value"]).get(k) == v for k, v in proposal["value"].items())):
+                            operation["_accepted_group_keys"].append(proposal["_group_key"])
+                            break
+                operation["importance"] = max((f["_importance"] for f in operation["payload"]["facts"]), default=3)
+                operation["_semantic_changed"] = (not operation.get("_expected_payload") or
+                    public_entity(operation["_expected_payload"]) != public_entity(operation["payload"]))
+                if operation.get("db_id"):
+                    operation["mode"] = "MUTATE" if operation["_semantic_changed"] else "REINFORCE"
+                attributes = {m.attribute_name or by_id[m.target_fact_id]["attribute_name"]
+                              for m in mutations if m.operation != "MENTION"}
+                operation["extracted_facts"] = [{"attribute_name": name} for name in attributes]
+                operation["_dictionary_evidence"] = [e for e in operation.get("_dictionary_evidence", [])
+                    if attributes and (e["keyword_type"] == "ENTITY" or
+                        (e["keyword_type"] == "ATTRIBUTE" and e["keyword"] in attributes) or
+                        (e["keyword_type"] == "FIELD" and any(f["attribute_name"] == e.get("attribute_name")
+                            and e["keyword"] in f["value"] for f in operation["payload"]["facts"])))]
+                accepted.append(operation)
+            return accepted
+
+        skipped_groups = set()
+        while True:
+            accepted = build_operations()
+            failed = incomplete_groups(accepted)
+            if not failed:
+                break
+            skipped_groups |= failed
+            removed = 0
+            for key, units in units_by_target.items():
+                keep = [unit for unit in units if not unit["groups"] & failed]
+                removed += len(units) - len(keep)
+                units_by_target[key] = keep
+            if not removed:
+                raise RuntimeError("Incomplete group did not identify a dependent mutation unit")
+            skipped_units += removed
+        self.last_mutation_recovery = {**response.recovery_summary(), "skipped_units": skipped_units,
+            "skipped_groups": len(skipped_groups), "accepted_entities": len(accepted)}
+        return accepted
+
 
     @staticmethod
     def _batch_id(tenant_id: str, user_id: str, chat_items: List[Dict[str, Any]]) -> str:
@@ -353,10 +420,10 @@ class ConsolidationWorkflow:
     # INTERNAL HELPERS
     # ==========================================
 
-    def _flatten_schema(self, schema: TomteMemorySchema) -> List[Dict[str, Any]]:
+    def _flatten_schema(self, schema: ResolvedExtractionMemory) -> List[Dict[str, Any]]:
         """Converts the multi-domain Pydantic schema into a flat list of entities."""
         all_entities = []
-        # Access each domain defined in the TomteMemorySchema
+        # Domain containers are structural keys, not a business vocabulary.
         domains = [
             schema.identity_and_demographics,
             schema.relationships,
@@ -384,10 +451,6 @@ class ConsolidationWorkflow:
         if len(set(ids)) != len(ids):
             raise ValueError("Temporary extraction IDs must be unique within a batch")
         entities = deepcopy(extracted)
-        for entity in entities:
-            # Canonicalize without collapsing simultaneous assertions by attribute.
-            for fact in entity.get("facts", []):
-                fact["attribute_name"] = canonical_attribute(fact["attribute_name"])
         if candidate_sets is None:
             # Direct callers may supply an already bounded set; never send a whole graph.
             candidate_sets = {eid: skeleton[:CANDIDATE_LIMIT] for eid in ids}
@@ -415,13 +478,17 @@ class ConsolidationWorkflow:
                   } for e in entities], "CANDIDATES_BY_OBJECT": candidate_view,
                   "CANDIDATE_SET_TRUNCATED": {eid: any(row.get("identity_matches_total", 0) > CANDIDATE_LIMIT
                                                       for row in candidate_sets.get(eid, [])) for eid in ids}}
-        response = self.llm.parse_structured(system_prompt=RECONCILER_SYSTEM_PROMPT,
+        response = self._parse_proposals(system_prompt=RECONCILER_SYSTEM_PROMPT,
                                             user_text=json.dumps(prompt, ensure_ascii=False), schema=ResolutionResponse)
         self.last_resolution = response.model_dump(mode="json")
         lookup = {}
+        counts = Counter(result.extracted_entity_id for result in response.resolutions)
+        rejected_ids = {raw.get("extracted_entity_id") for _, raw in response.rejected_items()
+                        if isinstance(raw, dict) and isinstance(raw.get("extracted_entity_id"), str)}
         for result in response.resolutions:
-            if result.extracted_entity_id not in ids or result.extracted_entity_id in lookup:
-                raise ValueError("Resolution must reference each extraction object at most once")
+            if (result.extracted_entity_id not in ids or counts[result.extracted_entity_id] != 1
+                    or result.extracted_entity_id in rejected_ids):
+                continue
             lookup[result.extracted_entity_id] = result
         operations = []
         prepared = {}
@@ -442,9 +509,8 @@ class ConsolidationWorkflow:
                 operations.append(op)
                 continue
             offered = {str(row["id"]) for row in candidate_sets.get(entity["entity_id"], [])[:CANDIDATE_LIMIT]}
-            for target in result.targets:
-                if str(target.db_id) not in offered or str(target.db_id) not in records:
-                    raise ValueError("Matched Golden Record not found in offered scoped candidates")
+            if any(str(target.db_id) not in offered or str(target.db_id) not in records for target in result.targets):
+                continue
             targets = []
             for target in result.targets:
                 if target.resolution_confidence >= MIN_RESOLUTION_CONFIDENCE and target.evidence in STRONG_EVIDENCE:
@@ -489,8 +555,8 @@ class ConsolidationWorkflow:
                 else:
                     operations.append(op)
                     prepared[db_id] = op
-        from tomte.engine.core.relationships import normalize_relationships
-        operations, self.last_identity_map = normalize_relationships(operations)
+        from tomte.engine.core.relationships import prepare_proposals
+        operations, self.last_identity_map = prepare_proposals(operations)
         return operations
 
     @staticmethod
@@ -516,43 +582,26 @@ class ConsolidationWorkflow:
 
     @staticmethod
     def _prepare_operation(tenant_id, user_id, entity, record, approved_aliases=()):
-        """Existing fact merge/history semantics; identity decisions never choose a mode."""
-        payload = deepcopy(entity)
-        payload.pop("mention_context", None)
-        dictionary_evidence = payload.pop("_dictionary_evidence", [])
-        incoming = deepcopy(entity.get("facts", []))
-        mode = "INSERT"
-        stored_aliases = deepcopy(record.get("payload", {}).get("aliases", [])) if record is not None else []
-        canonical_name = record["entity_name"] if record is not None else entity.get("entity_name", "")
+        """Identity acceptance retains existing metadata and does not decide fact truth."""
+        canonical_id = str(record["id"]) if record is not None else str(uuid4())
+        payload = {name: deepcopy(record["payload"][name] if record is not None else entity[name])
+                   for name in ("entity_name", "entity_type", "entity_domain")}
+        payload["entity_id"] = canonical_id
+        aliases = deepcopy(record["payload"].get("aliases", [])) if record is not None else []
         for alias in approved_aliases:
-            normalized = " ".join(alias.split()).casefold()
-            if normalized != " ".join(canonical_name.split()).casefold() and not any(
-                    normalized == " ".join(existing.split()).casefold() for existing in stored_aliases):
-                stored_aliases.append(alias)
-        payload["aliases"] = stored_aliases
+            if alias != payload["entity_name"] and alias not in aliases:
+                aliases.append(alias)
+        payload["aliases"] = aliases
+        payload["facts"] = deepcopy(record["payload"].get("facts", [])) if record is not None else []
+        op = {"mode": "MUTATE" if record is not None else "INSERT", "tenant_id": tenant_id, "user_id": user_id,
+              **{key: payload[key] for key in ("entity_id", "entity_name", "entity_type", "entity_domain")},
+              "payload": payload, "extracted_facts": deepcopy(entity.get("facts", [])),
+              "_mention_context": entity.get("mention_context"),
+              "_dictionary_evidence": deepcopy(entity.get("_dictionary_evidence", [])),
+              "importance": max((f.get("_importance", 3) for f in payload["facts"]), default=3)}
         if record is not None:
-            old = deepcopy(record.get("payload", {}).get("facts", []))
-            values = {f["attribute_name"]: (f["value"], f.get("status", "active")) for f in old}
-            mode = "REINFORCE" if all(values.get(f["attribute_name"]) == (f["value"], f.get("status", "active"))
-                                      for f in incoming) else "MUTATE"
-            # Normal matched updates preserve identity/classification. Explicit
-            # corrections would require a separate, deliberate operation.
-            for key in ("entity_id", "entity_name", "entity_domain", "entity_type"):
-                payload[key] = record[key]
-            # Identity preparation does not decide assertion truth transitions.
-            payload["facts"] = old
-        op = {"mode": mode, "tenant_id": tenant_id, "user_id": user_id,
-              "entity_id": payload["entity_id"], "entity_name": payload.get("entity_name") or payload["entity_id"],
-              "entity_type": payload["entity_type"], "entity_domain": payload["entity_domain"],
-              "payload": payload, "extracted_facts": incoming,
-              "_mention_context": entity.get('mention_context'),
-              "_dictionary_evidence": dictionary_evidence,
-              "importance": max((f.get("importance", 3) for f in payload.get("facts", [])), default=3)}
-        if record is not None:
-            op["db_id"] = str(record["id"])
+            op["db_id"] = canonical_id
             op["_expected_payload"] = deepcopy(record["payload"])
         else:
-            op["reserved_id"] = str(uuid4())
-            op["entity_id"] = op["payload"]["entity_id"] = "entity_" + uuid4().hex
-            op["payload"]["facts"] = []  # NEW still requires validated ADD proposals.
+            op["reserved_id"] = canonical_id
         return op

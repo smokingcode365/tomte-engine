@@ -1,0 +1,68 @@
+{
+  "dataset_version": "memory-subject-naming-1",
+  "adjudication": "LLM-assisted manual review against user turns and saved stage outputs, snapshots and retrieval. No keyword-based semantic classifier and no independent blinded human adjudication.",
+  "wrong_memory_weight": 5,
+  "missed_requirement_weight": 1,
+  "rules": [
+    "Gold is never passed to the engine. Freeze conversations, expectations and source before live execution; preserve failures without tuning during the run.",
+    "Judge meaning, not exact names, field wording or language. Apply explicit entity-layout and naming requirements below separately from fact recall.",
+    "Inspect every current and historical value item, including extra claims, and entity names/aliases. Record source turns, fact UUIDs and snapshot references for supported, wrong or unresolved judgments.",
+    "Score missing required meanings even when processing errors or abstains. Report operational failures separately.",
+    "An employer retained alongside explicit ending text does not assert that the job is active. Real changes preserve the previous value inside the same fact; unrelated facts and identities must survive.",
+    "Record wrong fact-value propositions separately from stale or misleading identity metadata. Do not hide either behind successful execution.",
+    "Review query-relevant retrieval separately from background context and storage. Entity names alone are not answers to factual queries.",
+    "A run passes this pilot only if required meanings, structural requirements and retrieval checks pass with no observed wrong memory or unresolved judgments. Repeated-attribute coverage is reported separately, not silently inferred from a semantic pass.",
+    "Weighted fact error units = 5 * wrong fact-value propositions + missed required meanings. Structural/naming failures are separate counts. This is not an accuracy percentage or validated utility metric."
+  ],
+  "cases": {
+    "user_jobs": {
+      "required": [
+        "The user still works as a doctor at Harbour Hospital.",
+        "The hospital work is on weekdays.",
+        "The user formerly worked as a lecturer at Northbridge College.",
+        "The college work was on Saturdays and has ended."
+      ],
+      "structure": [
+        "The initial memory has two independently identifiable job entities, one for each user job; it does not bundle both jobs into a single My jobs entity.",
+        "Both job entities retain their UUIDs after the update; ending the college job does not end, replace or move the hospital job.",
+        "The ended college employment retains its fact UUID and archives its previous value in that fact; its current value clearly describes the ending.",
+        "No unsupported hospital/college organization entities are invented merely to hold job details."
+      ],
+      "retrieval": ["Returned memory clearly distinguishes the user's continuing hospital job from the ended college job."],
+      "forbidden_examples": ["Both jobs ended.", "The college lecturer role remains active.", "The doctor job is at Northbridge College."]
+    },
+    "brother_jobs": {
+      "required": [
+        "Daniel is the user's brother.",
+        "Daniel still works as a doctor at Willow Hospital.",
+        "Daniel's hospital work is on weekdays.",
+        "Daniel formerly worked as a lecturer at Birch College.",
+        "Daniel's college work was on Saturdays and has ended."
+      ],
+      "structure": [
+        "Daniel is one person entity containing both separately identifiable employment facts; no independent job, hospital or college entity is created solely to describe him.",
+        "Daniel's entity UUID and both employment fact UUIDs survive the update; only the intended employment changes meaning.",
+        "The ended college employment archives its previous value inside the same fact, while the hospital employment remains current."
+      ],
+      "coverage_checks": ["Record whether both employment facts use exactly the same attribute_name. If they do not, mark repeated-attribute live coverage as not exercised even if their meanings are correct."],
+      "retrieval": ["Returned memory keeps both employments on Daniel and distinguishes his continuing hospital job from his ended college job."],
+      "forbidden_examples": ["The user holds Daniel's jobs.", "Both of Daniel's jobs ended.", "Daniel is still lecturing at Birch College."]
+    },
+    "stable_car_name": {
+      "required": [
+        "The user owns a Honda Civic.",
+        "The Honda was bought in 2021.",
+        "The Honda is currently white.",
+        "The Honda was previously blue."
+      ],
+      "structure": [
+        "The initial car entity uses a durable supported name or label; mutable blue colour is not baked into its canonical name or saved as a permanent alias without an established nickname.",
+        "The same car entity UUID and canonical name survive repainting; the current returned identity metadata does not describe the car as still blue.",
+        "The colour change retains the relevant fact UUID and preserves blue in that fact's history, with white current.",
+        "No duplicate car entity is created to represent repainting."
+      ],
+      "retrieval": ["Returned memory gives white as current colour, blue as previous colour and 2021 as purchase year, with a consistent stable entity name."],
+      "forbidden_examples": ["Blue is still the current colour.", "The user bought another Honda when repainting.", "The car was purchased in an invented precise month or day."]
+    }
+  }
+}

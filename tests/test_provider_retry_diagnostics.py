@@ -14,11 +14,12 @@ from test_openai_provider import provider
 SECRET='synthetic-secret-do-not-log'
 PRIVATE='synthetic-private-conversation-do-not-log'
 
-def plan(value=None,target='existing-fact'):
-    return {'plans':[{'target_key':'target_0','operations':[{
-        'operation':'REINFORCE','target_fact_id':target,'new_value':value,
-        'source_chat_ids':['current-source'],'interpretation_confidence':0.97,
-        'evidence_type':'USER_EXPLICIT'}]}]}
+def plan(value=None, target="existing-fact"):
+    return {"plans": [{"target_key": "target_0", "operations": [{
+        "operation": "MENTION", "target_fact_id": target,
+        "fields": [{"field_name": "detail", "text": value, "fact_confidence": "high"}] if value else [],
+        "source_chat_ids": ["current-source"]}]}]}
+
 
 def model_for(outputs,calls):
     def model(messages,info):
@@ -36,8 +37,9 @@ def test_native_validation_retry_is_logged_and_repaired_output_is_preserved(prov
     metadata=json.loads(debug.call_args.args[0])
     assert metadata['stage']=='fact_mutation' and metadata['schema']=='MutationPlanResponse'
     assert metadata['attempt']==1 and metadata['retry_count']==1
-    assert metadata['reason']=='pydantic_validation'
-    assert metadata['errors']==[{'type':'value_error','location':['plans',0,'operations',0]}]
+    assert metadata['reason']=='agent_retry'
+    assert metadata['errors']==[]
+    assert result.recovery_summary()=={'rejected_items':0,'repair_attempted':True}
     logged=str(debug.call_args_list)
     assert SECRET not in logged and PRIVATE not in logged and provider.api_key not in logged
 
@@ -60,7 +62,7 @@ def test_retry_metadata_excludes_arbitrary_message_input_context_and_field_keys(
     assert SECRET not in str(debug.call_args_list) and PRIVATE not in str(debug.call_args_list)
 
 def test_exhausted_native_retry_still_propagates_without_changing_retry_limit(provider,monkeypatch):
-    calls=[];provider.strong_model=model_for([plan(target=None)],calls)
+    calls=[];provider.strong_model=model_for([{'plans':None}],calls)
     debug=Mock();monkeypatch.setattr(openai_provider.tomtelog,'debug',debug)
     with pytest.raises(UnexpectedModelBehavior):
         provider.parse_structured('Synthetic instructions',PRIVATE,MutationPlanResponse)
@@ -70,7 +72,7 @@ def test_exhausted_native_retry_still_propagates_without_changing_retry_limit(pr
     assert metadata['event']=='structured_output_failure'
     assert metadata['reason']=='pydantic_validation'
     assert metadata['attempt']==2 and metadata['retry_count']==1
-    assert metadata['errors']==[{'type':'value_error','location':['plans',0,'operations',0]}]
+    assert metadata['errors']==[{'type':'list_type','location':['plans']}]
     assert PRIVATE not in str(debug.call_args_list) and provider.api_key not in str(debug.call_args_list)
 
 
@@ -79,7 +81,7 @@ def test_failure_diagnostics_do_not_attribute_an_enclosing_runs_history(provider
     with capture_run_messages():
         provider.strong_model=model_for([plan()],[])
         provider.parse_structured('Synthetic instructions',PRIVATE,MutationPlanResponse)
-        provider.strong_model=model_for([plan(SECRET)],[])
+        provider.strong_model=model_for([{'plans':None}],[])
         with pytest.raises(UnexpectedModelBehavior):
             provider.parse_structured('Synthetic instructions',PRIVATE,MutationPlanResponse)
     metadata=json.loads(debug.call_args.args[0])
@@ -92,7 +94,7 @@ def test_failure_diagnostics_do_not_attribute_an_enclosing_runs_history(provider
 @pytest.mark.parametrize('exhausted',[False,True])
 def test_diagnostic_logger_failure_does_not_change_model_results_or_exceptions(provider,monkeypatch,exhausted):
     monkeypatch.setattr(openai_provider.tomtelog,'debug',Mock(side_effect=RuntimeError('Synthetic logger failure')))
-    outputs=[plan(target=None)] if exhausted else [plan(SECRET),plan()]
+    outputs=[{'plans':None}] if exhausted else [plan(SECRET),plan()]
     calls=[];provider.strong_model=model_for(outputs,calls)
     if exhausted:
         with pytest.raises(UnexpectedModelBehavior,match='Exceeded maximum retries'):

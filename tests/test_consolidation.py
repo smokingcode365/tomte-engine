@@ -30,7 +30,7 @@ def test_reconciliation_returns_accumulated_operations(monkeypatch):
     assert isinstance(operations, list)
     assert len(operations) == 1
     assert operations[0]["mode"] == "INSERT"
-    assert operations[0]["entity_id"].startswith("entity_")
+    assert operations[0]["entity_id"] == operations[0]["reserved_id"]
     assert operations[0]["reserved_id"]
     assert operations[0]["tenant_id"] == "test-tenant"
     assert operations[0]["user_id"] == "test-user"

@@ -48,7 +48,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         paths = []
-        for value in args.cases or [ROOT / "evals/prompts/cases"]:
+        for value in args.cases or [ROOT / "evals/prompts/cases/v2"]:
             path = local_path(value)
             if not path.exists():
                 raise ValueError("Missing case path")

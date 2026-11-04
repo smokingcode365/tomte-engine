@@ -5,6 +5,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
+from memory_fixtures import simple_entity, simple_fact, field_entries, fact_text, value as item_value
 
 import pytest
 
@@ -24,20 +25,19 @@ def item(source="current-1", timestamp=1791547200, content="I named it Little Do
     return {"item_id": source, "timestamp": timestamp, "role": "user", "content": content}
 
 
-def extracted(source=None, timeline=False):
+def extracted(source=None):
     return ExtractionMemorySchema.model_validate({"assets_and_possessions": [{
         "entity_id": "tmp_veh_99", "entity_name": "Tesla Model Y", "entity_type": "vehicle",
         "entity_domain": "assets_and_possessions", "aliases": ["Little Dog"],
-        "facts": [{"attribute_name": "nickname", "value": "Little Dog", "confidence": 1.0,
-                   "source_chat_id": source,
-                   "timeline": [{"event_description": "Named vehicle Little Dog", "source_chat_id": source}] if timeline else []}],
+        "facts": [{"attribute_name": "nickname", "value": field_entries("Little Dog"), "source_chat_id": source}],
     }]})
 
 
 def test_wire_schema_does_not_request_system_timestamps():
     schema = ExtractionMemorySchema.model_json_schema()
     assert "last_mentioned_at" not in schema["$defs"]["ExtractedFact"]["properties"]
-    assert "timestamp" not in schema["$defs"]["ExtractedTimelineEvent"]["properties"]
+    assert "ExtractedTimelineEvent" not in schema["$defs"]
+    assert "_recorded_at" not in schema["$defs"]["WireValueField"]["properties"]
 
 
 def test_input_separates_bounded_antecedents_from_current_sources():
@@ -53,30 +53,26 @@ def test_input_separates_bounded_antecedents_from_current_sources():
                for x in prompt["RECENT_CONTEXT_REFERENCE_ONLY"])
 
 
-def test_single_source_and_event_provenance_are_supplied_by_code():
+def test_single_source_is_transient_and_resolved_without_model_timestamps():
     source = item()
-    result = resolve_extraction(extracted(timeline=True), [source])
-    fact = result.assets_and_possessions[0].facts[0]
-    stamp = source_timestamps([source])[source["item_id"]]
+    fact = resolve_extraction(extracted(), [source]).assets_and_possessions[0].facts[0]
     assert fact.source_chat_id == source["item_id"]
-    assert fact.last_mentioned_at == stamp
-    assert fact.timeline[0].source_chat_id == source["item_id"]
-    assert fact.timeline[0].timestamp == stamp
+    assert fact.value == item_value("Little Dog")
+    assert not any(key in fact.model_dump() for key in ("last_mentioned_at", "timeline", "_recorded_at"))
 
 
 @pytest.mark.parametrize("source", [None, "unknown", "invented-id", "historical-id"])
 def test_multi_source_requires_a_real_current_message_selection(source):
-    with pytest.raises(ValueError, match="CURRENT_BATCH"):
-        resolve_extraction(extracted(source), [item(), item("current-2", 1791547210)])
+    response = resolve_extraction(extracted(source), [item(), item("current-2", 1791547210)])
+    assert response.assets_and_possessions[0].facts == []
 
 
-def test_multi_source_resolves_fact_and_event_timestamps_independently():
+def test_multi_source_selection_keeps_original_message_times_available():
     batch = [item(), item("current-2", 1791547210)]
-    response = extracted("current-2", timeline=True)
-    response.assets_and_possessions[0].facts[0].timeline[0].source_chat_id = "current-1"
-    fact = resolve_extraction(response, batch).assets_and_possessions[0].facts[0]
-    assert fact.last_mentioned_at == source_timestamps(batch)["current-2"]
-    assert fact.timeline[0].timestamp == source_timestamps(batch)["current-1"]
+    fact = resolve_extraction(extracted("current-2"), batch).assets_and_possessions[0].facts[0]
+    assert fact.source_chat_id == "current-2"
+    assert source_timestamps(batch)["current-1"] != source_timestamps(batch)[fact.source_chat_id]
+    assert json.loads(build_extraction_input(batch))["CURRENT_BATCH"][1]["timestamp"] == 1791547210
 
 
 def test_resolve_extraction_keeps_user_fact_and_drops_assistant_fact():
@@ -85,25 +81,20 @@ def test_resolve_extraction_keeps_user_fact_and_drops_assistant_fact():
     response = extracted("user-source")
     fact = response.assets_and_possessions[0].facts[0]
     response.assets_and_possessions[0].facts.append(fact.model_copy(update={
-        "attribute_name": "paint_color", "value": "blue", "source_chat_id": "assistant-source"}))
+        "attribute_name": "paint_color", "value": field_entries("blue"), "source_chat_id": "assistant-source"}))
     original = response.model_dump(mode="json")
     resolved = resolve_extraction(response, batch).assets_and_possessions[0]
-    assert [(f.attribute_name, f.value) for f in resolved.facts] == [("nickname", "Little Dog")]
+    assert [(f.attribute_name, f.value) for f in resolved.facts] == [("nickname", item_value("Little Dog"))]
     assert response.model_dump(mode="json") == original
 
 
-@pytest.mark.parametrize("event_source", ["assistant-source", "invented-not-in-batch"])
-def test_extracted_timeline_filters_assistant_but_rejects_foreign_source(event_source):
-    """User facts survive unsupported timeline events; fabricated IDs still fail."""
-    batch = [item("user-source"), {**item("assistant-source", 1791547210), "role": "assistant"}]
-    response = extracted("user-source", timeline=True)
-    response.assets_and_possessions[0].facts[0].timeline[0].source_chat_id = event_source
-    if event_source == "invented-not-in-batch":
-        with pytest.raises(ValueError, match="CURRENT_BATCH"):
-            resolve_extraction(response, batch)
-    else:
-        resolved = resolve_extraction(response, batch).assets_and_possessions[0]
-        assert len(resolved.facts) == 1 and resolved.facts[0].timeline == []
+@pytest.mark.parametrize("retired", ["timeline", "related_entity_ids", "related_entity_uuids"])
+def test_retired_extraction_relationship_and_timeline_fields_are_rejected(retired):
+    data=extracted().model_dump(mode="json")
+    data["assets_and_possessions"][0]["facts"][0][retired]=[]
+    response = ExtractionMemorySchema.model_validate(data)
+    assert response.assets_and_possessions[0].facts == []
+    assert response._rejected == [("assets_and_possessions", 0, "facts", 0)]
 
 
 @pytest.mark.parametrize("stamp", [None, 0, float("nan"), True])
@@ -115,20 +106,20 @@ def test_invalid_queue_timestamp_fails_before_extraction(stamp):
 def test_model_timestamp_even_if_epoch_is_rejected():
     data = extracted().model_dump(mode="json")
     data["assets_and_possessions"][0]["facts"][0]["last_mentioned_at"] = "1970-01-01T00:00:00Z"
-    with pytest.raises(ValueError):
-        ExtractionMemorySchema.model_validate(data)
+    response = ExtractionMemorySchema.model_validate(data)
+    assert response.assets_and_possessions[0].facts == []
+    assert response._rejected == [("assets_and_possessions", 0, "facts", 0)]
 
 
 @pytest.mark.parametrize("color, mode", [("red", "REINFORCE"), ("blue", "MUTATE")])
 def test_reconciler_can_use_aliases_and_actual_old_new_values(monkeypatch, color, mode):
     record_id = uuid4()
-    skeleton = [{"id": record_id, "entity_id": "veh_01", "entity_name": "Tesla Model Y",
-                 "entity_type": "vehicle", "entity_domain": "assets_and_possessions",
-                 "payload": {"aliases": ["my car", "Little Dog"],
-                 "facts": [{"attribute_name": "paint_color", "value": "red"}]}}]
+    payload=simple_entity("Tesla Model Y",entity_id=str(record_id),kind="vehicle",domain="assets_and_possessions",
+                          aliases=["my car","Little Dog"],facts=[simple_fact("paint_color","red")])
+    skeleton = [{"id":record_id,**{k:payload[k] for k in ("entity_id","entity_name","entity_type","entity_domain")},"payload":payload}]
     new = {"entity_id": "tmp_veh_99", "entity_name": "Little Dog", "entity_type": "vehicle",
            "entity_domain": "assets_and_possessions", "aliases": ["Little Dog"],
-           "facts": [{"attribute_name": "paint_color", "value": color}]}
+           "facts": [{"attribute_name": "paint_color", "value": item_value(color)}]}
     calls = []
     def reconcile(system_prompt, user_text, schema):
         data = json.loads(user_text)
@@ -144,22 +135,20 @@ def test_reconciler_can_use_aliases_and_actual_old_new_values(monkeypatch, color
     monkeypatch.setattr(Tomte, "_llm", SimpleNamespace(parse_structured=reconcile))
     monkeypatch.setattr("tomte.engine.workflows.consolidation.get_dictionary_service", lambda: Mock())
     op, = ConsolidationWorkflow()._reconcile_with_golden_records("tenant", "user", [new], skeleton)
-    assert op["mode"] == mode and op["db_id"] == str(record_id)
-    assert op["entity_id"] == op["payload"]["entity_id"] == "veh_01"
-    assert calls[0][0]["facts"] == {"paint_color": "red"}
-    assert calls[0][1]["facts"] == {"paint_color": color}
+    assert op["db_id"] == str(record_id)  # Identity resolution does not decide value mutation.
+    assert op["entity_id"] == op["payload"]["entity_id"] == str(record_id)
+    assert calls[0][0]["facts"] == [{"attribute_name":"paint_color","value":item_value("red")}]
+    assert calls[0][1]["facts"] == [{"attribute_name":"paint_color","value":item_value(color)}]
     assert calls[0][0]["aliases"] == ["my car", "Little Dog"]
 
 
-def test_nickname_context_contains_identity_and_fact_status_without_timelines():
-    text = CognitiveProcessor().format_entities([{
-        "entity_id": "veh_01", "entity_name": "Tesla Model Y", "entity_type": "vehicle",
-        "aliases": ["my car", "Little Dog"], "facts": [{"attribute_name": "ownership_status",
-        "value": "sold", "importance": 4, "status": "past", "assertion_state":"ACTIVE", "timeline": [{"event_description": "hidden history"}]}],
-    }])
-    assert "Tesla Model Y" in text and "Little Dog" in text and "TYPE: vehicle" in text
-    assert "ownership_status: sold" in text and "status: past" in text
-    assert "hidden history" not in text
+def test_nickname_context_contains_explicit_current_value_without_internal_metadata():
+    payload=simple_entity("Tesla Model Y",kind="vehicle",aliases=["my car","Little Dog"],
+                          facts=[simple_fact("ownership_status","sold")])
+    text=CognitiveProcessor().format_entities([payload])
+    assert "Tesla Model Y" in text and "Little Dog" in text and '"entity_type": "vehicle"' in text
+    assert '"text": "sold"' in text and '"fact_confidence": "high"' in text
+    assert "_recorded_at" not in text and "source_chat_id" not in text
 
 
 def test_real_queue_context_is_bounded_scoped_and_retry_stable(mechanics):
@@ -182,19 +171,19 @@ def test_real_queue_context_is_bounded_scoped_and_retry_stable(mechanics):
         case.cache.client.delete(other_key)
 
 
-def test_actual_single_message_provenance_is_persisted(mechanics):
+def test_actual_single_message_time_is_persisted_without_source_id(mechanics):
     case = mechanics
     queue = queued_message(case)
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
     row, = memory_rows(case)
     fact = row["payload"]["facts"][0]
-    assert fact["source_chat_id"] == queue[0]["item_id"]
-    assert fact["last_mentioned_at"] == source_timestamps(queue)[queue[0]["item_id"]]
+    assert "source_chat_id" not in fact
+    assert fact["_last_mentioned_at"] == source_timestamps(queue)[queue[0]["item_id"]]
     assert processed_count(case) == 1
 
 
 @pytest.mark.parametrize("defect", ["unknown", "invented-id", "epoch"])
-def test_invalid_model_provenance_cannot_persist_or_claim_batch(mechanics, monkeypatch, defect):
+def test_invalid_model_provenance_is_skipped_without_persisting_memory(mechanics, monkeypatch, defect):
     case = mechanics
     original = case.llm.parse_structured
     def invalid(system_prompt, user_text, schema, taxonomy=None, lexicon=None):
@@ -210,9 +199,8 @@ def test_invalid_model_provenance_cannot_persist_or_claim_batch(mechanics, monke
         return result
     monkeypatch.setattr(case.llm, "parse_structured", invalid)
     queue = queued_message(case)
-    with pytest.raises(ValueError):
-        ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert memory_rows(case) == [] and processed_count(case) == 0
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
+    assert memory_rows(case) == [] and processed_count(case) == 1
     assert case.anchors == []
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
 
@@ -226,7 +214,7 @@ def test_inherited_placeholders_fail_before_transaction_or_marker(monkeypatch, f
     monkeypatch.setattr("tomte.engine.workflows.consolidation.get_dictionary_service", lambda: Mock())
     fact = {"source_chat_id": "valid-historical-source", "last_mentioned_at": "2026-10-09T12:00:00Z"}
     fact[field] = value
-    with pytest.raises(ValueError, match="placeholder provenance"):
+    with pytest.raises(ValueError):
         ConsolidationWorkflow()._commit_refined_operations([{"payload": {"facts": [fact]}}], "tenant", "user", "batch")
     db.transaction.assert_not_called()
     db.claim_consolidation_batch.assert_not_called()

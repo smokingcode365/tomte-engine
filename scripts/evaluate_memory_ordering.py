@@ -1,3 +1,4 @@
+from memory_eval_support import MEMORY_FORMAT, fixture_write, fixture_uuid, search_texts, similarity, label_map
 """Evaluation-only memory ordering. Cached embeddings only; no production edits.
 SQL fixtures are rolled back; only unique synthetic Redis keys are removed.
 Full-cosine diagnostic uses cached fixture vectors, not an available public contract.
@@ -107,7 +108,7 @@ def main():
     vectors = json.loads(path.read_text())
     def key(role,text):
         return hashlib.sha256(json.dumps([settings.openai.embed_model,1536,role,text]).encode()).hexdigest()
-    texts = {'document': sorted({get_entity_summary(e) for e in bank.values()}),
+    texts = {'document': sorted({text for e in bank.values() for text in search_texts(e)}),
              'query': sorted({c['text'] for c in cold} | {t['text'] for c in conversations for t in c['turns']})}
     api = dict(requests=0, embedded_texts=0)
     missing=[text for role in texts for text in texts[role] if key(role,text) not in vectors]
@@ -164,10 +165,8 @@ def main():
         workflow._build_knowledge_context=record
         try:
             with db.transaction():
-                updates=[dict(mode='INSERT',tenant_id=tenant,user_id=c['user'],
-                    **{f:e[f] for f in ('entity_id','entity_name','entity_domain','entity_type')},
-                    payload=deepcopy(e),embedding=vectors[key('document',get_entity_summary(e))])
-                    for c in conversations[:30] for e in bank.values()]
+                docs={text:vectors[key('document',text)] for text in texts['document']}
+                updates=[fixture_write(tenant,c['user'],e,docs) for c in conversations[:30] for e in bank.values()]
                 assert db.commit_graph_updates(updates)
                 assert db.conn.execute('SELECT count(*) AS n FROM tomte_memory_engine WHERE tenant_id=%s',(tenant,)).fetchone()['n']==900
                 # Deliberately adverse old/low-frequency Tesla versus rotating
@@ -184,7 +183,7 @@ def main():
                             n=recent.index(eid);age=60+n*60
                         if eid=='tesla': mentions=1;age=86400*365
                         db.conn.execute('UPDATE tomte_memory_engine SET mention_count=%s,last_mentioned_at=now()-(%s * interval \'1 second\'),importance=%s WHERE tenant_id=%s AND user_id=%s AND entity_id=%s',
-                            (mentions,age,50-rank,tenant,c['user'],eid))
+                            (mentions,age,50-rank,tenant,c['user'],fixture_uuid(tenant,c['user'],bank[eid]['entity_id'])))
                 def evaluate(user,session,turn,cold_session,valid_topics):
                     nonlocal capturing
                     turn_calls.clear();turn_ms.clear();sql_count[0]=0
@@ -198,11 +197,14 @@ def main():
                     production_calls.update(turn_calls)
                     vector=vectors[key('query',turn['text'])]
                     streams=dict(captured)
+                    labels=label_map(tenant,user,bank)
                     baseline=workflow.cog.merge_entities(streams['recent'],streams['raw'],streams['session'])
                     memories=[e for e in baseline if e['entity_domain']!=MemoryDomain.IDENTITY.value]
-                    assert workflow.cog.format_entities(workflow.cog.merge_entities(streams['persona'],* [streams[s] for s in ('recent','raw','session')]))==payload['context_text']
+                    assert {e['entity_id'] for e in workflow.cog.merge_entities(*streams.values())} == {e['entity_id'] for e in payload['query_relevant_memories']+payload['background_memories']}
                     scope_keys=[(e['tenant_id'],e['user_id'],e['id']) for e in memories]
                     assert len(scope_keys)==len(set(scope_keys))
+                    # Evaluation labels are introduced only after the public UUID response was checked.
+                    memories=[{**e,'entity_id':labels[e['entity_id']]} for e in memories]
                     required=set(turn['required'])-persona_ids
                     acceptable=(required|valid_topics|set(turn.get('acceptable',[])))-persona_ids
                     metadata={}
@@ -210,7 +212,7 @@ def main():
                         eid=e['entity_id']
                         positions={s:next((i for i,x in enumerate(streams[s]) if x['id']==e['id']),None) for s in ('session','recent','raw')}
                         raw=next((x.get('raw_cosine') for x in streams['raw'] if x['id']==e['id']),None)
-                        full=cosine(vector,vectors[key('document',get_entity_summary(bank[eid]))])
+                        full=similarity(vector,bank[eid],docs)
                         if raw is not None: assert abs(full-raw)<1e-5
                         age=age_for(user,eid,bank)
                         if turn.get('age_override'): age=turn['age_override'].get(eid,86400*400)
@@ -246,23 +248,23 @@ def main():
                         overrides={'terry':age,'basketball':age+1}
                         db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-interval '400 days' WHERE tenant_id=%s AND user_id=%s",(tenant,'u0'))
                         for eid,seconds in overrides.items():
-                            db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-(%s * interval '1 second') WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",(seconds,tenant,'u0',eid))
+                            db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-(%s * interval '1 second') WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",(seconds,tenant,'u0',fixture_uuid(tenant,'u0',bank[eid]['entity_id'])))
                         turn=dict(text='What is the weather tomorrow?',required=[],acceptable=['terry','basketball'],group='TIME_'+tag,age_override=overrides)
                         evaluate('u0','time-'+tag+'-'+str(repeat),turn,True,set())
                 for age,tag in ((120,'minutes'),(21600,'today'),(86400,'yesterday'),(259200,'few_days')):
                     for repeat in range(3):
                         overrides={'tesla':age}
                         db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-interval '400 days' WHERE tenant_id=%s AND user_id=%s",(tenant,'u0'))
-                        db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-(%s * interval '1 second') WHERE tenant_id=%s AND user_id=%s AND entity_id='tesla'",(age,tenant,'u0'))
+                        db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-(%s * interval '1 second') WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",(age,tenant,'u0',fixture_uuid(tenant,'u0',bank['tesla']['entity_id'])))
                         evaluate('u0','followup-'+tag+'-'+str(repeat),dict(text='What about winter?',required=['tesla'],acceptable=[],group='FOLLOWUP_'+tag,age_override=overrides),True,set())
                 for kind in ('recent','session'):
                     for repeat in range(3):
                         overrides={'dog':120,'tesla':86400*365}
                         db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-interval '400 days' WHERE tenant_id=%s AND user_id=%s",(tenant,'u0'))
                         for eid,seconds in overrides.items():
-                            db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-(%s * interval '1 second') WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",(seconds,tenant,'u0',eid))
+                            db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-(%s * interval '1 second') WHERE tenant_id=%s AND user_id=%s AND entity_id=%s",(seconds,tenant,'u0',fixture_uuid(tenant,'u0',bank[eid]['entity_id'])))
                         session='adverse-'+kind+'-'+str(repeat)
-                        if kind=='session': cache.promote_session_entities(tenant,'u0',session,['dog'],10,86400)
+                        if kind=='session': cache.promote_session_entities(tenant,'u0',session,[fixture_uuid(tenant,'u0',bank['dog']['entity_id'])],10,86400)
                         evaluate('u0',session,dict(text='The vehicle I bought in 2024 needs service.',required=['tesla'],acceptable=[],group='ADVERSE_'+kind,age_override=overrides),kind!='session',set())
                 raise RollbackEvaluation()
 
@@ -289,7 +291,7 @@ def main():
         stats[p]['pareto']=not any(q!=p and all(stats[q][x]>=stats[p][x] for x in ('recall3','recall5','precision5'))
             and stats[q]['mean_required_rank']<=stats[p]['mean_required_rank']
             and (any(stats[q][x]>stats[p][x] for x in ('recall3','recall5','precision5')) or stats[q]['mean_required_rank']<stats[p]['mean_required_rank']) for q in policies)
-    report=dict(dataset=dict(users=30,conversations=len(conversations),user_turns=len(rows),base_turns=606,extra_turns=len(rows)-606,
+    report=dict(memory_format=MEMORY_FORMAT,dataset=dict(users=30,conversations=len(conversations),user_turns=len(rows),base_turns=606,extra_turns=len(rows)-606,
             entity_concepts=len(bank),stored_records=900,assistant_checks=assistant_checks),
         scenarios=dict(Counter(r['group'] for r in rows)),strategies=stats,
         strata={group:{p:summarize([r for r in rows if condition(r)],p) for p in policies}
@@ -318,7 +320,7 @@ def main():
             'Mean required rank conditional on available gold; availability reported separately',
             'Original corpus prior valid topics only apply within conversation; new time probes explicitly label cross-session continuity',
             'No caller behavior study; source identity necessity cannot be inferred from recall alone'])
-    out=ROOT/'log/memory_ordering_evaluation.json'
+    out=ROOT/'log/memory_ordering_evaluation_v2.json'
     out.write_text(json.dumps(report,indent=2),encoding='utf-8')
     print(json.dumps({k:v for k,v in report.items() if k not in ('rows','before','after','groups')},indent=2))
 

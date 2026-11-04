@@ -1,0 +1,49 @@
+{
+  "dataset_version": "memory-quality-pilot-1",
+  "adjudication": "An LLM-assisted manual review against the transcript and saved memory; no keyword-based semantic classifier. Record evidence and uncertainty. Not independent human adjudication.",
+  "wrong_memory_weight": 5,
+  "missed_requirement_weight": 1,
+  "rules": [
+    "Evaluate factual meaning, not exact field names, wording or entity layout unless a structural requirement explicitly says otherwise.",
+    "Review every stored current and historical value item for unsupported or contradicted claims, including extras not named in the checklist. A single item may contain several propositions; enumerate separate erroneous propositions.",
+    "Mark supported, wrong, or unresolved per proposition. Do not silently count unresolved as correct. Record the source turn, fact UUID/field and snapshot path.",
+    "Current text describing an ended job is valid. Retaining an employer name alongside explicit ending text is not a claim that the job is active.",
+    "Corrections do not turn the mistaken old value into real-world history. Real changes should preserve the earlier true value in the same fact.",
+    "Missing required information is a miss even if a pipeline step errored. Report operational failure separately and do not exclude failed runs from the denominator.",
+    "Review query-relevant memories separately from background memories and stored records. Do not count an entity name alone as a correct answer.",
+    "Weighted error units = 5 * wrong propositions + missed requirements. This is a prioritization count, not an accuracy percentage or validated utility metric.",
+    "Do not tune prompts, cases, or expected answers in response to this run. Preserve raw evidence and write a separate follow-up for fixes."
+  ],
+  "cases": {
+    "bob_employer": {
+      "required": ["Bob is the user's friend.", "Bob works at Cedar Labs."],
+      "structure": ["The employer information must not depend on a separate Cedar Labs entity; Bob's memory must contain it."],
+      "retrieval": ["The returned memory identifies Cedar Labs as Bob's employer."],
+      "forbidden_examples": ["A fabricated job title, salary, employer address or other unsupported biographical detail."]
+    },
+    "brother_address": {
+      "required": ["Daniel is the user's brother.", "Daniel is a doctor.", "Daniel works at Willow Hospital.", "The current workplace address is 80 Oak Road.", "The previous workplace address was 25 Pine Avenue."],
+      "structure": ["Hospital and employment details remain facts belonging to Daniel, not independently invented hospital/job entities.", "The address update preserves the relevant fact UUID and archives the previous value within that fact."],
+      "retrieval": ["The returned memory distinguishes the current workplace address from the earlier address."],
+      "forbidden_examples": ["Daniel changed employers or stopped being a doctor.", "25 Pine Avenue is still the current workplace address."]
+    },
+    "concurrent_jobs": {
+      "required": ["The user still works as a doctor at Harbour Hospital.", "The hospital work is on weekdays.", "The user formerly worked as a lecturer at Northbridge College.", "The college work was on Saturdays and has ended."],
+      "structure": ["The two jobs remain distinguishable; ending the college job does not end or replace the hospital job.", "The ended job is understandable through value text without a separate lifecycle flag."],
+      "retrieval": ["The returned memory clearly distinguishes the continuing hospital job from the ended college job."],
+      "forbidden_examples": ["Both jobs ended.", "The college lecturer role is still active.", "The doctor job is at Northbridge College."]
+    },
+    "two_car_correction": {
+      "required": ["The user owns a Honda Civic.", "The Honda was bought in 2021.", "The Honda is currently white.", "The Honda was previously blue.", "The user owns a Tesla Model 3.", "The Tesla was bought in 2024.", "The Tesla is red."],
+      "structure": ["The Tesla purchase-year correction changes the same fact without presenting 2023 as genuine past ownership history.", "The Honda colour change retains the same fact UUID and preserves blue in history.", "No claim is transferred between the two cars."],
+      "retrieval": ["The returned memory gives the correct purchase year and current colour for each car, with the Honda's previous blue colour distinguished."],
+      "forbidden_examples": ["The Honda was bought in 2024.", "The Tesla was actually bought in 2023 at an earlier time.", "The Tesla was repainted white."]
+    },
+    "uncertain_multilingual": {
+      "required": ["Xiaolin is the user's friend.", "Xiaolin works at Qinghe Laboratory (青禾实验室).", "Employment started early in 2025, retaining the vague early-year precision.", "Research assistant is only a possible job title, not a known certainty.", "Xiaolin mostly works from home and goes to the office on Mondays."],
+      "structure": ["Uncertainty survives in text and/or an appropriate fact_confidence; a high-confidence assertion of a definite job title is wrong.", "No fabricated precise start date replaces the vague date."],
+      "retrieval": ["The returned memory communicates workplace, early-2025 start, uncertain role, and qualified remote-work pattern."],
+      "forbidden_examples": ["Xiaolin is the laboratory director.", "Xiaolin earns $200,000.", "The user personally works at Qinghe Laboratory."]
+    }
+  }
+}

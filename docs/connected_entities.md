@@ -1,3 +1,7 @@
+> Historical design record: the entity/value redesign supersedes the storage,
+> mutation, dictionary and projection details below. See [the current memory
+> contract](memory-design.md). This record is preserved to explain the earlier design.
+
 # Connected entity identity contract
 
 Extraction uses unique `tmp_` handles across all eight domain lists. They are

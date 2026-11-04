@@ -1,180 +1,143 @@
-"""Deterministic assertion lifecycle; no external model calls."""
+"""Fact operation invariants; lifecycle rows were replaced by embedded history."""
 from copy import deepcopy
-import json
-import subprocess
-import sys
+from uuid import UUID
 import pytest
-from tomte.engine.core.assertions import (
-    FactMutation, MutationPlanResponse, adapt_assertions, apply_mutations, project_facts,
-)
+
+from tomte.engine.core.assertions import FactMutation, apply_mutations, validate_facts
 from tomte.engine.core.extraction import ExtractionMemorySchema
+from test_memory_values import NOW, LATER, CHAT, fields, job, update, apply
 
 
-SOURCES=[{"item_id":"source-1","timestamp":1791504000,"role":"user","content":"Synthetic statement"},
-         {"item_id":"source-2","timestamp":1791504060,"role":"user","content":"Synthetic confirmation"}]
+def test_add_uuid_is_application_owned_deterministic_for_the_frozen_plan_and_scoped():
+    op = {"operation": "ADD", "attribute_name": "employment", "fields": fields(employer_name="A"), "source_chat_ids": ["m1"]}
+    a = apply_mutations([], [op], CHAT, "entity-one", "batch", recorded_at=NOW)[0]
+    b = apply_mutations([], [op], CHAT, "entity-one", "batch", recorded_at=NOW)[0]
+    c = apply_mutations([], [op], CHAT, "entity-two", "batch", recorded_at=NOW)[0]
+    assert a == b and UUID(a["fact_id"]) != UUID(c["fact_id"])
+    assert "source_chat_id" not in a and "evidence" not in a
 
 
-def op(kind="ADD", target=None, value="owned", attribute="ownership_status", source="source-1", **kw):
-    data={"operation":kind,"target_fact_id":target,"attribute_name":attribute,
-          "new_value":value,"source_chat_ids":[source],"interpretation_confidence":0.96,
-          "evidence_type":"USER_EXPLICIT"}
-    data.update(kw)
-    return FactMutation.model_validate(data)
-
-
-def apply(facts, operations, batch="batch-1", scope="entity-one"):
-    return apply_mutations(facts,operations,SOURCES,scope,batch)
-
-
-def seed():
-    return apply([], [op()])
-
-
-def test_add_stable_identity_evidence_and_provenance():
-    facts=seed();fact,=facts
-    assert fact["assertion_state"]=="ACTIVE" and fact["fact_id"]
-    assert fact["source_chat_id"]=="source-1" and fact["evidence"][0]["source_chat_id"]=="source-1"
-    assert fact["created_at"]==fact["evidence"][0]["recorded_at"]==fact["last_mentioned_at"]
-    assert fact["effective_at"] is None and fact["ended_at"] is None
-    assert seed()==facts
-    assert apply([], [op()],scope="entity-two")[0]["fact_id"]!=fact["fact_id"]
-
-
-@pytest.mark.parametrize("source_ids", [["source-2"], ["source-1", "source-2"]])
-def test_direct_mutation_rejects_assistant_evidence_without_changing_input(source_ids):
-    """Direct core callers must not bypass the workflow's USER-source boundary."""
-    facts = seed()
-    before = deepcopy(facts)
-    messages = [SOURCES[0], {**SOURCES[1], "role": "assistant"}]
-    mutation = op("REINFORCE", facts[0]["fact_id"], None, source_chat_ids=source_ids)
+@pytest.mark.parametrize("source_ids", [["assistant"], ["m1", "assistant"]])
+def test_assistant_evidence_rejected_without_changing_input(source_ids):
+    old = job()
+    before = deepcopy(old)
+    messages = CHAT + [{**CHAT[0], "item_id": "assistant", "role": "assistant"}]
     with pytest.raises(ValueError, match="CURRENT USER"):
-        apply_mutations(facts, [mutation], messages, "entity-one", "assistant-batch")
-    assert facts == before
+        apply_mutations([old], [{"operation": "MENTION", "target_fact_id": old["fact_id"], "source_chat_ids": source_ids}],
+                        messages, "entity", "batch")
+    assert old == before
 
 
-def test_reinforce_keeps_id_adds_evidence_once_and_counts():
-    before=seed();old=deepcopy(before)
-    reinforced=apply(before,[op("REINFORCE",before[0]["fact_id"],None,source="source-2")],"batch-2")
-    assert before==old
-    assert len(reinforced)==1 and reinforced[0]["fact_id"]==before[0]["fact_id"]
-    assert reinforced[0]["mention_count"]==2 and len(reinforced[0]["evidence"])==2
-    assert apply(reinforced,[op("REINFORCE",before[0]["fact_id"],None,source="source-2")],"batch-2")==reinforced
+def test_multiple_current_messages_count_once_each_and_use_original_message_times():
+    old = job()
+    messages = CHAT + [{**CHAT[0], "item_id": "later", "timestamp": CHAT[0]["timestamp"] + 120}]
+    ops = [{"operation": "MENTION", "target_fact_id": old["fact_id"], "source_chat_ids": ["m1", "later"]},
+           {"operation": "MENTION", "target_fact_id": old["fact_id"], "source_chat_ids": ["later"]}]
+    result = apply_mutations([old], ops, messages, "entity", "batch", recorded_at=LATER)[0]
+    from tomte.engine.core.extraction import source_timestamps
+    assert result["_mention_count"] == old["_mention_count"] + 2
+    assert result["_last_mentioned_at"] == source_timestamps(messages)["later"]
+    assert result["value"] == old["value"]
 
 
-def test_supersede_preserves_immutable_truth_provenance_and_links():
-    before=seed();old=deepcopy(before[0])
-    result=apply(before,[op("SUPERSEDE",old["fact_id"],"sold",source="source-2")],"batch-2")
-    prior,current=result
-    assert prior["fact_id"]==old["fact_id"] and prior["value"]=="owned"
-    assert prior["source_chat_id"]==old["source_chat_id"] and prior["created_at"]==old["created_at"]
-    assert prior["assertion_state"]=="HISTORICAL" and prior["ended_at"] is None
-    assert current["value"]=="sold" and current["assertion_state"]=="ACTIVE"
-    assert current["fact_id"]!=prior["fact_id"] and current["supersedes_fact_id"]==prior["fact_id"]
-    assert project_facts(result)==[current] and project_facts(result,"history")==[prior]
+def test_old_message_does_not_move_last_mention_backwards():
+    old = job()
+    old["_last_mentioned_at"] = LATER
+    result = apply([old], {"operation": "MENTION", "target_fact_id": old["fact_id"]})[0]
+    assert result["_last_mentioned_at"] == LATER
 
 
-def test_retract_has_no_replacement_and_preserves_history():
-    before=apply([], [op(value="Japan",attribute="trip_plan")])
-    result=apply(before,[op("RETRACT",before[0]["fact_id"],None,attribute="trip_plan",source="source-2")])
-    assert len(result)==1 and result[0]["value"]=="Japan"
-    assert result[0]["assertion_state"]=="RETRACTED" and project_facts(result)==[]
-    assert project_facts(result,"history")==result
-    assert result[0]["source_chat_id"]==before[0]["source_chat_id"]
+def test_end_is_descriptive_current_value_and_preserves_history_in_same_fact():
+    old = job()
+    result = apply([old], update(old, fields=fields(end="No longer employed at Cedar Labs"), change_type="real_change"))[0]
+    assert result["fact_id"] == old["fact_id"]
+    assert result["history_values"][0]["value"] == old["value"]
+    assert result["value"]["end"]["text"] == "No longer employed at Cedar Labs"
+    assert "status" not in result
 
 
-@pytest.mark.parametrize("replacement",[None,"owned"])
-def test_correct_invalidates_without_fabricating_history_or_restoration(replacement):
-    before=apply([], [op(value="sold")])
-    result=apply(before,[op("CORRECT",before[0]["fact_id"],replacement,source="source-2")])
-    assert result[0]["assertion_state"]=="CORRECTED_INVALID" and result[0]["value"]=="sold"
-    assert project_facts(result,"history")==[] and len(project_facts(result,"audit"))==len(result)
-    assert len(result)==(1 if replacement is None else 2)
-    if replacement is not None:
-        assert result[1]["corrects_fact_id"]==before[0]["fact_id"]
-        assert result[1]["value"]==replacement and project_facts(result)==[result[1]]
-    else:
-        assert project_facts(result)==[]
-
-
-def test_correct_does_not_restore_a_superseded_predecessor():
-    before=seed()
-    changed=apply(before,[op("SUPERSEDE",before[0]["fact_id"],"sold",source="source-2")])
-    invalid=apply(changed,[op("CORRECT",changed[1]["fact_id"],None)])
-    assert project_facts(invalid)==[]
-    assert [f["value"] for f in project_facts(invalid,"history")]==["owned"]
-
-
-def test_multi_valued_add_keeps_both_active():
-    facts=apply([], [op(value="Python",attribute="programming_language"),
-                     op(value="Java",attribute="programming_language")])
-    assert len(project_facts(facts))==2 and len({f["fact_id"] for f in facts})==2
+def test_correction_never_restores_a_predecessor_or_corrects_history():
+    old = job()
+    changed = apply([old], update(old, fields=fields(employer_name="Pine Labs"), change_type="real_change"))[0]
+    corrected = apply([changed], update(changed, fields=fields(employer_name="Birch Labs"), change_type="correction"))[0]
+    assert corrected["history_values"] == changed["history_values"]
+    assert corrected["value"]["employer_name"]["text"] == "Birch Labs"
+    assert corrected["fact_id"] == old["fact_id"]
 
 
 def test_whole_plan_failure_leaves_original_unchanged():
-    before=seed();copy=deepcopy(before)
-    with pytest.raises(ValueError,match="offered entity"):
-        apply(before,[op(value="red",attribute="paint_color"),op("RETRACT","foreign-fact",None)])
-    assert before==copy
+    old = job()
+    before = deepcopy(old)
+    with pytest.raises(ValueError, match="offered entity"):
+        apply([old], update(old, fields=fields(employer_name="A")),
+              {"operation": "MENTION", "target_fact_id": "foreign"})
+    assert old == before
 
 
-@pytest.mark.parametrize("source",["fabricated-id","unknown"])
-def test_source_validation_rejects_fabrication(source):
-    with pytest.raises(ValueError,match="frozen batch"):
-        apply([], [op(source=source)])
+@pytest.mark.parametrize("source", ["fabricated-id", "unknown", "previous-session-message"])
+def test_source_validation_rejects_fabrication_and_reference_only_messages(source):
+    with pytest.raises(ValueError, match="CURRENT USER"):
+        apply([], {"operation": "ADD", "attribute_name": "employment", "fields": fields(employer_name="A"),
+                   "source_chat_ids": [source]})
 
 
-def test_reference_only_source_not_allowed():
-    with pytest.raises(ValueError):apply([], [op(source="previous-session-message")])
-
-
-@pytest.mark.parametrize("extra",[{"created_at":"2026-01-01T00:00:00Z"},{"fact_id":"invented"},
-                                   {"old_value":"sold"},{"effective_at":"2026-01-01T00:00:00Z"}])
-def test_planner_rejects_authoritative_system_metadata(extra):
-    with pytest.raises(ValueError):op(**extra)
-
-
-@pytest.mark.parametrize("kind,target,value",[("ADD","invented","red"),("ADD",None,None),
-    ("REINFORCE",None,None),("REINFORCE","id","new"),("RETRACT","id","new"),
-    ("SUPERSEDE","id",None),("CORRECT",None,None)])
-def test_invalid_operation_shapes_fail(kind,target,value):
-    with pytest.raises(ValueError):op(kind,target,value)
-
-
-def test_same_value_supersede_and_inactive_reinforce_fail():
-    before=seed()
-    with pytest.raises(ValueError,match="different"):apply(before,[op("SUPERSEDE",before[0]["fact_id"]," OWNED ")])
-    historical=apply(before,[op("SUPERSEDE",before[0]["fact_id"],"sold")])
-    with pytest.raises(ValueError,match="ACTIVE"):apply(historical,[op("REINFORCE",before[0]["fact_id"],None)])
-
-
-def test_target_ids_are_entity_specific_and_offered_only():
-    a=seed();b=apply([], [op()],scope="entity-two")
-    with pytest.raises(ValueError,match="offered entity"):
-        apply(b,[op("SUPERSEDE",a[0]["fact_id"],"sold")],scope="entity-two")
+@pytest.mark.parametrize("extra", [{"fact_id": "invented"}, {"_recorded_at": NOW}, {"history_id": "invented"},
+                                   {"evidence_type": "USER_EXPLICIT"}, {"interpretation_confidence": 1}])
+def test_planner_rejects_authoritative_or_retired_metadata(extra):
     with pytest.raises(ValueError):
-        apply_mutations(a,[op("RETRACT",a[0]["fact_id"],None)],SOURCES,"entity-one","batch",offered_fact_ids=set())
+        FactMutation(operation="ADD", attribute_name="employment", fields=fields(employer_name="A"),
+                     source_chat_ids=["m1"], **extra)
 
 
-def test_legacy_adaptation_stable_across_reads_and_process_restart():
-    legacy=[{"attribute_name":"ownership","value":"owned","confidence":0.8,
-             "source_chat_id":"old-message","last_mentioned_at":"2026-10-08T00:00:00Z","timeline":[]}]
-    first=adapt_assertions(legacy,"entity-one")
-    assert first==adapt_assertions(legacy,"entity-one") and "fact_id" not in legacy[0]
-    code="from tomte.engine.core.assertions import adapt_assertions; import json; print(json.dumps(adapt_assertions("+repr(legacy)+",'entity-one')))"
-    other=json.loads(subprocess.check_output([sys.executable,"-B","-c",code],text=True))
-    assert first==other and first[0]["evidence"][0]["evidence_type"]=="LEGACY"
+@pytest.mark.parametrize("data", [
+    {"operation": "ADD", "target_fact_id": "foreign", "attribute_name": "employment", "fields": fields(employer_name="A")},
+    {"operation": "ADD", "attribute_name": "employment"},
+    {"operation": "MENTION"},
+    {"operation": "MENTION", "target_fact_id": "id", "fields": fields(employer_name="A")},
+    {"operation": "UPDATE", "target_fact_id": "id"},
+    {"operation": "UPDATE", "target_fact_id": "id", "fields": fields(employer_name="A"), "history_index": 0},
+])
+def test_invalid_operation_shapes_fail(data):
+    with pytest.raises(ValueError):
+        FactMutation.model_validate({**data, "source_chat_ids": ["m1"]})
 
 
-def test_legacy_past_and_future_interpretation():
-    past={"attribute_name":"job","value":"old job","status":"past"}
-    future={"attribute_name":"trip","value":"Japan","status":"future"}
-    adapted=adapt_assertions([past,future])
-    assert adapted[0]["assertion_state"]=="HISTORICAL"
-    assert project_facts(adapted)==[adapted[1]]
-    assert adapted[0]["evidence"]==[]  # Unknown legacy provenance is not invented.
+@pytest.mark.parametrize("change_type", ["correction", "real_change", "enrichment"])
+def test_append_history_ignores_update_only_controls_without_editing_current_value(change_type):
+    old = job()
+    operation = FactMutation(operation="APPEND_HISTORY", target_fact_id=old["fact_id"],
+        fields=fields(employer_name="Earlier employer"), source_chat_ids=["m1"],
+        update_mode="replace_value", change_type=change_type)
+    assert operation.update_mode == "update_fields" and operation.change_type == "enrichment"
+    result = apply([old], operation.model_dump(mode="json"), now=LATER)[0]
+    assert result["value"] == old["value"] and result["fact_id"] == old["fact_id"]
+    assert len(result["history_values"]) == len(old["history_values"]) + 1
+    assert result["history_values"][-1]["value"]["employer_name"]["text"] == "Earlier employer"
 
 
-def test_extraction_does_not_ask_model_for_system_assertion_fields():
-    schema=ExtractionMemorySchema.model_json_schema()
-    fields=schema["$defs"]["ExtractedFact"]["properties"]
-    assert not set(fields)&{"fact_id","created_at","assertion_state","evidence","supersedes_fact_id","effective_at"}
+def test_same_value_real_change_is_mention_without_extra_history():
+    old = job()
+    new = apply([old], update(old, fields=fields(employer_name="Cedar Labs"), change_type="real_change"), now=LATER)[0]
+    assert new["value"] == old["value"] and new["history_values"] == []
+    assert new["_mention_count"] == old["_mention_count"] + 1
+
+
+def test_other_entity_fact_and_unoffered_fact_cannot_be_targeted():
+    old = job()
+    with pytest.raises(ValueError, match="offered entity"):
+        apply([], {"operation": "MENTION", "target_fact_id": old["fact_id"]})
+    with pytest.raises(ValueError, match="offered entity"):
+        apply([old], {"operation": "MENTION", "target_fact_id": old["fact_id"]}, offered_fact_ids=[])
+
+
+def test_old_scalar_memory_is_rejected_instead_of_synthesizing_ids_or_provenance():
+    with pytest.raises(ValueError):
+        validate_facts([{"attribute_name": "employment", "value": "old job", "status": "past"}])
+
+
+def test_extraction_does_not_ask_model_for_storage_metadata_or_edges():
+    schema = ExtractionMemorySchema.model_json_schema()
+    properties = schema["$defs"]["ExtractedFact"]["properties"]
+    assert not set(properties) & {"fact_id", "created_at", "assertion_state", "evidence", "history_values",
+                                 "related_entity_ids", "related_entity_uuids", "mention_count", "_importance"}
+    assert properties["value"]["type"] == "array"

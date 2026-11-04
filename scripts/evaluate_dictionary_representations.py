@@ -1,3 +1,4 @@
+from memory_eval_support import value as fixture_value
 """Synthetic representation evaluation only; never changes production dictionary policy.
 
 Run from the checkout with local PostgreSQL/Redis available and configured .env:
@@ -44,7 +45,7 @@ NEGATIVE = dict(concept="interior_color", original="My Tesla has a beige interio
 
 def summary(case, value):
     return get_entity_summary(dict(entity_name=case["name"], entity_domain=case["domain"], entity_type=case["entity_type"],
-        aliases=[], facts=[dict(attribute_name=case["attribute"], value=value, importance=3, assertion_state="ACTIVE")]))
+        aliases=[], facts=[dict(attribute_name=case["attribute"], value=fixture_value(value))]))
 
 
 def terms(case):
@@ -179,7 +180,7 @@ def main():
                              "redis_before": redis_before, "redis_after": redis_after}
         if before != after or redis_before != redis_after:
             raise RuntimeError("Original local state was not restored exactly.")
-        output = ROOT / "log" / "dictionary_representation_evaluation.json"
+        output = ROOT / "log" / "dictionary_representation_evaluation_v2.json"
         output.parent.mkdir(exist_ok=True)
         output.write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(json.dumps({"embedding_usage": report["embedding_usage"], "metrics": {

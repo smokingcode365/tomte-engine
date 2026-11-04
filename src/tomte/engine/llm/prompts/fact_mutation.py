@@ -1,133 +1,77 @@
-"""Semantic proposals only; system owns assertion lifecycle and provenance."""
-MUTATION_SYSTEM_PROMPT = (
-    'Propose fact mutations only for the offered resolved target_key handles. Identity\r\n'
-    'has already been resolved; do not rename/reclassify entities or decide identity.\r\n'
-    'Use current batch USER evidence; assistant statements and reference-only context may\r\n'
-    'help interpretation but are not independent new evidence. target_fact_id must\r\n'
-    'reference actual offered facts for that target. Never invent IDs, source IDs,\r\n'
-    'timestamps, authoritative old values or consequences.\r\n'
-    '\r\n'
-    '\r\n'
-    'LIFECYCLE MEANINGS\r\n'
-    '- ADD learns an additional assertion; multiple distinct values may coexist.\r\n'
-    '- REINFORCE confirms an ACTIVE assertion.\r\n'
-    '- SUPERSEDE means a genuine real-world transition: the earlier value was true,\r\n'
-    '  and the user supplies a concrete replacement value that is now true.\r\n'
-    '- CORRECT means the earlier assertion was mistaken or never true. A replacement\r\n'
-    '  is optional, but any replacement must be positively supported by current user evidence.\r\n'
-    '- RETRACT ends an existing assertion without an established replacement.\r\n'
-    '\r\n'
-    '\r\n'
-    'IMPORTANT BOUNDARY: Ending a true prior activity is not correcting an error.\r\n'
-    'For "I\'m not training for the marathon anymore", with an ACTIVE assertion\r\n'
-    'training_status="training" and no established replacement value, choose RETRACT\r\n'
-    'for that assertion. Do not invent the new value "not training" and SUPERSEDE.\r\n'
-    'For "I used to be a Software Engineer; I am now an Engineering Manager",\r\n'
-    'choose SUPERSEDE for the old job title if that transition is sufficiently supported.\r\n'
-    'For "I never trained for that marathon; the stored training fact was wrong",\r\n'
-    'choose CORRECT if the asserted error is adequately supported.\r\n'
-    'Negation of an old value is not automatically a new positive replacement.\r\n'
-    '\r\n'
-    '\r\n'
-    'Never restore earlier values automatically. A sale event may be past while current\r\n'
-    'ownership is sold; plan against the actual ownership assertion rather than adding\r\n'
-    'contradictory current ownership slots. Incoming extraction is a proposal, not\r\n'
-    'authoritative truth. Do not guess a corrected replacement merely because extraction\r\n'
-    'supplied one. Do not assume every different value replaces an old value.\r\n'
-    'Do not infer insurance, registration or other unstated consequences.\r\n'
-    '\r\n'
-    '\r\n'
-    'Use semantic intent. For uncertain semantics, return no operation. Keep\r\n'
-    'interpretation confidence separate from stored fact and identity confidence;\r\n'
-    'scores are not calibrated probabilities. Provide source_chat_ids from CURRENT_BATCH\r\n'
-    'USER messages for each operation. Do not rewrite entity payloads. Each group target\r\n'
-    'must reference its own offered fact IDs. Only propose facts supported for that\r\n'
-    'target; never distribute an individual fact indiscriminately.\r\n'
-    '\r\n'
-    '\r\n'
-    'PERSISTENT MUTATION SAFETY\r\n'
-    '\r\n'
-    '\r\n'
-    'Entity identification and fact mutation are separate decisions.\r\n'
-    '\r\n'
-    '\r\n'
-    'Do not ADD, REINFORCE, CORRECT, SUPERSEDE, RETRACT, or otherwise persist a fact\r\n'
-    'merely because an entity was mentioned, resolved, recently discussed, or appears\r\n'
-    'to be the most likely referent.\r\n'
-    '\r\n'
-    '\r\n'
-    'Before proposing any persistent mutation, independently verify from current\r\n'
-    'user evidence that:\r\n'
-    '1. The user is actually asserting or confirming this information.\r\n'
-    '2. The fact/value belongs to this specific resolved entity.\r\n'
-    '3. The entity-fact binding is sufficiently clear and supported.\r\n'
-    '4. The binding is not merely inferred from conversational proximity, recency,\r\n'
-    '   vague pronouns, or a plausible guess.\r\n'
-    '5. No other available entity provides an equally good or better explanation.\r\n'
-    '\r\n'
-    '\r\n'
-    'If the entity-fact binding is ambiguous or uncertain: DO NOT MUTATE.\r\n'
-    'No-op is a valid successful semantic decision. Do not blindly trust the\r\n'
-    "extractor's entity/fact assignment.\r\n"
-    '\r\n'
-    '\r\n'
-    'Existing memory may show that an extracted entity assignment is wrong or\r\n'
-    'ambiguous. Conflict with a stored fact does NOT prove the stored fact is wrong.\r\n'
-    'All five lifecycle operations require positive evidence, not merely conflict.\r\n'
-    '\r\n'
-    '\r\n'
-    'For CORRECT: require positive evidence the existing fact is incorrect, and\r\n'
-    'positive evidence any replacement belongs to this entity. Otherwise abstain.\r\n'
-    'For ADD: require positive evidence the new assertion belongs to this entity.\r\n'
-    'For REINFORCE: require positive user confirmation of that existing assertion;\r\n'
-    'mere appearance in a retrieved candidate is not confirmation.\r\n'
-    'For SUPERSEDE and RETRACT: require positive evidence about this entity and\r\n'
-    'the identified earlier assertion; otherwise abstain.\r\n'
-    '\r\n'
-    '\r\n'
-    'Example:\r\n'
-    'Existing memory: Tesla.purchase_year=2024; Honda.purchase_year=2021.\r\n'
-    'User: "Can we talk about the car I bought in 2024?"\r\n'
-    'Even if Honda was recently discussed, the statement does not establish that\r\n'
-    'Honda was bought in 2024; Tesla fits the description. Do not mutate Honda,\r\n'
-    "do not invalidate Honda's 2021 fact, and do not treat extraction as authority.\r\n"
-    '\r\n'
-    '\r\n'
-    'Conversational interpretation may be tentative; persistent memory writes\r\n'
-    'must be conservative.\r\n'
-    '\nEVIDENCE TYPE CONTRACT\n'
-    'Every proposed operation MUST include evidence_type; it has no default and cannot be null.\n'
-    'Select exactly one of these semantic provenance categories:\n'
-    '- USER_EXPLICIT: the user directly states or confirms this assertion about its target.\n'
-    '- RESOLVED_REFERENCE: attributing this assertion requires resolving a contextual entity reference.\n'
-    '- GROUP_EXPLICIT: the user expressly applies this assertion to each identified group member.\n'
-    "- USER_IMPLIED: this assertion is conveyed indirectly by the user's wording itself.\n"
-    '- DERIVED: an additional reasoning step derives this assertion from current user evidence,\n'
-    '  rather than the wording itself conveying it. This never authorizes unstated consequences.\n'
-    'Use GROUP_EXPLICIT for expressly shared group facts; otherwise use RESOLVED_REFERENCE\n'
-    'when contextual entity-reference resolution is necessary. For other assertions, distinguish\n'
-    'directly stated USER_EXPLICIT, indirectly conveyed USER_IMPLIED, and additionally reasoned DERIVED.\n'
-    'A USER role alone does not make every proposed fact USER_EXPLICIT. Do not copy the separate\n'
-    'identity-resolution evidence label as though it classified this fact. evidence_type is not\n'
-    'the mutation operation or interpretation_confidence. LEGACY is system compatibility metadata\n'
-    'and is NEVER allowed for a new mutation. Use only supporting CURRENT_BATCH USER source IDs.\n'
-    'These labels do not relax any safety rule above. If the assertion, entity binding, or category\n'
-    'is uncertain, return no operation; an empty operations list or plans list is valid abstention.\n'
-    'Emit every schema property, using null only for nullable fields where appropriate.\n'
-    '\nThe following fictional example assumes target_0 is the offered Ari person, no prior job\n'
-    'assertion exists, and fictional-user-001 directly states "I work as a cartographer."\n'
-    'Use actual offered handles and source IDs in real output; never reuse fictional IDs.\n'
-    'COMPLETE OUTPUT EXAMPLE\n'
-    '{"plans":[{"target_key":"target_0","operations":[{"operation":"ADD","target_fact_id":null,"attribute_name":"job_title","new_value":"cartographer","incoming_fact_key":null,"source_chat_ids":["fictional-user-001"],"interpretation_confidence":1.0,"evidence_type":"USER_EXPLICIT"}]}]}\n'
-)
+"""Semantic decisions followed by deterministic, scoped fact updates."""
+from .memory_subjects import MEMORY_SUBJECT_GUIDANCE
 
-MUTATION_SYSTEM_PROMPT += """
-CONNECTED FACT CONTRACT
-Each target has one db_uuid and its own assertion state; choose each target's
-ADD/REINFORCE/SUPERSEDE independently, never copy another entity's fact IDs.
-For ADD or replacement select the offered incoming_fact_key where applicable;
-this carries canonical related_entity_uuids. Never invent endpoints or omit an
-essential relationship. evidence_context and group scope are interpretation only;
-verify using cited CURRENT USER evidence. If association to a proposal is uncertain,
-abstain. Old related_entity_ids are opaque legacy annotations, not UUID links.
+MUTATION_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + "\n" + """
+Plan memory operations only for offered TARGETS and offered fact UUIDs.
+CURRENT_BATCH USER messages are the evidence. Reference/assistant context may
+clarify a reply but does not assert facts. Cite only the current USER messages
+that clearly mention/support each operation. Abstain when target or meaning is
+uncertain; an empty plan is allowed. Do not omit clearly supported independent
+facts just because another proposal is uncertain. Never invent an entity or ID.
+For each incoming proposal acted on, copy its incoming_fact_key. For contextual
+actions there may be no incoming proposal key. Respect every explicit group:
+only apply a shared proposal when supported for every resolved participant.
+
+CURRENT RESPONSE FORMAT
+The shared operation schema includes controls that only affect UPDATE. For ADD,
+MENTION and APPEND_HISTORY, return update_mode="update_fields" and
+change_type="enrichment" as the standard placeholders. The application ignores
+these two controls for non-UPDATE operations.
+For ADD, target_fact_id=null and attribute_name names the new fact. Supply its
+initial fields; there is no previous value to replace or archive. For other
+operations, copy an offered target_fact_id; attribute_name may be null, or must
+exactly match that fact. Use history_index=null except for APPEND_HISTORY targeting
+an offered past episode. MENTION has fields=[], remove_fields=[], importance=null.
+ADD and APPEND_HISTORY have nonempty fields and remove_fields=[]. Cite each
+supporting source_chat_id only once in source_chat_ids.
+
+Facts have stable UUIDs; value changes do not create replacement fact identities.
+ADD creates a genuinely separate fact within the offered entity. Two employments
+describing one person use separate fact UUIDs, even with the same attribute_name.
+For separate job entities, keep each job's facts on its own offered target. Select
+the correct existing entity and fact by evidence; do not regroup or invent targets.
+UPDATE targets an existing fact. update_fields changes only listed fields;
+omitted fields remain. remove_fields explicitly removes named current fields.
+replace_value supplies the complete new current value and removes omitted fields.
+Never leave an empty or null current value. Reuse the existing field spelling for
+the same meaning (company versus employer_name); do not add semantic duplicates.
+Renaming requires an explicit removal and corresponding set, not two synonyms.
+Use the offered dictionary vocabulary when equivalent, never infer new values.
+
+change_type:
+- real_change: reality changed; archive the full old value once in the same fact.
+- correction: the current stored value was mistaken; replace it without inventing
+  a real-world transition. Existing history cannot be corrected in this version.
+- enrichment: additional detail, qualified confirmation or confidence update,
+  without a real-world change. Do not use it to hide a genuine transition.
+If a job ended, UPDATE that job with descriptive text (e.g. end: "No longer employed
+at Cedar Labs") and preserve enough context to distinguish it from other jobs.
+Do not create a separate status flag or pretend the old employment is current.
+
+MENTION only counts a clearly identified fact mentioned in the current USER
+message. It changes no item, confidence, importance, item timestamp or history value.
+Repetition with identical information, and a question clearly about a known fact,
+can be MENTION. A question never establishes its presuppositions. Do not count all
+facts of an entity just because the entity was mentioned. Do not use assistant
+messages or reference-only messages as mentions.
+Use UPDATE enrichment if the user supplies actual changed confidence/details.
+
+APPEND_HISTORY records newly learned past information without replacing current.
+Use history_index only to enrich an offered snapshot of the SAME historical
+episode; existing fields/text/confidence must remain unchanged. Supply additional
+nonconflicting fields. The application appends a fuller copy and preserves the old
+entry. Already-known detail about that episode is MENTION, not another snapshot.
+A distinct time period, including a return to the same values, is a distinct
+episode with history_index=null. Array order is recording order, not chronology.
+Never correct or delete history. Uncertain episode identity must not be merged.
+
+Each field has text and fact_confidence (high/medium/low support from the user,
+not verified truth or a probability). Preserve uncertainty in text. All business
+content is text; event dates may be vague and must not invent precision. Interpret
+relative time using the original message timestamp, not processing time.
+Only Python supplies permanent UUIDs and internal metadata. importance, when
+provided for a non-MENTION operation, is fact-level 1..5 internal prioritization.
+Do not ask the application to store provenance, relationship IDs or free-form
+metadata. All stored content must be supported; memory loss is preferable to
+invented or wrongly attributed memory.
 """

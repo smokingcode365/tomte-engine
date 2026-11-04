@@ -4,9 +4,8 @@ import json
 from uuid import uuid4
 from types import SimpleNamespace
 import pytest
-from tomte.engine.core.schema import Entity,Fact
 from tomte.engine.core.extraction import ExtractionMemorySchema
-from tomte.engine.core.assertions import adapt_assertions,project_facts
+from memory_fixtures import simple_entity, simple_fact, prepare_write, field_entries, fact_text
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.core.enums import ChatSenderRole
 from tomte.engine.workflows.chat_hook import ChatHookWorkflow
@@ -16,7 +15,7 @@ from tomte.engine.utils.keys import generate_common_key
 
 @pytest.fixture
 def contextual_case(mechanics,monkeypatch):
-    case=mechanics;case.action_type='CORRECTION';case.operation='CORRECT';case.replacement=None
+    case=mechanics;case.action_type='CORRECTION';case.operation='UPDATE';case.replacement='Previous claim disputed';case.change_type='correction'
     case.no_action=False;case.unresolved=False;case.invalid_source=False;case.invalid_target=False;case.no_mutation=False;case.calls=[]
     monkeypatch.setattr(case.llm,'is_junk',lambda text:False)
     monkeypatch.setattr(case.llm,'embed_text',lambda text:case.llm.vector())
@@ -26,28 +25,26 @@ def contextual_case(mechanics,monkeypatch):
         if schema is ExtractionMemorySchema:return schema()
         if schema is ContextualActionResponse:
             if case.no_action:return schema(actions=[])
-            target=data['CANDIDATES'][0];fact=target['assertions'][0]
+            target=data['CANDIDATES'][0];fact=target['facts'][0]
             return schema.model_validate({'actions':[{'action_type':case.action_type,'reference_hint':target['entity_name'],
-                'replacement_text':None,'source_chat_ids':['foreign' if case.invalid_source else data['CURRENT_BATCH'][0]['item_id']],
-                'interpretation_confidence':0.97,
+                'evidence_quote':data['CURRENT_BATCH'][0]['content'],'source_chat_ids':['foreign' if case.invalid_source else data['CURRENT_BATCH'][0]['item_id']],
                 'target':None if case.unresolved else {'db_id':str(uuid4()) if case.invalid_target else target['db_id'],'resolution_confidence':0.98,'evidence':'RESOLVED_REFERENCE'},
                 'target_fact_id':None if case.unresolved else fact['fact_id']}]})
         assert schema.__name__=='MutationPlanResponse'
-        target=data['TARGETS'][0];fact=target['assertions'][0]
+        target=data['TARGETS'][0];fact=target['facts'][0]
         return schema.model_validate({'plans':[{'target_key':target['target_key'],'operations':[] if case.no_mutation else [{
-            'operation':case.operation,'target_fact_id':fact['fact_id'],'new_value':case.replacement,
-            'source_chat_ids':[data['CURRENT_BATCH'][0]['item_id']],'interpretation_confidence':0.98,'evidence_type':'RESOLVED_REFERENCE'}]}]})
+            'operation':case.operation,'target_fact_id':fact['fact_id'],
+            'fields':field_entries(case.replacement) if case.operation=='UPDATE' else [],
+            'change_type':case.change_type if case.operation=='UPDATE' else 'enrichment',
+            'source_chat_ids':[data['CURRENT_BATCH'][0]['item_id']]}]}]})
     monkeypatch.setattr(case.llm,'parse_structured',model)
     return case
 
 def seed(case,attribute='ownership_status',value='sold',trip=False,extra=()):
-    entity=Entity(entity_id='seed_01',entity_name='Japan trip' if trip else 'Tesla Model Y',
-        entity_type='travel_plan' if trip else 'vehicle',entity_domain='events_and_logistics' if trip else 'assets_and_possessions',
-        aliases=['Japan'] if trip else ['Tesla'],facts=[Fact(attribute_name=attribute,value=value,confidence=1,
-            source_chat_id='synthetic-seed',last_mentioned_at='2026-10-09T00:00:00Z') for attribute,value in [(attribute,value),*extra]]).model_dump(mode='json')
-    entity['facts']=adapt_assertions(entity['facts'],case.tenant+case.user)
-    assert case.db.commit_graph_updates([{'mode':'INSERT','tenant_id':case.tenant,'user_id':case.user,
-        **{k:entity[k] for k in ('entity_id','entity_name','entity_type','entity_domain')},'payload':entity,'embedding':case.llm.vector()}])
+    entity=simple_entity('Japan trip' if trip else 'Tesla Model Y',
+        kind='travel_plan' if trip else 'vehicle',domain='events_and_logistics' if trip else 'assets_and_possessions',
+        aliases=['Japan'] if trip else ['Tesla'],facts=[simple_fact(attr,text) for attr,text in [(attribute,value),*extra]])
+    assert case.db.commit_graph_updates([prepare_write(case.tenant,case.user,entity,vector=case.llm.vector())])
     return memory_rows(case)[0]
 
 def queue(case,current,reference):
@@ -55,25 +52,24 @@ def queue(case,current,reference):
     ChatHookWorkflow().on_chat(case.tenant,case.session,current,ChatSenderRole.USER,case.user)
     return case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)
 
-@pytest.mark.parametrize('action,operation,attribute,value,current,reference,replacement,state',[
- ('CORRECTION','CORRECT','ownership_status','sold',"No, that's wrong. You misunderstood me.",'I know you sold your Tesla.',None,'CORRECTED_INVALID'),
- ('CORRECTION','CORRECT','ownership_status','sold','No, I still own it.','I know you sold your Tesla.','owned','CORRECTED_INVALID'),
- ('RETRACTION','RETRACT','trip_plan','Japan',"That's not happening anymore.","You're planning a Japan trip.",None,'RETRACTED'),
- ('CONFIRMATION','REINFORCE','paint_color','red',"Yes, that's still true.",'Your Tesla is red.',None,'ACTIVE'),
+@pytest.mark.parametrize('action,operation,attribute,value,current,reference,replacement,change_type',[
+ ('CORRECTION','UPDATE','ownership_status','sold',"No, that's wrong. You misunderstood me.",'I know you sold your Tesla.','Previous claim disputed','correction'),
+ ('CORRECTION','UPDATE','ownership_status','sold','No, I still own it.','I know you sold your Tesla.','owned','correction'),
+ ('END','UPDATE','trip_plan','Japan',"That's not happening anymore.","You're planning a Japan trip.",'No longer planned','real_change'),
+ ('CONFIRMATION','MENTION','paint_color','red',"Yes, that's still true.",'Your Tesla is red.',None,'enrichment'),
 ])
-def test_contextual_action_reuses_mutation_and_replay(contextual_case,action,operation,attribute,value,current,reference,replacement,state):
-    case=contextual_case;case.action_type=action;case.operation=operation;case.replacement=replacement
+def test_contextual_action_reuses_mutation_and_replay(contextual_case,action,operation,attribute,value,current,reference,replacement,change_type):
+    case=contextual_case;case.action_type=action;case.operation=operation;case.replacement=replacement;case.change_type=change_type
     original=seed(case,attribute,value,trip=attribute=='trip_plan')
     frozen=queue(case,current,reference)
     workflow=ConsolidationWorkflow();assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen)
-    row,=memory_rows(case);facts=row['payload']['facts'];old=next(f for f in facts if f['fact_id']==original['payload']['facts'][0]['fact_id'])
+    row,=memory_rows(case);fact,=row['payload']['facts'];old=original['payload']['facts'][0]
     assert row['id']==original['id'] and row['payload']['entity_name']==original['payload']['entity_name']
-    assert old['value']==value and old['assertion_state']==state
-    if replacement:
-        new,=project_facts(facts);assert new['value']==replacement and new['corrects_fact_id']==old['fact_id']
-    else:assert len(facts)==1
-    if operation=='REINFORCE':assert len(old['evidence'])==2 and old['mention_count']==2
-    if operation=='CORRECT':assert old not in project_facts(facts,'history')
+    assert fact['fact_id']==old['fact_id'] and fact['_mention_count']==2
+    assert fact_text(fact)==(replacement if operation=='UPDATE' else value)
+    if change_type=='real_change':assert fact['history_values'][0]['value']==old['value']
+    else:assert fact['history_values']==[]
+    if operation=='MENTION':assert fact['value']==old['value'] and row['vector']==original['vector']
     before=deepcopy(memory_rows(case));calls=len(case.calls)
     assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen)
     assert memory_rows(case)==before and processed_count(case)==1 and len(case.calls)==calls
@@ -100,11 +96,11 @@ def test_no_contextual_action_can_finish_empty_batch(contextual_case):
     assert case.cache.clear_session_4_consolidation(case.tenant,case.user,case.session,frozen)
 
 @pytest.mark.parametrize('defect',['invalid_source','invalid_target'])
-def test_invalid_contextual_plan_cannot_claim_or_acknowledge(contextual_case,defect):
+def test_invalid_contextual_plan_completes_without_mutating(contextual_case,defect):
     case=contextual_case;setattr(case,defect,True);seed(case);before=memory_rows(case)
     frozen=queue(case,"No, that's wrong.",'Your Tesla is sold.')
-    with pytest.raises(ValueError):ConsolidationWorkflow().run_consolidation_cycle(case.tenant,case.user,frozen)
-    assert memory_rows(case)==before and processed_count(case)==0
+    assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant,case.user,frozen)
+    assert memory_rows(case)==before and processed_count(case)==1
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)==frozen
 
 def test_contextual_candidate_and_reference_isolation(contextual_case,monkeypatch):
@@ -132,7 +128,7 @@ def test_contextual_candidate_and_reference_isolation(contextual_case,monkeypatc
 
 @pytest.mark.parametrize("current", ["It is not happening anymore.", "我不再继续了"])
 def test_contextual_reference_without_name_still_requires_mutation_stage(contextual_case,current):
-    case=contextual_case;case.action_type="RETRACTION";case.operation="RETRACT"
+    case=contextual_case;case.action_type="END";case.operation="UPDATE";case.replacement="No longer planned";case.change_type="real_change"
     original=seed(case,"trip_plan","Japan",trip=True)
     frozen=queue(case,current,"We discussed that plan.")
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant,case.user,frozen)
@@ -140,7 +136,7 @@ def test_contextual_reference_without_name_still_requires_mutation_stage(context
     assert any(name=="MutationPlanResponse" for name,_ in case.calls)
     assert stored["id"]==original["id"] and stored["payload"]["aliases"]==original["payload"]["aliases"]
     old,=stored["payload"]["facts"]
-    assert old["fact_id"]==original["payload"]["facts"][0]["fact_id"] and old["assertion_state"]=="RETRACTED"
+    assert old["fact_id"]==original["payload"]["facts"][0]["fact_id"] and fact_text(old)=="No longer planned"
 
 
 
@@ -148,30 +144,28 @@ def test_contextual_reference_without_name_still_requires_mutation_stage(context
 def test_contextual_nonliteral_reference_keeps_structural_boundaries(monkeypatch, defect):
     from unittest.mock import Mock
     from tomte.engine import Tomte
-    payload=Entity(entity_id="canonical",entity_name="Marathon training",entity_type="marathon_training",
-        entity_domain="activities_and_skills",facts=[Fact(attribute_name="training_status",value="training",
-        confidence=1,source_chat_id="old-source",last_mentioned_at="2026-10-09T00:00:00Z")]).model_dump(mode="json")
-    key=str(uuid4());payload["facts"]=adapt_assertions(payload["facts"],key)
+    key=str(uuid4())
+    payload=simple_entity('Marathon training',entity_id=key,kind='marathon_training',domain='activities_and_skills',
+        facts=[simple_fact('training_status','training')])
     row={"id":key,**{k:payload[k] for k in ("entity_id","entity_name","entity_type","entity_domain")},"payload":payload}
     current=[{"item_id":"u1","timestamp":1791547200,"role":"assistant" if defect=="assistant_source" else "user","content":"我不再继续了"}]
     calls=[]
     def model(system_prompt,user_text,schema):
         calls.append(schema.__name__)
         if schema is ContextualActionResponse:
-            return schema.model_validate({"actions":[{"action_type":"RETRACTION","reference_hint":"the activity",
-                "source_chat_ids":["foreign" if defect=="foreign_source" else "u1"],"interpretation_confidence":1,
+            return schema.model_validate({"actions":[{"action_type":"END","reference_hint":"the activity","evidence_quote":"我不再继续了",
+                "source_chat_ids":["foreign" if defect=="foreign_source" else "u1"],
                 "target":{"db_id":key,"resolution_confidence":.98,"evidence":"RESOLVED_REFERENCE"},
                 "target_fact_id":"foreign-fact" if defect=="foreign_fact" else payload["facts"][0]["fact_id"]}]})
         target,=json.loads(user_text)["TARGETS"]
         return schema.model_validate({"plans":[{"target_key":target["target_key"],"operations":[{
-            "operation":"RETRACT","target_fact_id":payload["facts"][0]["fact_id"],"source_chat_ids":["u1"],
-            "interpretation_confidence":1,"evidence_type":"USER_EXPLICIT"}]}]})
+            "operation":"UPDATE","fields":field_entries("No longer planned"),"change_type":"real_change","target_fact_id":payload["facts"][0]["fact_id"],"source_chat_ids":["u1"]}]}]})
     db=Mock();db.get_resolution_candidates.return_value=[row]
     monkeypatch.setattr(Tomte,"_db",db);monkeypatch.setattr(Tomte,"_llm",SimpleNamespace(parse_structured=model))
     monkeypatch.setattr("tomte.engine.workflows.consolidation.get_dictionary_service",lambda:Mock())
     workflow=ConsolidationWorkflow();data={"CURRENT_BATCH":current,"RECENT_CONTEXT_REFERENCE_ONLY":[]}
     if defect in {"foreign_source","foreign_fact"}:
-        with pytest.raises(ValueError):workflow._resolve_contextual_actions("tenant","user",data,[1.0])
+        assert workflow._resolve_contextual_actions("tenant","user",data,[1.0]) == []
         assert calls==["ContextualActionResponse"]
     else:
         prepared=workflow._resolve_contextual_actions("tenant","user",data,[1.0])
@@ -180,4 +174,4 @@ def test_contextual_nonliteral_reference_keeps_structural_boundaries(monkeypatch
             planned=workflow._plan_fact_mutations(prepared,data,"contextual-unit-batch")
             assert calls==["ContextualActionResponse","MutationPlanResponse"]
             old,=planned[0]["payload"]["facts"]
-            assert old["fact_id"]==payload["facts"][0]["fact_id"] and old["assertion_state"]=="RETRACTED"
+            assert old["fact_id"]==payload["facts"][0]["fact_id"] and fact_text(old)=="No longer planned"

@@ -2,7 +2,11 @@
 
 TERMINOLOGY_ALIGNMENT_PROMPT = """
 The semantic dictionary is a soft vocabulary stabilizer, not a canonical ontology.
-Return decisions for the offered entity/fact handles, not rewritten entities.
+Return decisions for offered entity/fact/field handles, not rewritten entities.
+FIELD decisions concern one item key within the canonical parent context. Reuse
+only an equivalent field meaning in that parent. A shared name in a different
+attribute or entity type is not evidence of equivalence. Never collapse distinct
+fields. Existing values are read-only; do not translate or alter their content.
 KEEP_RAW is a successful, normal outcome; omitted targets also keep their raw terms.
 REUSE only an offered candidate_handle for THAT target when its keyword means
 exactly the same concept and preserves specificity. Do not choose the closest

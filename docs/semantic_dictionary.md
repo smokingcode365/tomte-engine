@@ -1,3 +1,7 @@
+> Historical design record: the entity/value redesign supersedes the storage,
+> mutation, dictionary and projection details below. See [the current memory
+> contract](memory-design.md). This record is preserved to explain the earlier design.
+
 # Semantic dictionary prototype
 
 The dictionary is a **soft vocabulary stabilizer**, not a canonical ontology or

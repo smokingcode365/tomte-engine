@@ -3,6 +3,9 @@ from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import Mock
 import math
+import json
+from memory_fixtures import simple_entity, simple_fact, prepare_write, fixture_id, STAMP
+from tomte.engine.core.memory import public_entity
 
 import psycopg
 from psycopg.pq import TransactionStatus
@@ -24,11 +27,9 @@ def vector(cosine):
 
 
 def insert(db,tenant,user,eid,cosine):
-    payload=dict(entity_id=eid,entity_name=eid,entity_domain='assets_and_possessions',
-                 entity_type='vehicle',aliases=[],facts=[])
-    assert db.commit_graph_updates([dict(mode='INSERT',tenant_id=tenant,user_id=user,
-        **{k:payload[k] for k in ('entity_id','entity_name','entity_domain','entity_type')},
-        payload=payload,embedding=vector(cosine))])
+    payload=simple_entity(eid,entity_id=fixture_id(tenant,user,eid),kind='vehicle',domain='assets_and_possessions',
+                          facts=[simple_fact('description',eid)])
+    assert db.commit_graph_updates([prepare_write(tenant,user,payload,vector=vector(cosine))])
 
 
 def test_raw_top_five_ungated_scoped_stable_and_statistic_independent(local_db):
@@ -39,23 +40,23 @@ def test_raw_top_five_ungated_scoped_stable_and_statistic_independent(local_db):
     insert(db,t+'-foreign',u,'foreign-tenant',1.0)
     try:
         with db.transaction():
-            db.conn.execute("UPDATE tomte_memory_engine SET mention_count=1,last_mentioned_at=now()-interval '365 days' WHERE tenant_id=%s AND user_id=%s AND entity_id='old'",(t,u))
-            db.conn.execute("UPDATE tomte_memory_engine SET mention_count=10000,last_mentioned_at=now() WHERE tenant_id=%s AND user_id=%s AND entity_id<>'old'",(t,u))
+            db.conn.execute("UPDATE tomte_memory_engine SET mention_count=1,last_mentioned_at=now()-interval '365 days' WHERE tenant_id=%s AND user_id=%s AND entity_name='old'",(t,u))
+            db.conn.execute("UPDATE tomte_memory_engine SET mention_count=10000,last_mentioned_at=now() WHERE tenant_id=%s AND user_id=%s AND entity_name<>'old'",(t,u))
         query=[1.0]+[0.0]*1535
         before=db.conn.execute('SELECT entity_id,mention_count,last_mentioned_at FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s ORDER BY entity_id',(t,u)).fetchall()
         rows=db.get_raw_semantic_context(t,u,query)
-        assert [r['entity_id'] for r in rows]==['old','a','b','c','d']
+        assert [r['entity_name'] for r in rows]==['old',*sorted(['a','b'],key=lambda label:fixture_id(t,u,label)),'c','d']
         assert rows[1]['raw_cosine']==pytest.approx(.2)
         assert all('payload' not in r and r['tenant_id']==t and r['user_id']==u for r in rows)
-        assert db.semantic_retrieval(t,u,query)[0]['entity_id']!='old'
-        assert db.get_frequent_entities(t,u)[0]['entity_id']!='old'
-        assert db.discover_session_entities(t,u,query,.25,5)[0]['entity_id']=='old'
+        assert db.semantic_retrieval(t,u,query)[0]['entity_name']!='old'
+        assert db.get_frequent_entities(t,u)[0]['entity_name']!='old'
+        assert db.discover_session_entities(t,u,query,.25,5)[0]['entity_name']=='old'
         assert len(db.discover_session_entities(t,u,query,.25,5))==1
         assert before==db.conn.execute('SELECT entity_id,mention_count,last_mentioned_at FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s ORDER BY entity_id',(t,u)).fetchall()
         with db.transaction():
-            db.conn.execute("UPDATE tomte_memory_engine SET mention_count=999999,last_mentioned_at=now() WHERE tenant_id=%s AND user_id=%s AND entity_id='old'",(t,u))
-            db.conn.execute("UPDATE tomte_memory_engine SET mention_count=1,last_mentioned_at=now()-interval '500 days' WHERE tenant_id=%s AND user_id=%s AND entity_id<>'old'",(t,u))
-        assert [r['entity_id'] for r in db.get_raw_semantic_context(t,u,query)]==['old','a','b','c','d']
+            db.conn.execute("UPDATE tomte_memory_engine SET mention_count=999999,last_mentioned_at=now() WHERE tenant_id=%s AND user_id=%s AND entity_name='old'",(t,u))
+            db.conn.execute("UPDATE tomte_memory_engine SET mention_count=1,last_mentioned_at=now()-interval '500 days' WHERE tenant_id=%s AND user_id=%s AND entity_name<>'old'",(t,u))
+        assert [r['entity_name'] for r in db.get_raw_semantic_context(t,u,query)]==['old',*sorted(['a','b'],key=lambda label:fixture_id(t,u,label)),'c','d']
         assert db.conn.info.transaction_status==TransactionStatus.IDLE
     finally:
         db.delete_user_memory(t+'-foreign',u)
@@ -64,9 +65,10 @@ def test_raw_top_five_ungated_scoped_stable_and_statistic_independent(local_db):
 def test_raw_undefined_cosine_sorts_after_valid_matches_without_gating(local_db):
     db,t,u=local_db.db,local_db.tenant,local_db.users[0]
     insert(db,t,u,'valid',.2);insert(db,t,u,'zero-vector',0.0)
-    db.conn.execute("UPDATE tomte_memory_engine SET embedding=%s::vector WHERE tenant_id=%s AND user_id=%s AND entity_id='zero-vector'",([0.0]*1536,t,u))
+    db.conn.execute("UPDATE tomte_memory_engine SET embedding=%s::vector WHERE tenant_id=%s AND user_id=%s AND entity_name='zero-vector'",([0.0]*1536,t,u))
+    db.conn.execute("UPDATE tomte_memory_search SET embedding=%s::vector WHERE tenant_id=%s AND user_id=%s AND entity_uuid=%s",([0.0]*1536,t,u,fixture_id(t,u,'zero-vector')))
     rows=db.get_raw_semantic_context(t,u,[1.0]+[0.0]*1535)
-    assert [r['entity_id'] for r in rows]==['valid','zero-vector']
+    assert [r['entity_name'] for r in rows]==['valid','zero-vector']
     assert rows[0]['raw_cosine']==pytest.approx(.2)
     assert rows[1]['raw_cosine'] is None
 
@@ -94,7 +96,7 @@ def test_raw_provider_only_translates_transient_errors(local_db,monkeypatch,erro
 @pytest.fixture
 def live_workflow(monkeypatch):
     def e(eid,name):
-        return dict(entity_id=eid,entity_name=name,tenant_id='t',user_id='u',aliases=[],facts=[])
+        return {**simple_entity(name,entity_id=fixture_id('t','u',eid)), 'tenant_id':'t','user_id':'u'}
     recent=e('r','Prior conversation aquarium')
     session=e('s','Fresh session Tesla')
     below=e('below','Below activation floor')
@@ -108,11 +110,11 @@ def live_workflow(monkeypatch):
         get_entities_by_ids=Mock(return_value=[session]))
     cache=SimpleNamespace(get_persona_entities=Mock(return_value=[e('p','Persona')]),
         get_chat_history=Mock(return_value=[]),append_chat_history=Mock(),enqueue_for_consolidation=Mock(),
-        promote_session_entities=Mock(),get_session_entity_ids=Mock(return_value=['s']))
+        promote_session_entities=Mock(),get_session_entity_ids=Mock(return_value=[fixture_id('t','u','s')]))
     monkeypatch.setattr(Tomte,'_db',db);monkeypatch.setattr(Tomte,'_cache',cache)
     monkeypatch.setattr(Tomte,'_llm',SimpleNamespace(embed_text=Mock(return_value=[1.0])))
     monkeypatch.setattr('tomte.engine.workflows.chat_hook.get_security_guard',lambda:SimpleNamespace(
-        sanitize_input=lambda t:t,check_for_injection=lambda t:True))
+        sanitize_input=lambda t:t))
     return ChatHookWorkflow(),db,cache
 
 
@@ -124,39 +126,39 @@ def test_live_composition_omits_frequent_and_weighted_and_keeps_fresh_session(li
     db.get_recent_entities.assert_called_once_with('t','u')
     assert 'Below activation floor' in text and 'Persona' in text and 'Prior conversation aquarium' in text
     assert 'Fresh session Tesla' in text and 'Stale Tesla' not in text
-    assert text.count('[[ENTITY: s |')==1
-    assert [text.index('[[ENTITY: '+eid+' |') for eid in ('s','below','p','r')]==sorted(text.index('[[ENTITY: '+eid+' |') for eid in ('s','below','p','r'))
+    assert text.count(fixture_id('t','u','s'))==1
+    assert [text.index(fixture_id('t','u',eid)) for eid in ('s','below','p','r')]==sorted(text.index(fixture_id('t','u',eid)) for eid in ('s','below','p','r'))
     db.discover_session_entities.assert_called_once_with('t','u',[1.0],.25,5)
     cache.promote_session_entities.assert_called_once_with('t','u','s',[],10,86400)
 
 
 def test_memory_groups_keep_query_rank_and_complete_fresh_overlap(live_workflow):
     workflow, db, cache = live_workflow
-    tesla = dict(id='tesla-db', entity_id='veh_01', entity_name='Tesla Model Y',
-                 tenant_id='t', user_id='u', entity_type='vehicle', aliases=['Little Dog'],
-                 facts=[dict(fact_id='current', attribute_name='color', value='red', assertion_state='ACTIVE'),
-                        dict(fact_id='old', attribute_name='color', value='white', assertion_state='HISTORICAL')],
-                 metadata={'preserved': True})
-    stale = {**tesla, 'entity_name': 'Stale Tesla', 'facts': []}
-    db.get_recent_entities.return_value = [stale]
-    second = dict(id='second-db', entity_id='veh_02', entity_name='Honda', tenant_id='t', user_id='u', facts=[])
-    lexical = dict(id='lexical-db', entity_id='veh_03', entity_name='Bicycle', tenant_id='t', user_id='u', facts=[])
-    continuity = dict(id='continuity-db', entity_id='act_01', entity_name='Running', tenant_id='t', user_id='u', facts=[])
+    def memory(label,name,facts=()):
+        payload=simple_entity(name,entity_id=fixture_id('t','u',label),facts=facts)
+        return {**payload,'id':payload['entity_id'],'tenant_id':'t','user_id':'u'}
+    color=simple_fact('color','red');color['history_values']=[{'_archived_at':STAMP,'value':simple_fact('color','white')['value']}]
+    tesla=memory('veh_01','Tesla Model Y',[color]);tesla['aliases']=['Little Dog'];tesla['metadata']={'private':True}
+    stale={**tesla,'entity_name':'Stale Tesla','facts':[]}
+    db.get_recent_entities.return_value=[stale]
+    second=memory('veh_02','Honda');lexical=memory('veh_03','Bicycle');continuity=memory('act_01','Running')
     db.get_raw_semantic_context.return_value = [stale, second]
     db.find_session_entity_mentions.return_value = [second, lexical]
     db.get_entities_by_ids.return_value = [tesla, second, lexical, continuity]
-    cache.get_session_entity_ids.return_value = ['veh_01', 'veh_02', 'veh_03', 'act_01']
+    cache.get_session_entity_ids.return_value = [e['entity_id'] for e in (tesla,second,lexical,continuity)]
     result = workflow.on_chat('t', 's', 'Tesla Model Y', ChatSenderRole.USER, 'u')
     relevant, background = result['query_relevant_memories'], result['background_memories']
-    assert [e['id'] for e in relevant] == ['tesla-db', 'second-db', 'lexical-db']
-    assert relevant[0] == tesla
-    assert [e['entity_id'] for e in background] == ['p', 'act_01']
+    assert [e['entity_id'] for e in relevant] == [e['entity_id'] for e in (tesla,second,lexical)]
+    assert relevant[0] == public_entity(tesla)
+    assert 'metadata' not in relevant[0] and '_recorded_at' not in json.dumps(relevant)
+    assert [e['entity_id'] for e in background] == [fixture_id('t','u',label) for label in ('p','act_01')]
     assert len(relevant + background) == 5
     text = result['context_text']
     assert text.startswith('QUERY-RELEVANT MEMORIES\n')
-    assert text.index('BACKGROUND/CONTINUITY') < text.index('[[ENTITY: p |')
-    assert text.count('[[ENTITY: veh_01 |') == 1
-    assert 'color: red' in text and 'color: white' not in text
+    assert text.index('BACKGROUND/CONTINUITY') < text.index(fixture_id('t','u','p'))
+    assert text.count(tesla['entity_id']) == 1
+    assert '"text": "red"' in text and '"text": "white"' in text
+    assert relevant[0]['facts'][0]['history_is_partial'] is False
     assert {'context_text', 'chat_history', 'clean_message', 'user_id'} <= result.keys()
     workflow.llm.embed_text.assert_called_once_with('Tesla Model Y')
     db.get_raw_semantic_context.assert_called_once()
@@ -171,7 +173,7 @@ def test_empty_query_groups_keep_background_without_claiming_abstention(live_wor
     db.get_raw_semantic_context.return_value = []
     result = workflow.on_chat('t', 's', 'hello', ChatSenderRole.USER, 'u')
     assert result['query_relevant_memories'] == []
-    assert [e['entity_id'] for e in result['background_memories']] == ['p', 'r', 's']
+    assert [e['entity_id'] for e in result['background_memories']] == [fixture_id('t','u',label) for label in ('p','r','s')]
     assert result['context_text'].startswith('QUERY-RELEVANT MEMORIES\n\n\nBACKGROUND/CONTINUITY')
 
 
@@ -208,7 +210,9 @@ def test_memory_groups_do_not_hide_cross_tenant_lexical_rows(live_workflow):
 def test_public_client_keeps_error_only_payload(live_workflow):
     from tomte.engine.clients.chat_client import TomteChatClient
     workflow, _, _ = live_workflow
-    workflow.security.check_for_injection = lambda _: False
+    from tomte.engine.exceptions import TomteInvalidInputError
+    def invalid(_):raise TomteInvalidInputError('Synthetic invalid structure')
+    workflow.security.sanitize_input=invalid
     client = TomteChatClient('t')
     client._workflow = workflow
     result = client.send_user_message('s', 'blocked', user_id='u')
@@ -252,10 +256,10 @@ def test_recent_preserves_prior_session_topic_without_semantic_or_mru_hit(sessio
     for i in range(5):
         insert_entity(db,t,'u','other-'+str(i),'Unrelated '+str(i),vector=[0.0,0.0,1.0]+[0.0]*1533)
     with db.transaction():
-        db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-interval '5 days' WHERE tenant_id=%s AND user_id='u' AND entity_id<>'tesla'",(t,))
+        db.conn.execute("UPDATE tomte_memory_engine SET last_mentioned_at=now()-interval '5 days' WHERE tenant_id=%s AND user_id='u' AND entity_name<>'Tesla Model Y'",(t,))
     assert cache.get_session_entity_ids(t,'u','new-session',10)==[]
     query=[0.0,0.0,1.0]+[0.0]*1533
-    assert 'tesla' not in [e['entity_id'] for e in db.get_raw_semantic_context(t,'u',query)]
+    assert fixture_id(t,'u','tesla') not in [e['entity_id'] for e in db.get_raw_semantic_context(t,'u',query)]
     result=workflow.on_chat(t,'new-session','What about that problem from yesterday?',ChatSenderRole.USER,'u')
     assert 'Tesla Model Y' in result['context_text']
-    assert 'tesla' not in cache.get_session_entity_ids(t,'u','new-session',10)
+    assert fixture_id(t,'u','tesla') not in cache.get_session_entity_ids(t,'u','new-session',10)

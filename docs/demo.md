@@ -43,7 +43,7 @@ does not delete earlier data. Sessions get independent random IDs.
    has separate history but can retrieve the same user's durable memory.
 4. Send: “I painted Willow red.” Consolidate, then start a third session and ask:
    “What color is Willow now?” Refresh inspector and check the canonical entity's
-   active assertion. Do not claim success if the model abstains or stores a wrong fact.
+   current fact value. Do not claim success if the model abstains or stores a wrong fact.
 
 Use the session selector to return to and consolidate pending sessions. Stop only
 after consolidating the sessions you want saved: UI session selection is in memory
@@ -52,7 +52,7 @@ No autonomous recovery/scheduler runs in this demo.
 
 ## Boundaries and failures
 
-- The host uses current-only structured query and background context, plus returned
+- The host uses structured query and background context, plus returned
   sanitized message/history. Memory and chat text are marked untrusted, without tools.
 - Assistant output is logged with the assistant role. Suggestions are not independent
   user evidence. Sending is not a durable-memory commit.
@@ -66,11 +66,12 @@ No autonomous recovery/scheduler runs in this demo.
   engine-owned. This is not a new distributed-worker design.
 - Host failures may leave a user message queued. Logging failure displays a generated
   answer explicitly as **not confirmed logged**. No automatic resend or fabricated reply.
-- Inspector is read-only and scoped to the selected demo profile. Only ACTIVE facts
-  appear; canonical UUID, aliases and source/evidence metadata can be inspected.
-- Nearest-neighbor false positives, occasional LLM mistakes, incomplete timelines/
-  relationships and stale related facts remain known limitations. Historical/corrected/
-  retracted facts are not exposed as current, and full history answers are unsupported.
+- Inspector is read-only and scoped to the selected demo profile. It shows canonical
+  UUIDs, current text/confidence items and available history; internal metadata and
+  source evidence are omitted. Ended facts remain readable descriptive values.
+- Nearest-neighbor false positives and incorrect or omitted model interpretations
+  remain possible. Bounded retrieval marks omitted history with `history_is_partial`;
+  the complete stored history is retained. See [memory design](memory-design.md).
 
 Same-origin/token and Host checks reduce accidental browser cross-site access; they
 are not authentication. Anyone trusted on this machine can access the local demo.

@@ -1,28 +1,27 @@
-"""Reference-oriented actions; these are not new extracted facts or identities."""
+"""Reference routing does not itself authorize changes to fact values."""
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
+from tomte.engine.core.memory import MemoryModel
 from tomte.engine.core.resolution import ResolvedTarget
+from tomte.engine.core.proposals import ProposalResponse
 
 
-class ContextualMemoryAction(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    action_type: Literal["CORRECTION", "RETRACTION", "CONFIRMATION", "CLARIFICATION"]
+class ContextualMemoryAction(MemoryModel):
+    action_type: Literal["CORRECTION", "END", "CONFIRMATION", "CLARIFICATION", "MENTION", "HISTORY"]
     reference_hint: str = Field(min_length=1)
-    replacement_text: str | None = None
+    evidence_quote: str = Field(min_length=1, description="Verbatim current USER evidence, not a normalized replacement value.")
     source_chat_ids: list[str] = Field(min_length=1)
-    interpretation_confidence: float = Field(ge=0, le=1)
     target: ResolvedTarget | None = None
     target_fact_id: str | None = None
 
     @model_validator(mode="after")
     def validate_reference(self):
-        if len(set(self.source_chat_ids)) != len(self.source_chat_ids):
-            raise ValueError("Duplicate contextual sources")
+        self.source_chat_ids = list(dict.fromkeys(self.source_chat_ids))
         if (self.target is None) != (self.target_fact_id is None):
-            raise ValueError("A resolved contextual action requires both entity and assertion")
+            raise ValueError("A resolved contextual action requires both entity and fact")
         return self
 
 
-class ContextualActionResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class ContextualActionResponse(ProposalResponse):
+    proposal_collections = {"actions": None}
     actions: list[ContextualMemoryAction] = Field(default_factory=list)

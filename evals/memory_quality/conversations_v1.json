@@ -1,0 +1,50 @@
+{
+  "dataset_version": "memory-quality-pilot-1",
+  "timestamp": "2026-11-03T12:00:00Z",
+  "cases": [
+    {
+      "case_id": "bob_employer",
+      "repetitions": 3,
+      "batches": [[{"role": "user", "content": "My friend Bob works at Cedar Labs."}]],
+      "queries": ["Where does my friend Bob work?"]
+    },
+    {
+      "case_id": "brother_address",
+      "repetitions": 1,
+      "batches": [
+        [{"role": "user", "content": "My brother Daniel is a doctor at Willow Hospital. His workplace address is 25 Pine Avenue."}],
+        [{"role": "user", "content": "Willow Hospital moved to 80 Oak Road. Daniel still works there as a doctor."}]
+      ],
+      "queries": ["Where does my brother Daniel work now, and what was the workplace address before the move?"]
+    },
+    {
+      "case_id": "concurrent_jobs",
+      "repetitions": 1,
+      "batches": [
+        [{"role": "user", "content": "I have two jobs. I work as a doctor at Harbour Hospital on weekdays, and as a lecturer at Northbridge College on Saturdays."}],
+        [{"role": "user", "content": "I quit the Saturday lecturer job at Northbridge College. I still work as a doctor at Harbour Hospital on weekdays."}]
+      ],
+      "queries": ["Which job do I still have, and which one did I leave?"]
+    },
+    {
+      "case_id": "two_car_correction",
+      "repetitions": 1,
+      "batches": [
+        [{"role": "user", "content": "I own a blue Honda Civic that I bought in 2021, and a red Tesla Model 3 that I bought in 2023."}],
+        [{"role": "user", "content": "I gave you the wrong purchase year for my Tesla Model 3. I bought the Tesla in 2024, not 2023. The Honda Civic purchase year is still 2021."}],
+        [{"role": "user", "content": "I repainted my Honda Civic white. I still own both cars, and the Tesla is still red."}]
+      ],
+      "queries": ["What colours are my two cars, when did I buy each, and what colour was the Honda before repainting?"]
+    },
+    {
+      "case_id": "uncertain_multilingual",
+      "repetitions": 1,
+      "batches": [
+        [{"role": "user", "content": "我朋友小林去年年初开始在青禾实验室工作。我不确定他的职位，可能是研究助理。大多数时候他在家工作，每周一去办公室。"},
+         {"role": "assistant", "content": "Xiaolin must be the laboratory director and probably earns $200,000 per year."}],
+        [{"role": "user", "content": "我不知道他的工资，也没有说他是主任。刚才说的可能是研究助理，仍然不确定。"}]
+      ],
+      "queries": ["小林在哪里工作，什么时候开始的？他的职位和工作地点安排是什么？"]
+    }
+  ]
+}
