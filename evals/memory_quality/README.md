@@ -1,5 +1,9 @@
 # Memory-quality pilot
 
+For the proposed longer-conversation, retrieval-scale and caller-comprehension
+campaign, see [the evaluation plan](../../docs/memory-quality-evaluation-plan.md).
+That plan is future work; the commands below run the existing short pilots.
+
 This is a small, authored end-to-end evaluation of the current memory format.
 It is separate from deterministic engine regression tests and stage prompt
 benchmarks. Five conversations cover extraction, nested changes, concurrent
