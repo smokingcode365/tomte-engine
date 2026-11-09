@@ -1,8 +1,37 @@
 # Memory-quality evaluation plan
 
-Status: proposed evaluation campaign; datasets and runner extensions below are
-not yet implemented or executed. The redesign baseline is commit `b51feb6`.
-Planning this campaign does not start paid calls or change the engine.
+Status: Stage 1's first two development runs completed and were reviewed;
+the remaining campaign is held while findings and evaluation scope are reviewed.
+Stages 2 and 3 remain planned. See [Stage 1 preparation and budget](../evals/memory_quality/LONG_CAMPAIGN.md).
+This plan revision does not start paid calls or change the engine.
+
+## Retrieval purpose and evaluation revision
+
+Tomte supplies whole entities as background memory for a conversation between
+the user and a calling AI. The input can be an ordinary chat message, not a direct
+request for a remembered answer. The caller uses that background to understand
+the situation and chooses which details belong in its response.
+
+The earlier fact-level answer-relevance criterion did not capture this purpose.
+For example, a workplace conversation can reasonably receive job satisfaction,
+colleagues and related concerns along with workplace addresses. Facts within a
+relevant entity are not errors merely because they do not answer the latest
+message. Whole-entity return remains intentional; this clarification does not
+authorize fact filtering or a retrieval-code change.
+
+For future evaluation, judge useful conversational background and coverage of
+relevant entities. Distinguish useful context from genuinely off-topic entities,
+wrong-subject attribution, unsupported memory and context that misleads the caller.
+Measure payload size, latency and cost separately; bytes that are not needed for a
+narrow answer are not automatically waste.
+
+This is an explicit change of evaluation scope, not a retroactive passing score.
+Keep the original frozen datasets, labels, 80% answer-relevant-fact target and
+results in their historical evidence. The former 27.6% fact-level result does not
+establish a background-memory retrieval defect. Retire that target for prospective
+background-memory acceptance; freeze a versioned conversational rubric and any
+new thresholds before new scoring. Do not silently relabel old runs or infer that
+all returned entities are useful merely because whole entities are intended.
 
 ## What we know
 
@@ -23,14 +52,22 @@ measure stability on known examples, not performance on unseen conversations.
 1. Does important information survive long, interrupted conversations?
 2. Do changes affect the intended subject and fact while preserving valid history?
 3. Does ambiguity cause safe abstention rather than a confident wrong memory?
-4. Can retrieval find older relevant information among many plausible distractors?
-5. Can a caller distinguish current information, past information and uncertainty?
+4. Can retrieval find useful background entities for the current conversation among many plausible distractors?
+5. Can a caller use that background appropriately and distinguish current information, past information and uncertainty?
 6. How often do results vary, and what do ingestion and retrieval cost?
 
 Wrong memories matter more than omissions. Report them separately; a high recall
 score must not hide an unsupported claim or a wrong-person update. Python may
 check structural invariants; natural-language judgments remain a review task,
 not a new set of hardcoded language rules in the engine.
+
+For this version, omission of a claim with an unresolved subject is an accepted
+limitation. Do not require a pending/unattributed durable memory or weaken identity
+checks to retain it. Report the lost information honestly, including whether it
+was later supplied with a supported identity. The initial two ambiguous-brother
+checkpoint misses remain in the historical scores; policy acceptance does not
+retroactively make those memories present. Future rubrics must distinguish an
+accepted owner-ambiguity omission from losing a supported, identified fact.
 
 ## Stage 1: longer conversations
 
@@ -91,10 +128,14 @@ names, overlapping jobs, paraphrases, low-importance details, old targets and
 plausible distractors. Deliberately put query targets outside recent-memory
 fallback and recent session context.
 
-Prepare 60 held-out queries: 20 current-state, 15 historical, ten requiring
-multiple facts, ten with no supported answer and five ambiguous references.
-Run the same query set at each collection size and report each tier separately.
-Use separate development queries for harness checks and tuning.
+Prepare 60 held-out conversation probes: 20 about current situations, 15 about
+past situations, ten involving multiple subjects, ten with no stored background
+for the topic and five ambiguous references. Include ordinary chat turns rather
+than only explicit memory questions. Provide enough recent conversational context
+to establish the topic, and freeze expected background entities, acceptable related
+context and genuinely off-topic candidates before execution. Keep direct questions
+as separately labeled diagnostic probes. Run the same set at each collection size
+and report each tier separately; use separate development probes for tuning.
 
 Directly seeded gold memories isolate retrieval performance and must be labeled
 retrieval-only. Reuse selected Stage 1 memories separately to measure retrieval
@@ -103,19 +144,22 @@ with a frozen, populated synthetic dictionary in a declared follow-up; never
 borrow the user's existing dictionary or treat arbitrary seeded data as evidence
 of naturally learned vocabulary quality.
 
-Score query-relevant memories separately from background continuity. A required
-answer found only in background is not a pass for query-relevant retrieval.
-For unknown questions, unrelated candidates are a relevance error, while an
-invented assertion is a more serious correctness error. Do not require an empty
-response if the API legitimately returns background context.
+Report both API channels separately for diagnosis, and assess the complete context
+delivered to the caller. The name `query_relevant_memories` does not mean every fact
+inside an entity must answer the latest sentence. Background continuity can also
+be useful. Missing a requested detail does not make related background invalid;
+the caller must still distinguish what is known from what has not been supplied.
+Do not require an empty response merely because a narrow answer is unavailable.
 
 ## Stage 3: caller comprehension
 
-Use a fixed answering-agent prompt and the public memory JSON with the question.
-Do not provide gold answers, private metadata or the original source conversation.
-Check whether the agent answers current and historical questions correctly,
-respects uncertainty, understands ended facts and partial history, and abstains
-when information is missing. Include a no-memory baseline on the same questions.
+Use a fixed conversational-agent prompt, a current chat turn with bounded recent
+context, and the public memory JSON. Do not provide gold, private metadata or the
+full source conversation that created the memories. Check whether the agent uses
+useful background naturally without forcing every retrieved detail into its reply,
+confusing people, treating ended situations as current or inventing missing details.
+Include a no-memory baseline on the same conversations. Retain direct current/
+historical questions as a separate comprehension diagnostic, not the sole use case.
 
 Score answers separately from storage and retrieval: a caller mistake must not
 be silently counted as an extraction error, and a correct guess must not count
@@ -141,10 +185,16 @@ Report these measures with numerators and denominators:
   and wrong-fact updates, each reported separately.
 - Update/history correctness: correctly applied expected updates / expected
   updates, including correction-versus-change and preservation of prior values.
-- Retrieval answer coverage: supported answer requirements present in returned
-  query-relevant memory / all query answer requirements.
-- Retrieval relevance: relevant returned facts / reviewed returned facts,
-  plus irrelevant returned bytes/tokens. Define relevance labels before scoring.
+- Background coverage: required background entities/meanings available to the
+  caller / expected background entities/meanings for the conversational probe.
+- Entity usefulness: useful returned background entities / reviewed returned
+  entities, with ambiguous relevance judgments reported separately. Whole entities
+  may contain details that are not needed for the latest sentence.
+- Direct-question coverage, where tested: supported answer requirements present
+  in delivered memory / expected answer requirements. Report this diagnostic
+  separately from conversational background usefulness.
+- Context size: returned bytes/tokens by channel; assess any caller harm separately
+  rather than treating every non-answering fact as irrelevant.
 - Stability: per-case passes out of three and the worst run, not only pooled means.
 - Operational measures: ingestion/retrieval p50 and p95 latency, observed usage
   and estimated cost per message/query, model requests, repair/rejection counts,
@@ -159,14 +209,19 @@ Proposed gates to freeze before execution:
   for the finite sample, not a claim that the true error rate is zero.
 - At least 95% pooled required-meaning recall, with no conversation-run below
   90%; at least 95% of expected updates/history transitions correct.
-- At least 95% answer coverage on answerable retrieval queries and 80% relevant
-  facts in the query-relevant channel. All historical/current and unknown-query
-  errors remain individually visible regardless of aggregate scores.
-- Caller answers at least 90% correct on answerable questions, with no invented
-  answer to an unknown question in the sample. Report no-memory results beside it.
+- Freeze conversation-level background coverage, entity usefulness and caller-use
+  criteria before the revised retrieval evaluation. No replacement numerical target
+  is claimed as agreed or achieved here. The original answer-only thresholds remain
+  in historical run evidence and must not be used to penalize useful background.
+- No observed wrong-person use, invented facts or confusion between current and
+  ended situations in the caller sample. Report natural background use and
+  no-memory comparisons separately from direct-question diagnostic scores.
 
 These thresholds are proposed engineering targets, not previously achieved
-results or production guarantees. Do not move thresholds after seeing outcomes.
+results or production guarantees. Do not move thresholds after seeing outcomes
+within a frozen evaluation. An explicit product-scope revision, such as the
+background-memory clarification above, requires a separately versioned rubric and
+preservation of the earlier measurements; it cannot convert an old failure to a pass.
 Avoid one blended accuracy number. With only a few authored conversations,
 repetitions and facts are correlated; do not treat them as independent evidence
 for a population confidence interval.
@@ -178,9 +233,10 @@ and model identifiers, settings, dictionary snapshot, package versions and
 evaluator version. A published baseline should come from a reproducible checkout;
 record any intentional patches rather than silently running a dirty tree.
 
-The current runner supports the existing short pilots only. Extend and test its
-dataset loading, session handling, incremental queries and scoring evidence before
-claiming this plan is executable. Preserve old datasets and result directories.
+The runner now validates long datasets and its executor supports session handling
+and incremental queries. A separate campaign runner enforces persistent budget
+accounting and phase review gates; spending authorization is still required.
+Preserve old datasets and result directories.
 Keep gold unavailable to engine calls. Save raw provider outputs, all checkpoint
 snapshots, public query responses, timing, cost and cleanup evidence privately.
 Publish only reviewed synthetic fixtures, methodology and selected results.
@@ -209,10 +265,11 @@ Use new, scoped test databases/schemas, synthetic users and isolated Redis keys.
 Verify protected-state digests before and after; clean up only owned test state.
 Docker must be available. Do not reset existing memories, dictionaries or queues.
 
-## First implementation step
+## Next evaluation preparation
 
-Author and review the six conversations and separate gold files, assign the
-development/validation split, then implement only the harness extensions needed
-for Stage 1. Validate the harness offline and declare the complete live budget
-before running the first two development cases. Stages 2 and 3 follow only after
-Stage 1 results and failures have been reviewed.
+Preserve Stage 1's frozen conversations, gold and observed outcomes. Complete
+review of the remaining memory findings and record a versioned conversational
+background rubric before new retrieval scoring. Continue within the existing
+campaign's cumulative budget and review gates when execution is authorized;
+this document update itself does not resume the campaign. Stages 2 and 3 remain
+separate planned work after Stage 1 review.

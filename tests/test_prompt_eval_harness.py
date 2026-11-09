@@ -119,11 +119,13 @@ def test_omitted_keep_raw_is_success_but_omitted_reuse_fails():
 
 def test_identity_target_contract_ignores_reasoning_and_confidence():
     c = case("identity_resolution", {"resolutions": [{"extracted_entity_id": "e", "expected_kind": "MATCH_ONE",
-        "required_target_ids": [UUID], "allowed_evidence_labels": ["EXPLICIT"]}]},
-        {**SMOKE["identity_resolution"]["input"], "CANDIDATES_BY_OBJECT": {"e": [{"id": UUID}]}, "EXTRACTED_SEMANTIC_INFORMATION": [{"id": "e"}]})
-    for confidence in (.01, 1.):
+        "required_target_ids": [UUID]}]},
+        {**SMOKE["identity_resolution"]["input"], "CANDIDATES_BY_ID": {UUID: {"id": UUID}},
+         "CANDIDATES_BY_OBJECT": {"e": [{"id": UUID}]}, "EXTRACTED_SEMANTIC_INFORMATION": [{"id": "e"}]})
+    for metadata in ({}, {"resolution_confidence": .01, "evidence": "SEMANTIC_CANDIDATE"},
+                     {"resolution_confidence": 1., "evidence": "EXPLICIT"}):
         result = support.score(c, {"resolutions": [{"extracted_entity_id": "e", "kind": "MATCH_ONE",
-            "reasoning": "Arbitrary wording", "targets": [{"db_id": UUID, "resolution_confidence": confidence, "evidence": "EXPLICIT"}]}]})
+            "reasoning": "Arbitrary wording", "targets": [{"db_id": UUID, **metadata}]}]})
         assert result["passed"]
 
 
@@ -329,10 +331,22 @@ def identity_data():
     data = deepcopy(SMOKE["identity_resolution"])
     data["input"]["EXTRACTED_SEMANTIC_INFORMATION"] = [{"id": "e1"}, {"id": "e2"}]
     data["input"]["CANDIDATES_BY_OBJECT"] = {"e1": [{"id": UUID}], "e2": []}
+    data["input"]["CANDIDATES_BY_ID"] = {UUID: {"id": UUID}}
     data["expected"]["resolutions"] = [
         {"extracted_entity_id": "e1", "expected_kind": "MATCH_ONE", "required_target_ids": [UUID]},
         {"extracted_entity_id": "e2", "expected_kind": "UNRESOLVED"}]
     return data
+
+
+@pytest.mark.parametrize("fault", ["missing_record", "wrong_id"])
+def test_identity_shared_candidate_references_require_matching_records(fault):
+    data = identity_data()
+    if fault == "missing_record":
+        data["input"]["CANDIDATES_BY_ID"] = {}
+    else:
+        data["input"]["CANDIDATES_BY_ID"][UUID]["id"] = "another-id"
+    with pytest.raises(ValueError, match="candidate"):
+        support.Case.model_validate(data)
 
 
 @pytest.mark.parametrize("fault", ["missing_expectation", "missing_candidate_object", "extra_candidate_object",
@@ -520,3 +534,10 @@ def test_special_override_is_bound_during_execution_and_restored(monkeypatch, st
 def test_checked_in_case_schema_matches_runtime_export():
     schema = json.loads((support.ROOT / "evals/prompts/case_schema_v2.json").read_text(encoding="utf-8"))
     assert schema == support.case_json_schema()
+
+
+def test_identity_gold_rejects_retired_evidence_label_expectations():
+    data = identity_data()
+    data["expected"]["resolutions"][0]["allowed_evidence_labels"] = ["EXPLICIT"]
+    with pytest.raises(ValueError, match="allowed_evidence_labels"):
+        support.Case.model_validate(data)

@@ -58,7 +58,7 @@ class LLM:
         return [[1.0, 0.0] for _ in texts]
 
     def is_junk(self, text):
-        return False
+        raise AssertionError("Consolidation must not run a separate junk filter")
 
     def parse_structured(self, system_prompt, user_text, schema):
         self.calls.append(schema)
@@ -105,6 +105,7 @@ def test_bob_employer_persists_without_a_separate_organization_or_relationship_i
     serialized = json.dumps(op["payload"])
     assert "source_chat" not in serialized and "related_entity" not in serialized and "tmp_" not in serialized
     assert len(op["search_entries"]) == 2
+    assert len(op["retrieval_entries"]) == 2
     before = len(llm.calls)
     assert workflow.run_consolidation_cycle("tenant", "user", chat())
     assert len(db.rows) == 1 and len(llm.calls) == before
@@ -116,3 +117,22 @@ def test_empty_mutation_plan_abstains_without_forced_writes_or_retry():
     assert db.rows == []
     assert len(db.processed) == 1
     assert llm.calls.count(MutationPlanResponse) == 1
+
+
+def test_empty_extraction_completes_without_writes_and_replay_skips_models():
+    class EmptyLLM(LLM):
+        def parse_structured(self, system_prompt, user_text, schema):
+            assert schema is ExtractionMemorySchema
+            self.calls.append(schema)
+            return schema()
+
+    db, llm = MemoryDB(), EmptyLLM()
+    workflow = ConsolidationWorkflow(db, llm)
+    batch = chat()
+    batch[0]['content'] = 'Thanks!'
+    assert workflow.run_consolidation_cycle('tenant', 'user', batch)
+    assert db.rows == [] and len(db.processed) == 1
+    assert llm.calls == [ExtractionMemorySchema]
+    assert workflow.run_consolidation_cycle('tenant', 'user', batch)
+    assert db.rows == [] and len(db.processed) == 1
+    assert llm.calls == [ExtractionMemorySchema]

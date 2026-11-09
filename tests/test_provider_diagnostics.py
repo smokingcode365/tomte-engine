@@ -37,6 +37,21 @@ def events(caplog):
     return [json.loads(r.message) for r in caplog.records if r.name == diagnostics.logger.name]
 
 
+def test_candidate_filter_diagnostics_identify_its_dedicated_model(provider, enabled):
+    from tomte.engine.core.candidate_filter import CandidateFilterResponse
+
+    def respond(messages, info):
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"keep": ["c1"], "drop": []})])
+
+    provider.candidate_filter_model = FunctionModel(respond, model_name="configured-filter-model")
+    result = provider.parse_structured("filter", PRIVATE, CandidateFilterResponse)
+    assert result.keep == ["c1"]
+    event, = events(enabled)
+    assert event["stage"] == "candidate_filter" and event["outcome"] == "success"
+    assert event["model_fingerprint"] == diagnostics._fingerprint("configured-filter-model")
+    assert PRIVATE not in enabled.text
+
+
 def test_mutation_validation_survives_gate_masking(provider, enabled):
     calls = []
     def respond(messages, info):

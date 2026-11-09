@@ -3,18 +3,30 @@ from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from tomte.engine.core.proposals import ProposalResponse
+from tomte.engine.core.enums import MemoryDomain
 
-Evidence = Literal["EXPLICIT", "ALIAS", "RESOLVED_REFERENCE", "GROUP_EXPLICIT", "GROUP_INFERRED", "SEMANTIC_CANDIDATE"]
-STRONG_EVIDENCE = {"EXPLICIT", "ALIAS", "RESOLVED_REFERENCE", "GROUP_EXPLICIT"}
-MIN_RESOLUTION_CONFIDENCE = 0.9  # Policy threshold, not a calibrated probability.
-CANDIDATE_LIMIT = 5
+CANDIDATE_LIMIT = 10
+
+
+def compatible_identity_domains(incoming, stored):
+    """A thought cannot be the identity of its imagined subject; other domains may overlap."""
+    if MemoryDomain.UNRESOLVED in (incoming, stored):
+        return incoming == stored
+    return (incoming == MemoryDomain.THOUGHTS) == (stored == MemoryDomain.THOUGHTS)
 
 
 class ResolvedTarget(BaseModel):
     model_config = ConfigDict(extra="forbid")
     db_id: UUID = Field(description="Copy the offered candidate's id UUID. Its entity_id is the same canonical UUID; never use an extraction handle.")
-    resolution_confidence: float = Field(ge=0, le=1)
-    evidence: Evidence
+
+    @model_validator(mode="before")
+    @classmethod
+    def discard_retired_assessments(cls, data):
+        """Replay older outputs without making their score/label a routing policy."""
+        if isinstance(data, dict):
+            return {key: value for key, value in data.items()
+                    if key not in {"resolution_confidence", "evidence"}}
+        return data
 
 
 class AliasEvidence(BaseModel):

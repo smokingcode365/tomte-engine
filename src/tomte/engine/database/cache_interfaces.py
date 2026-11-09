@@ -76,6 +76,43 @@ class CacheProvider(ABC):
     # CHAT HOOK & DUAL-WRITE METHODS
     # ==========================================
 
+    def store_message(self, tenant_id: str, user_id: str, session_id: str,
+                      message: str, role: str) -> dict:
+        """Atomically store history, queue input and scheduling activity.
+
+        Capture preceding reference context and assign a stable message UUID.
+        No embedding or model work. Return message_id and status='queued' only
+        after the storage operation succeeds. Required by the separated API.
+        """
+        raise NotImplementedError("Atomic message storage is not supported")
+
+    def get_pending_message_batches(self, tenant_id: str, user_id: str,
+                                    session_id: Optional[str] = None, limit: int = 20) -> list[dict]:
+        """Read queued tails and complete frozen batches without freezing/acking.
+
+        Each group has session_id, queued, queued_count and processing. Include
+        up to limit+1 newest queued items per session, and all processing items
+        so the caller can check their PostgreSQL commit marker. Read both lists
+        consistently so moving an item to processing cannot hide or duplicate it.
+        """
+        raise NotImplementedError("Pending message snapshots are not supported")
+
+    def get_pending_search_snapshot(self, tenant_id, user_id):
+        """Bounded atomic queue/processing snapshot, cache anchors and generation tokens."""
+        raise NotImplementedError("Pending search is not supported")
+
+    def claim_pending_window(self, tenant_id, user_id, session_id, generation, key, descriptor, owner):
+        """Return ready/vector, owned, busy, retired or full. Never interpret text."""
+        raise NotImplementedError("Pending window cache is not supported")
+
+    def publish_pending_window(self, tenant_id, user_id, session_id, generation, key, owner, vector):
+        """Publish only while this owner and snapshot generation remain valid."""
+        raise NotImplementedError("Pending window cache is not supported")
+
+    def release_pending_window(self, tenant_id, user_id, session_id, key, owner):
+        """Release only this owner's unfinished cache claim."""
+        raise NotImplementedError("Pending window cache is not supported")
+
     @abstractmethod
     def append_chat_history(
         self, 

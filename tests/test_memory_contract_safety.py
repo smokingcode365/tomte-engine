@@ -90,7 +90,7 @@ def test_identity_reconciliation_receives_model_selected_keys_without_python_can
               "entity_domain":"assets_and_possessions","facts":[fact(attribute,"Sold")]}
     def model(system_prompt,user_text,schema):
         data=json.loads(user_text);extracted=data["EXTRACTED_SEMANTIC_INFORMATION"][0]
-        candidate=data["CANDIDATES_BY_OBJECT"][extracted["id"]][0]
+        candidate=data["CANDIDATES_BY_ID"][data["CANDIDATES_BY_OBJECT"][extracted["id"]][0]["id"]]
         assert extracted["facts"][0]["attribute_name"]==attribute
         assert candidate["facts"][0]["attribute_name"]=="ownership_status"
         return resolution_response(schema,{"mappings":[{"extracted_entity_id":"tmp_veh_99","mode":"MUTATE",
@@ -127,7 +127,7 @@ def test_weak_nickname_reconciliation_gets_bounded_antecedents_and_persists_one_
         assert len(context) == 4 and context[-2:] == reference[-2:]
         assert "identity only" in system_prompt and "extract historical facts as new updates" in system_prompt
         new = data["EXTRACTED_SEMANTIC_INFORMATION"][0]
-        candidate = data["CANDIDATES_BY_OBJECT"][new["id"]][0]
+        candidate = data["CANDIDATES_BY_ID"][data["CANDIDATES_BY_OBJECT"][new["id"]][0]["id"]]
         assert new["name"] == "Little Dog" and new["facts"] == [{"attribute_name":"nickname","value":item_value("Little Dog")}]
         assert candidate["name"] == "Tesla Model Y"
         # Local policy consumes supplied antecedents; this is not proof of model quality.

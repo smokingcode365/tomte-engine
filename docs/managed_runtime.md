@@ -168,8 +168,9 @@ exception bodies are not included.
 
 ## Explicit capacity boundary
 
-`max_model_input_bytes` (environment `MAX_MODEL_INPUT_BYTES`) defaults to 65,536
-UTF-8 bytes. This conservative local technical limit is checked on the complete
+`max_model_input_bytes` (environment `MAX_MODEL_INPUT_BYTES`) defaults to 327,680
+UTF-8 bytes (320 KiB), five times the earlier 65,536-byte default. This local
+technical limit is checked on the complete
 frozen extraction input before any model stage and on native OpenAI provider inputs
 before dispatch, including explicit static prompts and structured schema text.
 The built-in Anthropic and Gemini adapters share this same pre-dispatch guard.
@@ -184,8 +185,49 @@ by the worker. The existing exact-snapshot SKIP policy records a tombstone and
 advances to later queued work; it does not truncate sources, split a batch, partially
 ACK, or retry an impossible request. Earlier stages of a growing pipeline may have
 already run before a later assembled input exceeds the limit. Increasing the limit
-requires reviewing the chosen provider's capacity; chunking and broader retention
-policy remain out of scope. Existing public message-length rejection is unchanged.
+requires reviewing the chosen provider's capacity. Existing public message-length
+rejection is unchanged. A caller with a `MAX_MODEL_INPUT_BYTES` override retains it.
+
+### Bounded chat batches
+
+`consolidation_batch_bytes` (environment `CONSOLIDATION_BATCH_BYTES`) defaults to
+65,536 UTF-8 bytes (64 KiB). It measures prepared extraction JSON: complete current
+messages, IDs, timestamps, UTC time strings, JSON framing and the first message's
+preceding reference context. Redis vectors and other internal fields are excluded.
+This is separate from the 320 KiB limit on complete downstream model inputs.
+
+The managed Redis worker becomes eligible when that budget is reached (or the next
+whole message would exceed it), or after five minutes without a new queued message.
+It rotates through at most 64 active sessions per poll, measuring only the pending
+prefix needed for eligibility. This involves bounded queue reads, not a new Redis
+counter/index. Eligibility is subject to worker slots, per-user locks and retry
+delays; it is not an immediate dispatch guarantee. There is no maximum-age trigger
+for a continuously active chat that stays below the size budget.
+
+Freezing compares and moves the oldest fitting prefix atomically. Later messages
+remain queued, including arrivals during selection; a concurrent freezer receives
+the same frozen snapshot. Retries never resize a frozen batch, including older
+snapshots created before this setting. ACK/SKIP still checks the exact snapshot and
+cannot delete the remainder. Full remaining batches are eligible on subsequent
+polls; a small final remainder waits for idle. Order is preserved within a session.
+
+Each queued message already carries up to four preceding reference-only turns, so
+the next batch retains that context. If references prevent the first complete
+message from fitting, oldest reference turns are removed until it fits. Current
+message content is never truncated or split. An individually oversized legacy or
+directly enqueued message is frozen alone, intact; it can exceed the 64 KiB target
+and remains subject to the 320 KiB guard. A malformed queue row is isolated from
+valid neighbors for the existing failure policy. The splitter does not interpret
+human language or change semantic validation.
+
+Direct callers of `pop_session_chat_log_4_consolidation` receive one batch and must
+ACK it, then read again to drain a session. The memory-quality and real-world
+conversation evaluation runners do this before scoring/checkpoints. Memory-quality
+evidence retains each processing batch and replay check under `processing_batches`;
+top-level stage diagnostics describe the last part. Dataset batches and gold are
+unchanged. The separate 20-message foreground history still does not cap the queue.
+Bounded input does not guarantee that later extracted entities/candidates or output
+fit the provider's limits; those capacity failures retain their existing behavior.
 
 ## Deferred semantics
 

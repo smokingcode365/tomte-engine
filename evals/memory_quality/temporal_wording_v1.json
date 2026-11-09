@@ -1,0 +1,45 @@
+{
+  "version": "temporal-wording-v1",
+  "purpose": "Synthetic development probes for durable time wording. Expectations are for review only, never model input.",
+  "cases": [
+    {
+      "case_id": "this_week",
+      "messages": [{"at": "2026-09-13T12:00:00Z", "text": "My brother Daniel moved home to Leeds this week. His previous home was near the river in York."}],
+      "expected": "Leeds is current; the move is anchored to the week containing 13 September 2026 without inventing an exact moving day. York remains previous."
+    },
+    {
+      "case_id": "mixed_dates",
+      "messages": [
+        {"at": "2026-09-13T12:00:00Z", "text": "My brother Daniel moved home to Leeds this week."},
+        {"at": "2027-01-01T12:00:00Z", "text": "My brother Daniel started working at Rowan Pharmacy early last year."}
+      ],
+      "expected": "The move stays in September 2026; the job started early 2026. Each clause uses its own source date, not the newest date in the batch."
+    },
+    {
+      "case_id": "vague_recently",
+      "messages": [{"at": "2026-09-13T12:00:00Z", "text": "My brother Daniel recently moved home to Leeds. I don't know when exactly."}],
+      "expected": "Recent relative to the September 2026 report; no precise move day or unsupported claim that the move definitely occurred in September."
+    },
+    {
+      "case_id": "recurring",
+      "messages": [{"at": "2026-09-13T12:00:00Z", "text": "My brother Daniel works at Rowan Pharmacy every Monday."}],
+      "expected": "A recurring Monday work schedule, not one specific calendar date."
+    },
+    {
+      "case_id": "chinese_week",
+      "messages": [{"at": "2026-09-13T12:00:00Z", "text": "我哥哥Daniel上周搬到了利兹，具体哪一天我不清楚。"}],
+      "expected": "The previous week relative to 13 September 2026, in understandable anchored wording; no exact moving day."
+    },
+    {
+      "case_id": "later_enrichment",
+      "existing_home": "Moved home to Leeds during the week containing 13 September 2026.",
+      "messages": [{"at": "2027-01-01T12:00:00Z", "text": "My brother Daniel still lives in Leeds. His home is near the railway station."}],
+      "expected": "Preserve the September 2026 move date and fact identity, add the station detail, and leave existing history unchanged. Do not invent another move."
+    },
+    {
+      "case_id": "local_date",
+      "messages": [{"at": "2027-01-01T00:30:00Z", "text": "It is still 31 December 2026 here. My brother Daniel moved home to Leeds yesterday."}],
+      "expected": "The explicitly stated local reference gives 30 December 2026; do not override it with the UTC calendar date."
+    }
+  ]
+}

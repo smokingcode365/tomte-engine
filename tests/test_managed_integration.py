@@ -13,6 +13,7 @@ from test_postgres_transactions import local_db
 from tomte.engine.providers.redis_provider import RedisCacheProvider
 from tomte.engine.workers.runner import TomteWorker
 from tomte.engine.workflows.consolidation import ConsolidationWorkflow
+from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.utils.keys import generate_session_ref, get_section_key_active_sessions
 
 
@@ -26,12 +27,13 @@ def real_worker(local_db,monkeypatch):
     @contextmanager
     def factory(control):
         db=local_db.db.fork(); connections.append(db)
-        def junk(text):
-            calls.append(text)
+        def extract(system_prompt, user_text, schema, **kwargs):
+            assert schema is ExtractionMemorySchema
+            calls.append(user_text)
             if action[0]: action[0]()
-            return True
+            return schema()
         try:
-            yield db,SimpleNamespace(is_junk=junk)
+            yield db,SimpleNamespace(parse_structured=extract)
         finally:
             db.close()
     # Restrict execution to this fixture; never dispatch other users' existing queues.
@@ -225,12 +227,13 @@ def test_real_optional_feedback_failure_and_ack_recovery_do_not_repeat_models(re
 
 def test_real_oversized_snapshot_skips_exactly_then_same_user_advances(real_worker):
     from tomte.engine.utils.keys import generate_consolidation_key, generate_consolidation_batch_key
+    from tomte.engine.core.config import settings
     c = real_worker
     user = c.users[0]
     c.enqueue(user)
     key = generate_consolidation_key(c.t,user,'s')
     item = json.loads(c.cache.client.lindex(key,0))
-    item['content'] = 'x'*70000
+    item['content'] = 'x'*(settings.max_model_input_bytes + 1)
     c.cache.client.lset(key,0,json.dumps(item))  # This fixture's one owned source only.
     c.enqueue(user,'later')
     c.step()

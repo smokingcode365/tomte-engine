@@ -15,7 +15,7 @@ from unittest.mock import patch
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tomte.engine.core.extraction import ExtractionMemorySchema
-from tomte.engine.core.resolution import ResolutionResponse, Evidence
+from tomte.engine.core.resolution import ResolutionResponse
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.core.assertions import MutationPlanResponse
 from tomte.engine.core.proposals import ProposalResponse
@@ -31,7 +31,7 @@ from tomte.engine.llm.prompts.fact_mutation import MUTATION_SYSTEM_PROMPT
 from tomte.engine.llm.prompts.terminology_alignment import TERMINOLOGY_ALIGNMENT_PROMPT
 from tomte.engine.llm.prompts.dictionary_maintenance import CROSS_ANCHOR_MERGE_PROMPT, INTERNAL_KEYWORD_MERGE_PROMPT
 
-VERSION = "2.1"
+VERSION = "2.3"
 ROOT = Path(__file__).resolve().parents[1]
 STAGES = {
     "junk": (JUNK_FILTER_PROMPT, bool),
@@ -113,7 +113,6 @@ class IdentityRule(Strict):
     expected_kind: Literal["NEW", "UNRESOLVED", "MATCH_ONE", "MATCH_MANY"]
     required_target_ids: list[str] = Field(default_factory=list)
     forbidden_target_ids: list[str] = Field(default_factory=list)
-    allowed_evidence_labels: list[Evidence] | None = None
     allow_additional_targets: bool = False
     explicitly_new: bool | None = None
     evidence_quote_contains: str | None = None
@@ -276,7 +275,8 @@ INPUT_KEYS = {
     "field_terminology": {"fields": list},
     "history_selection": {"query": str, "history_candidates": list},
     "identity_resolution": {"CURRENT_BATCH": list, "REFERENCE_ONLY_CONTEXT": list,
-                            "EXTRACTED_SEMANTIC_INFORMATION": list, "CANDIDATES_BY_OBJECT": dict},
+                            "EXTRACTED_SEMANTIC_INFORMATION": list, "CANDIDATES_BY_ID": dict,
+                            "CANDIDATES_BY_OBJECT": dict},
     "contextual_action": {"CURRENT_BATCH": list, "REFERENCE_ONLY_CONTEXT": list, "CANDIDATES": list},
     "fact_mutation": {"CURRENT_BATCH": list, "REFERENCE_ONLY_CONTEXT": list,
                       "TARGETS": list},
@@ -406,6 +406,12 @@ class Case(Strict):
             if any(not isinstance(v, list) or any(not isinstance(c, dict) or not isinstance(c.get("id"), str) for c in v)
                    for v in self.input["CANDIDATES_BY_OBJECT"].values()):
                 raise ValueError("Invalid identity candidates")
+            catalog = self.input["CANDIDATES_BY_ID"]
+            if any(not isinstance(c, dict) or c.get("id") != key for key, c in catalog.items()):
+                raise ValueError("Shared identity candidate key must match its id")
+            if any(c["id"] not in catalog for candidates in self.input["CANDIDATES_BY_OBJECT"].values()
+                   for c in candidates):
+                raise ValueError("Identity candidate reference has no shared record")
             for rule in expectation.resolutions:
                 offered = {c["id"] for c in self.input["CANDIDATES_BY_OBJECT"][rule.extracted_entity_id]}
                 if (set(rule.required_target_ids) | set(rule.forbidden_target_ids)) - offered:
@@ -623,8 +629,6 @@ def score(case, output):
             for target in ids:
                 check("forbidden_target", target not in rule.forbidden_target_ids, "FORBIDDEN_TARGET")
                 check("extra_target", rule.allow_additional_targets or target in rule.required_target_ids, "WRONG_RESOLUTION_TARGET")
-            if rule.allowed_evidence_labels is not None:
-                check("evidence_labels", all(t["evidence"] in rule.allowed_evidence_labels for t in item["targets"]), "WRONG_EVIDENCE_LABEL")
             if rule.explicitly_new is not None:
                 check("explicitly_new", item["explicitly_new"] == rule.explicitly_new, "WRONG_NEW_DECLARATION")
             if rule.evidence_quote_contains is not None:

@@ -8,16 +8,22 @@ from copy import deepcopy
 from uuid import uuid4
 
 from typing import List, Dict, Any
-from tomte.engine.llm.embedder import get_entity_summary, changed_search_entries, embed_texts
-from tomte.engine.core.memory import public_fact, public_entity, public_value
+from tomte.engine.llm.embedder import get_entity_summary, get_resolution_query, changed_search_entries, changed_retrieval_entries, embed_texts
+from tomte.engine.core.memory import public_fact, public_entity
+from tomte.engine.core.enums import MemoryDomain
+from tomte.engine.core.schema import DOMAIN_DESCRIPTIONS
 from tomte.engine.dictionary.service import get_dictionary_service
 from tomte.engine.dictionary.alignment import align_terms
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.llm.prompts.contextual_action import CONTEXTUAL_ACTION_PROMPT
 from tomte.engine.core.assertions import MutationPlanResponse, InvalidMutation, validate_facts, apply_mutations, fact_values
 from tomte.engine.llm.prompts.fact_mutation import MUTATION_SYSTEM_PROMPT
-from tomte.engine.core.resolution import ResolutionResponse, CANDIDATE_LIMIT, MIN_RESOLUTION_CONFIDENCE, STRONG_EVIDENCE
-from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS, ExtractionMemorySchema, ResolvedExtractionMemory, build_extraction_input, resolve_extraction, validate_operation_provenance
+from tomte.engine.core.resolution import ResolutionResponse, CANDIDATE_LIMIT, compatible_identity_domains
+from tomte.engine.core.candidate_filter import (
+    CandidateFilterResponse, CandidateFilterUnavailable, IDENTITY_CANDIDATE_LIMIT, retained_candidate_ids,
+)
+from tomte.engine.llm.prompts.candidate_filter import CANDIDATE_FILTER_PROMPT
+from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS, ExtractionMemorySchema, ResolvedExtractionMemory, build_extraction_input, resolve_extraction, validate_operation_provenance, source_timestamps
 from tomte.engine import tomtelog, Tomte
 from tomte.engine.llm.prompts.consolidation_golden_record import RECONCILER_SYSTEM_PROMPT
 
@@ -58,6 +64,7 @@ class ConsolidationWorkflow:
         if not chat_items:
             return False
         batch_id = self._batch_id(tenant_id, user_id, chat_items)
+        unresolved_proposals = []
         if self.db.is_consolidation_processed(tenant_id, user_id, batch_id):
             return True  # Idempotent success: the worker may acknowledge Redis.
 
@@ -70,15 +77,13 @@ class ConsolidationWorkflow:
         if not user_items:
             self._commit_refined_operations([], tenant_id, user_id, batch_id)
             return True
-        if any(not m.get("vector") for m in user_items):
-            tomtelog.warn(f"Missing user vectors for consolidation session: {user_id}")
-            return False
-        chat_vectors = [m["vector"] for m in user_items]
-        # A junk decision is a completed no-op with a replay marker.
-        if self.llm.is_junk(extraction_input):
-            tomtelog.info(f"Consolidation no-op: Chat log is junk/small-talk for {user_id}.")
-            self._commit_refined_operations([], tenant_id, user_id, batch_id)
-            return True
+        # Storage-only ingestion intentionally queues no vectors. Generate only
+        # missing USER embeddings here; leave the frozen queue snapshot untouched
+        # so retries and Redis acknowledgement still compare the original bytes.
+        missing = [m for m in user_items if not m.get("vector")]
+        generated = iter(embed_texts(self.llm, [m["content"] for m in missing]) if missing else [])
+        chat_vectors = [m.get("vector") or next(generated) for m in user_items]
+        # Every user batch reaches extraction; an empty result is valid abstention.
         # Raw extraction is authoritative; dictionary alignment happens only after
         # deterministic current-batch provenance validation.
         tomtelog.debug(f"Phase 2: Executing primary extraction")
@@ -93,7 +98,7 @@ class ConsolidationWorkflow:
         # --- PHASE 3: Golden Record Reconciliation ---
         # Identity resolution selects only offered scoped candidates.
         tomtelog.debug(f"Phase 3: Reconciling with Golden Records")
-        # Reuse current-message vectors; no extra embedding/model request is needed.
+        # Resolve each extracted subject using its own meaning, not other batch topics.
         raw_entities = self._flatten_schema(extracted_schema)
         input_data = json.loads(extraction_input)
         if raw_entities:
@@ -107,12 +112,13 @@ class ConsolidationWorkflow:
         vector = [sum(values) / len(chat_vectors) for values in zip(*chat_vectors)]
         correction_context = []
         if raw_entities:
+            entity_vectors = embed_texts(self.llm, [get_resolution_query(entity) for entity in raw_entities])
             candidate_sets = {}
-            for entity in raw_entities:
+            for entity, entity_vector in zip(raw_entities, entity_vectors):
                 names = [re.sub(r"\s+", " ", name.strip()).lower()
                          for name in [entity["entity_name"], *entity.get("aliases", [])] if name.strip()]
                 candidate_sets[entity["entity_id"]] = self.db.get_resolution_candidates(
-                    tenant_id, user_id, names, entity["entity_domain"], vector, search_context, CANDIDATE_LIMIT)
+                    tenant_id, user_id, names, entity["entity_domain"], entity_vector, search_context, self._identity_candidate_limit())
             skeleton = list({str(row["id"]): row for rows in candidate_sets.values() for row in rows}.values())
             correction_context = skeleton
         
@@ -123,11 +129,15 @@ class ConsolidationWorkflow:
                 raw_entities,
                 skeleton,
                 reference_context=reference,
-                current_batch=input_data["CURRENT_BATCH"], candidate_sets=candidate_sets
+                current_batch=input_data["CURRENT_BATCH"], candidate_sets=candidate_sets,
+                unresolved_proposals=unresolved_proposals
             )
 
         else:
             refined_ops = []
+        from tomte.engine.workflows.unresolved import prepare_unresolved_bindings
+        refined_ops, pending = prepare_unresolved_bindings(
+            self, tenant_id, user_id, input_data, vector, refined_ops)
         contextual = self._resolve_contextual_actions(tenant_id, user_id, input_data, vector, correction_context, refined_ops)
         by_id = {op.get("db_id"): op for op in refined_ops if op.get("db_id")}
         for op in contextual:
@@ -137,6 +147,10 @@ class ConsolidationWorkflow:
                 refined_ops.append(op)
 
         refined_ops = self._plan_fact_mutations(refined_ops, input_data, batch_id, correction_context)
+        from tomte.engine.core.unresolved import retained_operations, resolution_operations
+        refined_ops += resolution_operations(refined_ops, pending)
+        refined_ops += retained_operations(unresolved_proposals, input_data["CURRENT_BATCH"],
+                                           tenant_id, user_id, batch_id)
         validate_operation_provenance(refined_ops)
 
         # Before committing, we must generate vectors for any new or changed entities.
@@ -146,10 +160,14 @@ class ConsolidationWorkflow:
             if not op.get("_semantic_changed", True):
                 continue
             entries = changed_search_entries(op["payload"], op.get("_expected_payload"))
-            vectors = embed_texts(self.llm, [get_entity_summary(op["payload"]), *[e["text"] for e in entries]])
+            retrieval_entries = changed_retrieval_entries(op["payload"], op.get("_expected_payload"))
+            vectors = embed_texts(self.llm, [get_entity_summary(op["payload"]),
+                *[e["text"] for e in entries], *[e["text"] for e in retrieval_entries]])
             op["embedding"] = vectors[0]
             op["search_entries"] = [{**{k: v for k, v in entry.items() if k != "text"}, "embedding": vector}
-                                    for entry, vector in zip(entries, vectors[1:])]
+                                    for entry, vector in zip(entries, vectors[1:1 + len(entries)])]
+            op["retrieval_entries"] = [{**{k: v for k, v in entry.items() if k != "text"}, "embedding": vector}
+                                    for entry, vector in zip(retrieval_entries, vectors[1 + len(entries):])]
 
         # Memory and its replay marker commit before optional dictionary feedback.
         self._commit_refined_operations(refined_ops, tenant_id, user_id, batch_id)
@@ -167,12 +185,16 @@ class ConsolidationWorkflow:
             correction_context.extend(candidates[:CANDIDATE_LIMIT])
         offered, view = {}, []
         for row in candidates[:CANDIDATE_LIMIT]:
+            if row['payload']['entity_domain'] == MemoryDomain.UNRESOLVED:
+                continue
             key = str(row["id"])
             facts = validate_facts(row["payload"].get("facts", []))[:50]
             offered[key] = (row, {f["fact_id"] for f in facts})
             view.append({"db_id": key, "entity_name": row["entity_name"], "entity_domain": row["entity_domain"],
                          "entity_type": row["entity_type"], "aliases": row["payload"].get("aliases", []),
                          "facts": [public_fact(f, []) for f in facts]})
+            if row["payload"].get("first_mentioned_at") is not None:
+                view[-1]["first_mentioned_at"] = row["payload"]["first_mentioned_at"]
         if not view:
             return []
         response = self._parse_proposals(system_prompt=CONTEXTUAL_ACTION_PROMPT,
@@ -195,8 +217,6 @@ class ConsolidationWorkflow:
                 continue
             if not any(action.evidence_quote in user_sources[s] for s in action.source_chat_ids):
                 continue
-            if action.target.resolution_confidence < MIN_RESOLUTION_CONFIDENCE or action.target.evidence not in STRONG_EVIDENCE:
-                continue
             if key not in operations:
                 record = offered[key][0]
                 entity = {**deepcopy(record["payload"]), "facts": []}
@@ -215,6 +235,8 @@ class ConsolidationWorkflow:
             scope = operation.get("db_id") or operation["reserved_id"]
             facts = validate_facts(operation["payload"].get("facts", []))
             operation["payload"]["facts"] = facts
+            operation["_contextual_actions"] = [dict(action, contextual_action_key=f"action_{i}")
+                for i, action in enumerate(operation.get("_contextual_actions", []))]
             requested = {a["target_fact_id"] for a in operation.get("_contextual_actions", [])}
             selected = sorted(facts, key=lambda f: f["fact_id"] not in requested)[:50]
             history = {f["fact_id"]: list(range(max(0, len(f["history_values"]) - 15), len(f["history_values"]))) for f in selected}
@@ -231,16 +253,30 @@ class ConsolidationWorkflow:
                 "incoming_semantics": operation["extracted_facts"], "facts": fact_view,
                 "facts_truncated": len(selected) < len(facts),
                 "contextual_actions": operation.get("_contextual_actions", [])})
-        response = self._parse_proposals(system_prompt=MUTATION_SYSTEM_PROMPT,
+            if operation["payload"].get("first_mentioned_at") is not None:
+                targets[-1]["identity"]["first_mentioned_at"] = operation["payload"]["first_mentioned_at"]
+        arguments = dict(system_prompt=MUTATION_SYSTEM_PROMPT,
             user_text=json.dumps({"CURRENT_BATCH": input_data["CURRENT_BATCH"],
                 "REFERENCE_ONLY_CONTEXT": input_data["RECENT_CONTEXT_REFERENCE_ONLY"], "TARGETS": targets}, ensure_ascii=False),
             schema=MutationPlanResponse)
+        if any(f.get('stored_unresolved_id') for op in operations for f in op['extracted_facts']):
+            from tomte.engine.core.capacity import CapacityExceeded, check_provider_capacity
+            try:
+                check_provider_capacity('parse_structured', arguments)
+            except CapacityExceeded:
+                remaining = deepcopy(operations)
+                for op in remaining:
+                    op['extracted_facts'] = [f for f in op['extracted_facts'] if not f.get('stored_unresolved_id')]
+                remaining = [op for op in remaining if op['extracted_facts'] or op.get('_contextual_actions')]
+                tomtelog.info('Deferred unresolved resolution to preserve current-batch mutation capacity')
+                return self._plan_fact_mutations(remaining, input_data, batch_id, correction_context)
+        response = self._parse_proposals(**arguments)
         from datetime import datetime, timezone
-        from tomte.engine.core.assertions import stable_id
         from tomte.engine.core.proposals import at_path
         from tomte.engine.core.relationships import incomplete_groups
 
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        message_times = source_timestamps(input_data["CURRENT_BATCH"])
         counts = Counter(plan.target_key for plan in response.plans)
         plans = {plan.target_key: (i, plan.operations) for i, plan in enumerate(response.plans)
                  if plan.target_key in offered and counts[plan.target_key] == 1}
@@ -251,7 +287,7 @@ class ConsolidationWorkflow:
             data = raw.model_dump(mode="json") if hasattr(raw, "model_dump") else raw
             if not isinstance(data, dict):
                 return {("slot", position)}
-            keys = {(name, data[name]) for name in ("target_fact_id", "incoming_fact_key")
+            keys = {(name, data[name]) for name in ("target_fact_id", "incoming_fact_key", "contextual_action_key")
                     if isinstance(data.get(name), str) and data[name]}
             return keys or {("slot", position)}
 
@@ -272,6 +308,7 @@ class ConsolidationWorkflow:
                 continue
             plan_index, mutations = plans.get(key, (0, []))
             proposals = {f["incoming_fact_key"]: f for f in operation["extracted_facts"]}
+            has_group = any(f.get("_group_key") for f in proposals.values())
             units = []
             for i, mutation in enumerate(mutations):
                 position = response.original_index("plans", plan_index, "operations", i)
@@ -289,9 +326,10 @@ class ConsolidationWorkflow:
             usable = []
             for unit in units:
                 unit["items"].sort(key=lambda pair: pair[0])
-                needs_key = any(m.incoming_fact_key is None and any(
-                    f.get("_group_key") and f["source_chat_id"] in m.source_chat_ids
-                    for f in operation["extracted_facts"]) for _, m in unit["items"])
+                # A missing key must not bypass a shared proposal. An explicitly
+                # routed contextual action can be independent, even in that chat.
+                needs_key = has_group and any(m.incoming_fact_key is None and m.contextual_action_key is None
+                                              for _, m in unit["items"])
                 if unit["tokens"] & blocked.get(key, set()) or needs_key:
                     skipped_units += 1
                     continue
@@ -299,6 +337,7 @@ class ConsolidationWorkflow:
                     apply_mutations(operation["payload"]["facts"], [m for _, m in unit["items"]],
                         input_data["CURRENT_BATCH"], scope, batch_id, operation["extracted_facts"], ids,
                         offered_history=history, recorded_at=stamp,
+                        contextual_actions=operation["_contextual_actions"],
                         operation_indices=[i for i, _ in unit["items"]])
                 except InvalidMutation:
                     skipped_units += 1
@@ -316,26 +355,28 @@ class ConsolidationWorkflow:
                 old = operation["payload"]["facts"]
                 items = sorted((item for unit in units for item in unit["items"]), key=lambda pair: pair[0])
                 mutations = [m for _, m in items]
+                acknowledged = [f for f in operation['extracted_facts'] if f.get('stored_unresolved_id')
+                                and any(m.incoming_fact_key == f['incoming_fact_key'] for m in mutations)]
+                operation['_accepted_unresolved_ids'] = sorted({f['stored_unresolved_id'] for f in acknowledged})
                 operation["payload"]["facts"] = apply_mutations(old, mutations, input_data["CURRENT_BATCH"],
                     scope, batch_id, operation["extracted_facts"], ids, offered_history=history,
+                    contextual_actions=operation["_contextual_actions"],
                     recorded_at=stamp, operation_indices=[i for i, _ in items])
+                if operation["payload"]["entity_domain"] == MemoryDomain.THOUGHTS:
+                    # Only accepted USER-backed operations establish this date.
+                    # Rebuilding after group rejection excludes discarded evidence.
+                    first = min(message_times[source] for mutation in mutations for source in mutation.source_chat_ids)
+                    first = min([first, *[f['reported_at'] for f in acknowledged]])
+                    previous = operation["payload"].get("first_mentioned_at")
+                    operation["payload"]["first_mentioned_at"] = min(previous, first) if previous else first
                 groups = {group for unit in units for group in unit["groups"]}
                 operation["_required_groups"] = {f["_group_key"]: f["_group_targets"]
                     for f in operation["extracted_facts"] if f.get("_group_key") in groups}
-                operation["_accepted_group_keys"] = []
+                # Successful keyed operations acknowledge application of the
+                # proposal. The model owns meaning; text equality cannot judge
+                # paraphrases, already-known information or historical updates.
+                operation["_accepted_group_keys"] = sorted(groups)
                 by_id = {f["fact_id"]: f for f in operation["payload"]["facts"]}
-                for proposal in operation["extracted_facts"]:
-                    if proposal.get("_group_key") not in groups:
-                        continue
-                    for index, mutation in items:
-                        if mutation.incoming_fact_key != proposal["incoming_fact_key"]:
-                            continue
-                        fid = mutation.target_fact_id or stable_id("tomte-fact-v2", scope, batch_id, index)
-                        fact = by_id[fid]
-                        if (fact["attribute_name"] == proposal["attribute_name"] and
-                                all(public_value(fact["value"]).get(k) == v for k, v in proposal["value"].items())):
-                            operation["_accepted_group_keys"].append(proposal["_group_key"])
-                            break
                 operation["importance"] = max((f["_importance"] for f in operation["payload"]["facts"]), default=3)
                 operation["_semantic_changed"] = (not operation.get("_expected_payload") or
                     public_entity(operation["_expected_payload"]) != public_entity(operation["payload"]))
@@ -393,6 +434,8 @@ class ConsolidationWorkflow:
     def _commit_refined_operations(self, refined_ops: List[Dict[str, Any]], tenant_id: str, user_id: str, batch_id: str) -> None:
         """Commit authoritative memory/marker, then best-effort optional feedback."""
         validate_operation_provenance(refined_ops)
+        from tomte.engine.core.unresolved import validate_transitions
+        validate_transitions(refined_ops)
         if getattr(self, 'control', None) is not None:
             self.control.check()
         with self.db.transaction():
@@ -424,17 +467,8 @@ class ConsolidationWorkflow:
         """Converts the multi-domain Pydantic schema into a flat list of entities."""
         all_entities = []
         # Domain containers are structural keys, not a business vocabulary.
-        domains = [
-            schema.identity_and_demographics,
-            schema.relationships,
-            schema.assets_and_possessions,
-            schema.activities_and_skills,
-            schema.preferences_and_traits,
-            schema.events_and_logistics,
-            schema.system_instructions,
-            schema.unstructured_observations
-        ]
-        for domain_list in domains:
+        for domain in DOMAIN_DESCRIPTIONS:
+            domain_list = getattr(schema, domain)
             for entity in domain_list:
                 all_entities.append(entity.model_dump(mode='json'))
         return all_entities
@@ -442,8 +476,67 @@ class ConsolidationWorkflow:
     # ==========================================
     # RECONCILIATION HELPER
     # ==========================================
+    def _identity_candidate_limit(self):
+        return IDENTITY_CANDIDATE_LIMIT if getattr(self.llm, "supports_candidate_filter", False) is True else CANDIDATE_LIMIT
+
+    @staticmethod
+    def _identity_candidate_view(record):
+        view = {
+            "id": str(record["id"]), "entity_id": record["entity_id"],
+            "name": record["entity_name"], "type": record["entity_type"],
+            "domain": record.get("entity_domain"), "aliases": record.get("payload", {}).get("aliases", []),
+            "facts": fact_values(record.get("payload", {}).get("facts", [])),
+        }
+        if record.get("payload", {}).get("first_mentioned_at") is not None:
+            view["first_mentioned_at"] = record["payload"]["first_mentioned_at"]
+        return view
+
+    def _filter_identity_candidates(self, entities, candidate_sets, records, current, reference):
+        """Optional semantic pruning; Python checks labels, never word meaning."""
+        from pydantic import ValidationError
+        from pydantic_ai.exceptions import UnexpectedModelBehavior
+        self.last_candidate_filter = {}
+        if getattr(self.llm, "supports_candidate_filter", False) is not True:
+            return candidate_sets
+        filtered = {}
+        for entity in entities:
+            eid = entity["entity_id"]
+            rows = candidate_sets[eid]
+            filtered[eid] = rows
+            outcome = "empty"
+            if rows:
+                labels = {f"c{i}": str(row["id"]) for i, row in enumerate(rows, 1)}
+                candidates = []
+                for label, row in zip(labels, rows):
+                    view = self._identity_candidate_view(records.get(str(row["id"]), row))
+                    view.pop("id")
+                    view.pop("entity_id")
+                    candidates.append({"candidate_label": label, **view})
+                body = {"CURRENT_BATCH": current, "REFERENCE_ONLY_CONTEXT": reference,
+                    "EXTRACTED_OBJECT": {"name": entity.get("entity_name"), "type": entity["entity_type"],
+                        "domain": entity["entity_domain"], "aliases": entity.get("aliases", []),
+                        "facts": fact_values(entity["facts"]), "mention_context": entity.get("mention_context")},
+                    "CANDIDATES": candidates}
+                try:
+                    response = self.llm.parse_structured(system_prompt=CANDIDATE_FILTER_PROMPT,
+                        user_text=json.dumps(body, ensure_ascii=False), schema=CandidateFilterResponse)
+                    kept = retained_candidate_ids(labels, response)
+                    outcome = "invalid_response" if kept is None else "filtered"
+                    if kept is not None:
+                        filtered[eid] = [row for row in rows if str(row["id"]) in kept]
+                except (CandidateFilterUnavailable, ValidationError, UnexpectedModelBehavior, TimeoutError):
+                    outcome = "unavailable"
+                # Metadata only: no prompts, values, labels or UUIDs in logs.
+                if outcome != "filtered":
+                    tomtelog.warn(f"Candidate filter {outcome}; retaining original candidate set")
+            self.last_candidate_filter[eid] = {
+                "offered": len(rows), "retained": len(filtered[eid]), "outcome": outcome,
+            }
+        return filtered
+
     def _reconcile_with_golden_records(self, tenant_id, user_id, extracted, skeleton,
-                                      reference_context=None, current_batch=None, candidate_sets=None):
+                                      reference_context=None, current_batch=None, candidate_sets=None,
+                                      unresolved_proposals=None):
         """Resolve target sets once, then conservatively prepare existing-style operations."""
         if not extracted:
             return []
@@ -453,31 +546,43 @@ class ConsolidationWorkflow:
         entities = deepcopy(extracted)
         if candidate_sets is None:
             # Direct callers may supply an already bounded set; never send a whole graph.
-            candidate_sets = {eid: skeleton[:CANDIDATE_LIMIT] for eid in ids}
+            candidate_sets = {eid: skeleton for eid in ids}
         records = {str(row["id"]): deepcopy(row) for row in skeleton}
-        candidate_view = {}
-        for eid in ids:
-            rows = candidate_sets.get(eid, [])[:CANDIDATE_LIMIT]
-            candidate_view[eid] = [{
-                "id": str(row["id"]), "entity_id": row["entity_id"],
-                "name": row["entity_name"], "type": row["entity_type"],
-                "domain": row.get("entity_domain"), "aliases": row.get("payload", {}).get("aliases", []),
-                "facts": fact_values(row.get("payload", {}).get("facts", [])),
-                "candidate_only_similarity": row.get("similarity"),
-            } for row in rows]
+        limit = self._identity_candidate_limit()
+        candidate_sets = {entity["entity_id"]: [row for row in candidate_sets.get(entity["entity_id"], [])
+            if compatible_identity_domains(entity["entity_domain"], row["payload"]["entity_domain"])][:limit]
+            for entity in entities}
+        # Preserve pre-filter retrieval metadata even if every row is dropped.
+        truncated = {eid: any(row.get("identity_matches_total", 0) > limit
+                             for row in candidate_sets[eid]) for eid in ids}
+        counts_before = {eid: len(candidate_sets[eid]) for eid in ids}
         reference = [{"role": item["role"], "content": item["content"]}
                      for item in (reference_context or [])[-RECENT_CONTEXT_TURNS:]]
-        current = [{key: item[key] for key in ("role", "content", "item_id", "timestamp") if key in item}
+        current = [{key: item[key] for key in ("role", "content", "item_id", "timestamp", "message_time_utc") if key in item}
                    for item in (current_batch or [])]
+        candidate_sets = self._filter_identity_candidates(entities, candidate_sets, records, current, reference)
+        candidate_view = {}
+        candidates_by_id = {}
+        for eid in ids:
+            rows = candidate_sets.get(eid, [])
+            candidate_view[eid] = []
+            for row in rows:
+                key = str(row["id"])
+                candidate_view[eid].append({"id": key, "candidate_only_similarity": row.get("similarity")})
+                if key not in candidates_by_id:
+                    # Reuse the snapshot used to prepare a matched operation.
+                    record = records.get(key, row)
+                    candidates_by_id[key] = self._identity_candidate_view(record)
         prompt = {"CURRENT_BATCH": current, "REFERENCE_ONLY_CONTEXT": reference,
                   "EXTRACTED_SEMANTIC_INFORMATION": [{
                       "id": e["entity_id"], "name": e.get("entity_name"), "type": e["entity_type"],
                       "domain": e["entity_domain"], "aliases": e.get("aliases", []),
                       "facts": fact_values(e["facts"]), "fact_proposals": e["facts"],
                       "mention_context": e.get("mention_context"),
-                  } for e in entities], "CANDIDATES_BY_OBJECT": candidate_view,
-                  "CANDIDATE_SET_TRUNCATED": {eid: any(row.get("identity_matches_total", 0) > CANDIDATE_LIMIT
-                                                      for row in candidate_sets.get(eid, [])) for eid in ids}}
+                  } for e in entities], "CANDIDATES_BY_ID": candidates_by_id,
+                  "CANDIDATES_BY_OBJECT": candidate_view,
+                  "CANDIDATE_SET_TRUNCATED": truncated,
+                  "CANDIDATES_FILTERED": {eid: len(candidate_sets[eid]) < counts_before[eid] for eid in ids}}
         response = self._parse_proposals(system_prompt=RECONCILER_SYSTEM_PROMPT,
                                             user_text=json.dumps(prompt, ensure_ascii=False), schema=ResolutionResponse)
         self.last_resolution = response.model_dump(mode="json")
@@ -494,8 +599,12 @@ class ConsolidationWorkflow:
         prepared = {}
         for entity in entities:
             result = lookup.get(entity["entity_id"])
-            if result is None or result.kind == "UNRESOLVED":
-                tomtelog.info("Identity unresolved: no permanent memory operation")
+            if result is None:
+                continue
+            if result.kind == "UNRESOLVED":
+                if unresolved_proposals is not None:
+                    unresolved_proposals.append({"entity": deepcopy(entity), "reason": result.reasoning})
+                tomtelog.info("Identity unresolved: retain supported claim separately from entity updates")
                 continue
             if result.kind == "NEW":
                 quote = result.new_entity_evidence
@@ -508,23 +617,20 @@ class ConsolidationWorkflow:
                 op["_single_handles"] = [entity["entity_id"]]
                 operations.append(op)
                 continue
-            offered = {str(row["id"]) for row in candidate_sets.get(entity["entity_id"], [])[:CANDIDATE_LIMIT]}
+            offered = {str(row["id"]) for row in candidate_sets.get(entity["entity_id"], [])}
             if any(str(target.db_id) not in offered or str(target.db_id) not in records for target in result.targets):
                 continue
-            targets = []
-            for target in result.targets:
-                if target.resolution_confidence >= MIN_RESOLUTION_CONFIDENCE and target.evidence in STRONG_EVIDENCE:
-                    targets.append(target)
-            if result.kind == "MATCH_MANY" and (not result.applies_equally_to_all or len(targets) < 2
-                                               or len(targets) != len(result.targets)
+            if any(not compatible_identity_domains(entity["entity_domain"], records[str(target.db_id)]["payload"]["entity_domain"])
+                   for target in result.targets):
+                continue
+            # The model selects identity; Python checks references and write scope.
+            targets = result.targets
+            if result.kind == "MATCH_MANY" and (not result.applies_equally_to_all
                                                or not result.group_evidence_quote
                                                or not any(item.get("item_id") == result.group_source_chat_id and item["role"] == "user"
-                                                          and result.group_evidence_quote in item["content"] for item in current)
-                                               or prompt["CANDIDATE_SET_TRUNCATED"][entity["entity_id"]]):
-                tomtelog.info("Target set/update is uncertain: no permanent memory operation")
+                                                          and result.group_evidence_quote in item["content"] for item in current)):
+                tomtelog.info("Group update lacks shared applicability or current user provenance")
                 continue
-            if not targets:
-                tomtelog.info("Identity evidence below policy threshold: no permanent operation")
             for target in targets:
                 db_id = str(target.db_id)
                 record = deepcopy(records[db_id])
@@ -587,6 +693,8 @@ class ConsolidationWorkflow:
         payload = {name: deepcopy(record["payload"][name] if record is not None else entity[name])
                    for name in ("entity_name", "entity_type", "entity_domain")}
         payload["entity_id"] = canonical_id
+        if record is not None and record["payload"].get("first_mentioned_at") is not None:
+            payload["first_mentioned_at"] = record["payload"]["first_mentioned_at"]
         aliases = deepcopy(record["payload"].get("aliases", [])) if record is not None else []
         for alias in approved_aliases:
             if alias != payload["entity_name"] and alias not in aliases:

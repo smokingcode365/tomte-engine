@@ -19,6 +19,7 @@ dependencies = [
     "redis>=7.4.0",
     # --- LLM Providers ---
     "openai>=1.0.0",
+    "tiktoken>=0.12.0",             # Local OpenAI embedding-token limits
     "anthropic>=0.96.0",
     "voyageai>=0.3.7",
     # --- Math & Clustering (Dictionary Builder) ---

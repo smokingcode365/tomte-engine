@@ -100,7 +100,7 @@ def test_one_target_contract_does_not_merge_similar_vehicles(monkeypatch,scenari
     assert len(calls[0]["CANDIDATES_BY_OBJECT"]["tmp_veh_01"])==2
 
 
-def test_explicit_plural_expands_only_strong_active_targets(monkeypatch):
+def test_explicit_plural_expands_only_model_selected_targets(monkeypatch):
     tesla,truck=record("Tesla Model Y"),record("Ford F-150")
     truck.update(entity_type="truck", entity_domain="unstructured_observations")
     truck["payload"].update(entity_type="truck", entity_domain="unstructured_observations")
@@ -122,12 +122,11 @@ def test_explicit_plural_expands_only_strong_active_targets(monkeypatch):
 
 def test_my_cars_preserves_uncertainty_for_unmentioned_honda(monkeypatch):
     tesla,truck,honda=record("Tesla"),record("truck"),record("Honda")
-    result=decision("MATCH_MANY",[tesla,truck],"GROUP_EXPLICIT",equal=True)
-    result["targets"].append({"db_id":str(honda["id"]),"resolution_confidence":0.6,"evidence":"GROUP_INFERRED"})
+    result=decision("UNRESOLVED")  # The model decides whether group membership is known.
     incoming=entity();incoming["facts"][0].update(attribute_name="paint_color",value=item_value("red"))
     ops,_,_=resolve(monkeypatch,[tesla,truck,honda],"I painted my cars red. I like red.",result,
                     ["We discussed Tesla and truck."],incoming)
-    assert ops == []  # Incomplete selected groups abstain rather than partial fanout.
+    assert ops == []  # An unresolved group does not authorize any target.
 
 
 @pytest.mark.parametrize("message",["One of my cars has a broken window.","I sold both vehicles.","I painted Little Dog red."])
@@ -152,10 +151,10 @@ def test_plural_requires_model_shared_update_approval(monkeypatch,safe,active):
 
 
 @pytest.mark.parametrize("evidence,confidence",[("SEMANTIC_CANDIDATE",1),("GROUP_INFERRED",1),("EXPLICIT",0.5)])
-def test_similarity_temporary_id_and_weak_confidence_do_not_license_writes(monkeypatch,evidence,confidence):
-    row=record("Tesla");row["entity_id"]="tmp_veh_01"
-    ops,_,_=resolve(monkeypatch,[row],"I painted Little Dog red.",decision("MATCH_ONE",[row],evidence,confidence))
-    assert ops==[]  # Fact.confidence=1 and matching bookkeeping strings cannot bypass identity policy.
+def test_legacy_score_and_label_do_not_veto_model_identity_choice(monkeypatch,evidence,confidence):
+    row=record("Tesla")
+    ops,_,_=resolve(monkeypatch,[row],"I painted my Tesla red.",decision("MATCH_ONE",[row],evidence,confidence))
+    assert len(ops)==1 and ops[0]["entity_id"]==row["entity_id"]
 
 
 def test_new_requires_explicit_current_introduction(monkeypatch):
@@ -185,10 +184,10 @@ def test_foreign_or_unoffered_target_fails_before_persistence(monkeypatch):
     assert operations == []
 
 
-def test_truncated_explicit_set_cannot_receive_partial_group_write(monkeypatch):
+def test_model_can_abstain_when_truncated_set_omits_a_group_member(monkeypatch):
     records=[record(name) for name in ["Tesla","truck","Honda","BMW","Volvo"]]
-    for row in records:row["identity_matches_total"]=6
-    ops,calls,_=resolve(monkeypatch,records,"I sold all of them.",decision("MATCH_MANY",records,"GROUP_EXPLICIT",equal=True),
+    for row in records:row["identity_matches_total"]=11
+    ops,calls,_=resolve(monkeypatch,records,"I sold all of them.",decision("UNRESOLVED"),
                     ["Tesla truck Honda BMW Volvo and Audi"])
     assert ops==[] and calls[0]["CANDIDATE_SET_TRUNCATED"]["tmp_veh_01"]
 
@@ -215,12 +214,12 @@ def test_candidate_search_is_bounded_normalized_and_tenant_user_scoped(local_db)
     assert case.db.commit_graph_updates([foreign])
     args=(case.tenant,case.users[0],["little dog"],"assets_and_possessions",op["embedding"],"I sold Little Dog.")
     rows=case.db.get_resolution_candidates(*args)
-    assert len(rows)==5 and rows[0]["entity_id"]==ids[7] and rows[0]["exact_match"]
+    assert len(rows)==8 and rows[0]["entity_id"]==ids[7] and rows[0]["exact_match"]
     assert {row["entity_id"] for row in rows} <= set(ids)
     rows=case.db.get_resolution_candidates(case.tenant,case.users[0],["tesla model y"],"assets_and_possessions",op["embedding"],"")
     assert rows[0]["entity_id"]==ids[7]
     assert case.db.get_resolution_candidates(case.tenant+"-other",case.users[0],["little dog"],"assets_and_possessions",op["embedding"],"")==[]
-    with pytest.raises(ValueError):case.db.get_resolution_candidates(*args,limit=6)
+    with pytest.raises(ValueError):case.db.get_resolution_candidates(*args,limit=21)
 
 
 @pytest.mark.parametrize("fail_first",[False,True])
@@ -241,7 +240,7 @@ def test_real_group_update_replay_and_uncertainty_leave_honda_untouched(mechanic
             return schema.model_validate({"assets_and_possessions":[{"entity_id":"tmp_veh_01","entity_name":"both cars",
                 "entity_type":"vehicle","entity_domain":"assets_and_possessions","facts":[{
                 "attribute_name":"ownership_status","value":field_entries("Sold")}]}]})
-        candidates=data["CANDIDATES_BY_OBJECT"]["tmp_veh_01"]
+        candidates=[data["CANDIDATES_BY_ID"][ref["id"]] for ref in data["CANDIDATES_BY_OBJECT"]["tmp_veh_01"]]
         selected=[row for row in candidates if row["name"] in {"Tesla","truck"}]
         assert len(selected)==2 and all(row["name"]!="Honda" for row in selected)
         result=decision("MATCH_MANY",[{"id":row["id"]} for row in selected],"GROUP_EXPLICIT",equal=True)
@@ -284,15 +283,29 @@ def test_real_group_update_replay_and_uncertainty_leave_honda_untouched(mechanic
     before=memory_rows(case);call_count=len(calls)
     assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen)
     assert memory_rows(case)==before and len(calls)==call_count and processed_count(case)==1
-    # A later ambiguous batch is processed observably with zero durable memory operations.
+    # A later ambiguous claim stays pending, without changing any known car.
     assert case.cache.clear_session_4_consolidation(case.tenant,case.user,case.session,frozen)
-    monkeypatch.setattr(case.llm,"parse_structured",mutation_aware(lambda system_prompt,user_text,schema,**kwargs:
-        model(system_prompt,user_text,schema,**kwargs) if schema is ExtractionMemorySchema else
-        schema.model_validate({"resolutions":[decision("UNRESOLVED")]})))
+    def ambiguous_model(system_prompt, user_text, schema, **kwargs):
+        if schema is ExtractionMemorySchema:
+            return schema.model_validate({"assets_and_possessions": [{
+                "entity_id": "tmp_veh_01", "entity_name": "One of my cars",
+                "entity_type": "vehicle", "entity_domain": "assets_and_possessions",
+                "facts": [{"attribute_name": "condition", "value": field_entries("Broken window")}],
+            }]})
+        return schema.model_validate({"resolutions": [decision("UNRESOLVED")]})
+    monkeypatch.setattr(case.llm, "parse_structured", mutation_aware(ambiguous_model))
     ChatHookWorkflow().on_chat(case.tenant,case.session,"One of my cars has a broken window.",ChatSenderRole.USER,case.user)
     frozen=case.cache.pop_session_chat_log_4_consolidation(case.tenant,case.user,case.session)
     assert workflow.run_consolidation_cycle(case.tenant,case.user,frozen)
-    assert memory_rows(case)==before and processed_count(case)==2
+    after = memory_rows(case)
+    assert [row for row in after if row["payload"]["entity_domain"] != "unresolved_memories"] == before
+    pending, = [row["payload"] for row in after if row["payload"]["entity_domain"] == "unresolved_memories"]
+    assert pending["_unresolved"]["status"] == "pending"
+    assert pending["_unresolved"]["resolved_entity_ids"] == []
+    assert fact_text(pending["facts"][0]) == "Broken window"
+    assert processed_count(case) == 2
+    assert workflow.run_consolidation_cycle(case.tenant, case.user, frozen)
+    assert memory_rows(case) == after and processed_count(case) == 2
 
 
 def test_retry_context_is_stable_isolated_and_removed_on_ack(mechanics):
@@ -435,7 +448,7 @@ def test_rejected_identity_target_cannot_authorize_alias(monkeypatch):
     incoming = entity()
     incoming["aliases"] = ["Little Dog"]
     ops, _, _ = resolve(monkeypatch, [target], "I named my Tesla Little Dog.",
-        decision("MATCH_ONE", [target], confidence=.2, accepted_aliases=["Little Dog"]), incoming=incoming)
+        decision("MATCH_ONE", [record("Unoffered")], accepted_aliases=["Little Dog"]), incoming=incoming)
     assert ops == []
 
 

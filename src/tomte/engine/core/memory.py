@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
 from tomte.engine.core.enums import MemoryDomain
 
@@ -37,8 +37,9 @@ def utc_stamp(value: str) -> str:
 class ValueItem(MemoryModel):
     text: str
     fact_confidence: Confidence = Field(description=(
-        "How strongly the user's statements support this item: high is directly supported, "
-        "medium is qualified, low is explicitly uncertain. Not verified truth or a probability. "
+        "How strongly the user's statements support the complete claim in text: high is directly supported, "
+        "medium has limited support, low has weak support. Not verified truth or likelihood of a future event. "
+        "A directly reported tentative intention can have high confidence; its tentativeness stays in text. "
         "Preserve the user's uncertainty in text; never store a model guess."))
     recorded_at: str = Field(alias="_recorded_at", pattern=ISO_8601_REGEX)
     updated_at: str = Field(alias="_updated_at", pattern=ISO_8601_REGEX)
@@ -92,15 +93,62 @@ class Fact(MemoryModel):
         return value
 
 
+class UnresolvedState(MemoryModel):
+    """Storage lifecycle, not confidence in the user's reported statement."""
+    original_domain: MemoryDomain
+    reported_at: str
+    status: Literal["pending", "resolved"] = "pending"
+    resolved_at: str | None = None
+    resolved_entity_ids: list[str] = Field(default_factory=list)
+
+    _reported = field_validator("reported_at")(utc_stamp)
+
+    @model_validator(mode="after")
+    def lifecycle(self):
+        if self.original_domain == MemoryDomain.UNRESOLVED:
+            raise ValueError("Unresolved memory requires its original subject domain")
+        self.resolved_entity_ids = [str(UUID(value)) for value in self.resolved_entity_ids]
+        if len(set(self.resolved_entity_ids)) != len(self.resolved_entity_ids):
+            raise ValueError("Duplicate unresolved resolution target")
+        if self.status == "pending":
+            if self.resolved_at is not None or self.resolved_entity_ids:
+                raise ValueError("Pending memory cannot have a completed resolution")
+        elif not self.resolved_at or not self.resolved_entity_ids:
+            raise ValueError("Resolved memory requires its completion and target identities")
+        if self.resolved_at is not None:
+            utc_stamp(self.resolved_at)
+        return self
+
+
 class Entity(MemoryModel):
     entity_id: str = Field(description="The canonical UUID of this user's stored entity.")
     entity_name: str
     entity_domain: MemoryDomain
     entity_type: str
+    first_mentioned_at: str | None = Field(default=None, pattern=ISO_8601_REGEX, description=(
+        "For thoughts_and_plans, the earliest supporting user-message time available to Tomte, in UTC. "
+        "Not the time the idea arose, processing time, or confirmation that it remains active."))
     aliases: list[str] = Field(default_factory=list)
     facts: list[Fact] = Field(default_factory=list)
+    unresolved_detail: str | None = None
+    unresolved: UnresolvedState | None = Field(default=None, alias="_unresolved")
 
     _identity_text = field_validator("entity_name", "entity_type")(nonempty_text)
+
+    @field_validator("first_mentioned_at")
+    @classmethod
+    def first_mention_time(cls, value):
+        return utc_stamp(value) if value is not None else None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_first_mention(self, handler):
+        result = handler(self)
+        if self.first_mentioned_at is None:
+            result.pop("first_mentioned_at", None)
+        if self.unresolved is None:
+            result.pop("_unresolved", None)
+            result.pop("unresolved_detail", None)
+        return result
 
     @field_validator("entity_id")
     @classmethod
@@ -118,6 +166,14 @@ class Entity(MemoryModel):
 
     @model_validator(mode="after")
     def fact_ids(self):
+        if self.entity_domain == MemoryDomain.UNRESOLVED:
+            if self.unresolved is None or not self.unresolved_detail or len(self.facts) != 1:
+                raise ValueError("Unresolved record requires one claim, an explanation and lifecycle metadata")
+            nonempty_text(self.unresolved_detail)
+        elif self.unresolved is not None or self.unresolved_detail is not None:
+            raise ValueError("Unresolved metadata belongs only to unresolved records")
+        if self.entity_domain == MemoryDomain.THOUGHTS and self.first_mentioned_at is None:
+            raise ValueError("Thoughts and plans require first_mentioned_at")
         ids = [fact.fact_id for fact in self.facts]
         if len(ids) != len(set(ids)):
             raise ValueError("Duplicate fact UUID within entity")
@@ -165,6 +221,11 @@ def public_fact(fact: dict, history_indices=None) -> dict:
 def public_entity(entity: dict, history_selection=None) -> dict:
     result = {key: deepcopy(entity[key]) for key in
               ("entity_id", "entity_name", "entity_domain", "entity_type", "aliases")}
+    if entity["entity_domain"] == MemoryDomain.THOUGHTS:
+        result["first_mentioned_at"] = entity["first_mentioned_at"]
+    if entity["entity_domain"] == MemoryDomain.UNRESOLVED:
+        result["unresolved_detail"] = entity["unresolved_detail"]
+        result["reported_at"] = entity["_unresolved"]["reported_at"]
     result["facts"] = [public_fact(fact, None if history_selection is None else
                                   history_selection.get(fact["fact_id"], []))
                        for fact in entity["facts"]]

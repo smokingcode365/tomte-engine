@@ -196,6 +196,8 @@ def test_fresh_session_payload_wins_over_earlier_live_retrieval(session_workflow
     import json
     from copy import deepcopy
     from tomte.engine.core.enums import ChatSenderRole
+    from tomte.engine.core.config import settings
+    monkeypatch.setattr(settings, "memory_text_format", "labelled_rows")
     workflow, db, _, tenant, _ = session_workflow
     insert_entity(db, tenant, "u", fixture_id(tenant,"u",'tesla'), "Old Tesla", ["Tesla"],
                   facts=[simple_fact("paint","blue",importance=4)])
@@ -211,8 +213,8 @@ def test_fresh_session_payload_wins_over_earlier_live_retrieval(session_workflow
         return old
     monkeypatch.setattr(db, "get_raw_semantic_context", update_after_old_reads)
     result = workflow.on_chat(tenant, "s", "My Tesla needs an oil change.", ChatSenderRole.USER, "u")["context_text"]
-    assert "Fresh Tesla" in result and '"text": "red"' in result
-    assert "Old Tesla" not in result and '"text": "blue"' not in result
+    assert "Fresh Tesla" in result and 'field ["detail","red","high"]' in result
+    assert "Old Tesla" not in result and 'field ["detail","blue","high"]' not in result
     assert result.count(fixture_id(tenant,"u","tesla")) == 1
 
 
@@ -350,9 +352,9 @@ def test_workflow_same_names_with_scoped_uuids_do_not_leak(session_workflow):
                       facts=[simple_fact("synthetic_marker",value,importance=4)])
     for t, u, value in [(tenant, "u", "one"), (tenant, "other", "two"), (tenant + "-other", "u", "three")]:
         result = workflow.on_chat(t, "s", "My Tesla needs an oil change.", ChatSenderRole.USER, u)
-        assert '"text": "' + value + '"' in result["context_text"]
+        assert 'field ["detail","' + value + '","high"]' in result["context_text"]
         for other in {"one", "two", "three"} - {value}:
-            assert '"text": "' + other + '"' not in result["context_text"]
+            assert 'field ["detail","' + other + '","high"]' not in result["context_text"]
         assert cache.get_session_entity_ids(t, u, "s", 10) == [fixture_id(t,u,"tesla")]
 
 

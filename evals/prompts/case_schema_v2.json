@@ -736,29 +736,6 @@
           "title": "Forbidden Target Ids",
           "type": "array"
         },
-        "allowed_evidence_labels": {
-          "anyOf": [
-            {
-              "items": {
-                "enum": [
-                  "EXPLICIT",
-                  "ALIAS",
-                  "RESOLVED_REFERENCE",
-                  "GROUP_EXPLICIT",
-                  "GROUP_INFERRED",
-                  "SEMANTIC_CANDIDATE"
-                ],
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Allowed Evidence Labels"
-        },
         "allow_additional_targets": {
           "default": false,
           "title": "Allow Additional Targets",

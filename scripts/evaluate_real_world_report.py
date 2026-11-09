@@ -127,7 +127,9 @@ def main():
                 objects={e['id']:e for e in call['input']['EXTRACTED_SEMANTIC_INFORMATION']}
                 for response in call.get('output',{}).get('resolutions',[]):
                     e=objects[response['extracted_entity_id']];source=identify(dict(entity_name=e['name'],entity_domain=e['domain'],payload={'aliases':e['aliases']}),truth)
-                    offered={c['id']:c for c in call['input']['CANDIDATES_BY_OBJECT'][e['id']]}
+                    catalog=call['input'].get('CANDIDATES_BY_ID')
+                    offered={c['id']:catalog[c['id']] if catalog is not None else c
+                             for c in call['input']['CANDIDATES_BY_OBJECT'][e['id']]}
                     targets=[identify(dict(entity_name=offered[t['db_id']]['name'],entity_domain=offered[t['db_id']]['domain'],payload={'aliases':offered[t['db_id']]['aliases']}),truth) for t in response['targets']]
                     if source and targets:
                         correct=all(x==source for x in targets);resolution.append(dict(trace=run['trace_id'],source=source,targets=targets,correct=correct))

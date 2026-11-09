@@ -87,12 +87,23 @@ def source_timestamps(chat_items):
     return sources
 
 
+def _extraction_message(item, timestamp):
+    return {"item_id": item["item_id"], "role": item["role"], "content": item["content"],
+            "timestamp": item["timestamp"], "message_time_utc": timestamp}
+
+
+def extraction_item_bytes(item):
+    """Size of one wire message, excluding the envelope and list separator."""
+    sources = source_timestamps([item])
+    return len(json.dumps(_extraction_message(item, sources[item["item_id"]]), ensure_ascii=False).encode("utf-8"))
+
+
 def build_extraction_input(chat_items):
-    source_timestamps(chat_items)
+    sources = source_timestamps(chat_items)
     # The first queued message carries the history preceding the entire frozen batch.
     recent = chat_items[0].get("recent_context", [])[-RECENT_CONTEXT_TURNS:]
     return json.dumps({
-        "CURRENT_BATCH": [{"item_id": item["item_id"], "role": item["role"], "content": item["content"], "timestamp": item["timestamp"]}
+        "CURRENT_BATCH": [_extraction_message(item, sources[item["item_id"]])
                           for item in chat_items],
         "RECENT_CONTEXT_REFERENCE_ONLY": [{"role": item["role"], "content": item["content"]} for item in recent],
     }, ensure_ascii=False)
@@ -111,7 +122,8 @@ def resolve_extraction(extracted, chat_items):
     # and independent facts can still proceed.
     for domain, entities in data.items():
         data[domain] = [e for e in entities if counts[e["entity_id"]] == 1
-                        and e["entity_id"] not in rejected_handles and e["entity_domain"] == domain]
+                        and e["entity_id"] not in rejected_handles and e["entity_domain"] == domain
+                        and domain != MemoryDomain.UNRESOLVED]
     handles = {e["entity_id"] for entities in data.values() for e in entities}
     for entities in data.values():
         for entity in entities:

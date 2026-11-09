@@ -21,6 +21,8 @@ ownership_status (completion of a sale), current_location / current_home_address
 and professional_field / job_title are distinct and require KEEP_RAW.
 Exterior_vehicle_colour / paint_color may REUSE when source describes exterior
 paint. Position / job_title may REUSE when source explicitly means job title.
+An intention to buy a car is not a car category. Desired colour is not actual
+colour. Preserve thought/actual distinctions; related topics are not synonyms.
 
 Values and validated CURRENT_BATCH source text are read-only interpretation
 context. In particular dark blue, Senior Software Engineer, jointly owned and

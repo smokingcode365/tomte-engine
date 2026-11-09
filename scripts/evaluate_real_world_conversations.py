@@ -132,6 +132,7 @@ def main():
     vector_path=OUTPUT/'embeddings.json'; vectors=json.loads(vector_path.read_text(encoding='utf-8')) if vector_path.exists() else {}
     def vector_key(role,text):return hashlib.sha256(json.dumps([settings.openai.embed_model,1536,role,text]).encode()).hexdigest()
     class RecordedProvider:
+        supports_candidate_filter = live.supports_candidate_filter
         def get_vector_dimension(self):return live.get_vector_dimension()
         def embed_text(self,text):
             key=vector_key('query',text)
@@ -193,23 +194,25 @@ def main():
             hook._build_knowledge_context=capture
             def consolidate(session):
                 items=cache.pop_session_chat_log_4_consolidation(tenant,user,session)
-                if not items:return
-                assert all(i['tenant_id']==tenant and i['user_id']==user for i in items)
-                initial=deepcopy(records(tenant,user));calls=len(requests)
-                result=dict(items=[i['item_id'] for i in items],messages=len(items))
-                try:
-                    result['success']=workflow.run_consolidation_cycle(tenant,user,items)
-                    if result['success']:
-                        committed=deepcopy(records(tenant,user));n=len(requests)
-                        assert workflow.run_consolidation_cycle(tenant,user,items)
-                        assert records(tenant,user)==committed and len(requests)==n
-                        result['replay_no_api_or_row_change']=True
-                        assert cache.clear_session_4_consolidation(tenant,user,session,items)
-                    else:result['retained_for_retry']=True
-                except Exception as e:
-                    result.update(error_type=type(e).__name__,unchanged_rows=initial==records(tenant,user),retained_for_retry=True)
-                result['requests']=len(requests)-calls;batch_results.append(result)
-                print(current['trace'],'batch',len(batch_results),'success',result.get('success',False),'error',result.get('error_type','none'),flush=True)
+                while items:
+                    assert all(i['tenant_id']==tenant and i['user_id']==user for i in items)
+                    initial=deepcopy(records(tenant,user));calls=len(requests)
+                    result=dict(items=[i['item_id'] for i in items],messages=len(items))
+                    try:
+                        result['success']=workflow.run_consolidation_cycle(tenant,user,items)
+                        if result['success']:
+                            committed=deepcopy(records(tenant,user));n=len(requests)
+                            assert workflow.run_consolidation_cycle(tenant,user,items)
+                            assert records(tenant,user)==committed and len(requests)==n
+                            result['replay_no_api_or_row_change']=True
+                            assert cache.clear_session_4_consolidation(tenant,user,session,items)
+                        else:result['retained_for_retry']=True
+                    except Exception as e:
+                        result.update(error_type=type(e).__name__,unchanged_rows=initial==records(tenant,user),retained_for_retry=True)
+                    result['requests']=len(requests)-calls;batch_results.append(result)
+                    print(current['trace'],'batch',len(batch_results),'success',result.get('success',False),'error',result.get('error_type','none'),flush=True)
+                    if result.get('retained_for_retry'):return
+                    items=cache.pop_session_chat_log_4_consolidation(tenant,user,session)
             for turn in trace['turns']:
                 new_session=tid+'-'+turn['session_id']+'-rep'+str(rep)
                 if session and new_session!=session:

@@ -168,7 +168,7 @@ def consolidate_stage(case, stage, db_id=None):
     case.llm.prepare(stage, db_id)
     queue = queue_input(case)
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile"] + (["contextual"] if stage else []) + ["mutate", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "extract", "dictionary_embed", "align", "field_embed", "field_align", "embed_batch", "reconcile"] + (["contextual"] if stage else []) + ["mutate", "embed_batch"]
     row, = memory_rows(case)
     assert row["entity_id"] == row["payload"]["entity_id"]
     assert row["entity_id"]==str(row["id"])
@@ -186,7 +186,8 @@ def context(case, query):
     result = ChatHookWorkflow().on_chat(case.tenant, case.session, query, ChatSenderRole.USER, case.user)
     acknowledge(case)  # This synthetic retrieval question is not consolidated.
     memory=result["query_relevant_memories"]+result["background_memories"]
-    assert all(json.dumps(entity,ensure_ascii=False) in result["context_text"] for entity in memory)
+    from tomte.engine.core.memory_text import _labelled_rows
+    assert all(_labelled_rows([entity]) in result["context_text"] for entity in memory)
     vehicle_id=next(r["entity_id"] for r in memory_rows(case) if r["payload"]["entity_type"]=="vehicle")
     assert sum(e["entity_id"]==vehicle_id for e in memory)==1
     assert all(not e["entity_id"].startswith("tmp_") for e in memory)

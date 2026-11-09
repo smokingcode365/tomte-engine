@@ -23,6 +23,7 @@ class FactMutation(MemoryModel):
         "Append a fuller copy without changing existing items. Null means a distinct past episode."))
     importance: int | None = Field(default=None, ge=1, le=5, strict=True)
     incoming_fact_key: str | None = Field(default=None, description="Exact offered proposal key, required when acting on an incoming proposal, including group proposals.")
+    contextual_action_key: str | None = Field(default=None, description="Exact offered contextual action key when acting on that existing fact instead of an incoming proposal. Transient; never stored.")
     source_chat_ids: list[str] = Field(min_length=1, description="Supporting CURRENT USER message IDs. Operational authorization only; never stored in memory.")
 
     @model_validator(mode="after")
@@ -31,6 +32,8 @@ class FactMutation(MemoryModel):
         if any(not s.strip() for s in self.source_chat_ids):
             raise ValueError("Invalid mutation sources")
         self.source_chat_ids = list(dict.fromkeys(self.source_chat_ids))
+        if self.contextual_action_key is not None and (self.incoming_fact_key is not None or self.operation == "ADD"):
+            raise ValueError("Contextual operations select one existing-fact action, not an incoming proposal")
         self.remove_fields = list(dict.fromkeys(self.remove_fields))
         for key in self.remove_fields:
             field_key(key)
@@ -102,7 +105,7 @@ def _updated_value(old, values, stamp):
 
 
 def apply_mutations(facts, operations, chat_items, entity_scope, batch_id, templates=(), offered_fact_ids=None,
-                    *, recorded_at=None, offered_history=None, operation_indices=None):
+                    *, recorded_at=None, offered_history=None, operation_indices=None, contextual_actions=()):
     """Apply a whole entity plan on copies. Atomic batch markers handle replay.
 
     Source IDs are transient; deduplicate mentions within this plan. This function
@@ -133,6 +136,11 @@ def apply_mutations(facts, operations, chat_items, entity_scope, batch_id, templ
             matches = [f for f in templates if f.get("incoming_fact_key") == op.incoming_fact_key]
             if len(matches) != 1 or matches[0].get("source_chat_id") not in op.source_chat_ids:
                 raise InvalidMutation("Mutation must select an offered current-user proposal")
+        if op.contextual_action_key is not None:
+            matches = [a for a in contextual_actions if a.get("contextual_action_key") == op.contextual_action_key]
+            if (len(matches) != 1 or matches[0].get("target_fact_id") != op.target_fact_id
+                    or not set(op.source_chat_ids) <= set(matches[0]["source_chat_ids"])):
+                raise InvalidMutation("Mutation must select the offered contextual fact and sources")
         values = wire_value(op.fields)
         if op.operation == "ADD":
             fid = stable_id("tomte-fact-v2", entity_scope, batch_id, index)

@@ -71,6 +71,7 @@
         "CURRENT_BATCH": [],
         "REFERENCE_ONLY_CONTEXT": [],
         "EXTRACTED_SEMANTIC_INFORMATION": [],
+        "CANDIDATES_BY_ID": {},
         "CANDIDATES_BY_OBJECT": {}
       },
       "expected": {

@@ -33,9 +33,46 @@ about an interview can describe that interview; ongoing loneliness can itself be
 the emotional experience being remembered. Choose by the user's meaning and
 context in any language, not by a fixed list of words or categories.
 
+THOUGHTS AND PLANS
+Use thoughts_and_plans for a specific thought, intention, tentative plan or
+recommendation directly relevant to the user. The entity represents the IDEA,
+not an imagined possession, job or completed event. Name/type it accordingly,
+e.g. "Car purchase intention" / "purchase_intention", in the user's language.
+Keep separate ideas separate; do not create one generic bucket of all thoughts.
+An actual car, current job, established activity or confirmed arrangement retains
+its usual domain. Temporary feelings and preferences are not automatically plans.
+Details about another person's ideas can remain facts of that person, with clear
+attribution. A specific recommendation reported by the user can be remembered
+without assuming the user adopted it; assistant-only advice is not user evidence.
+
+Each thought value must preserve its qualification even when read separately:
+"Considering buying a Tesla" and "If buying a car, would prefer blue", not
+"Owns a Tesla" or an unqualified "blue". A question alone does not establish a
+plan. Changes, elaboration and abandonment of the SAME idea retain its identity.
+Do not convert its UUID/domain into an actual car/job when an action happens.
+Explicit completion can separately establish an actual subject and a supported
+outcome for the identified plan. Never copy desired details into actual facts.
+Thought/non-thought identity matches are forbidden, including mixed MATCH_MANY.
+
+first_mentioned_at, when supplied, is Tomte's earliest supporting USER-message
+time for this thought. It is not when the idea first arose, a deadline, or proof
+that the thought is still active. Python manages this field from accepted source
+IDs; never generate it. Preserve actual timing, conditions and uncertainty in
+value text. An old plan's age alone establishes neither completion nor abandonment.
+
 The requirement that every fact applies equally concerns distributing an update
 to multiple entity targets. It does not require distinct facts about ONE subject
 to describe the same instance. Keep each fact's referent and evidence clear.
+
+UNRESOLVED STATEMENTS
+unresolved_memories is application-managed storage for user-supported statements
+whose particular subject is not identified. It is not a subject domain to extract.
+Leave that extraction collection empty; extract the supported claim under its
+natural subject/domain and let identity resolution identify missing attribution.
+An uncertain identity does not make the reported information false. Preserve
+qualifications without inventing identities, group members or unsupported facts.
+When reading unresolved memories, treat unresolved_detail as a warning about
+missing attribution; never silently attach these statements to a known entity.
 
 ENTITY NAMES
 Prefer a durable supported name or label. Keep changeable descriptions such as

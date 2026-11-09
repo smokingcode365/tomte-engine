@@ -5,6 +5,8 @@ from typing import List, Dict, Any, Optional
 from uuid import UUID, uuid4
 from tomte.engine.core.config import settings
 from tomte.engine.core.enums import MemoryDomain
+from tomte.engine.core.resolution import CANDIDATE_LIMIT
+from tomte.engine.core.candidate_filter import IDENTITY_CANDIDATE_LIMIT
 
 
 @transactional
@@ -37,6 +39,7 @@ def get_entities_by_priority(conn: psycopg.Connection, tenant_id: str, user_id: 
         SELECT id, tenant_id, user_id, entity_id, payload FROM tomte_memory_engine
         WHERE tenant_id = %s AND user_id = %s 
         AND (%s::text IS NULL OR entity_domain = %s)
+        AND entity_domain <> 'unresolved_memories'
         ORDER BY importance DESC, mention_count DESC LIMIT %s;
     """
     with conn.cursor() as cur:
@@ -45,15 +48,28 @@ def get_entities_by_priority(conn: psycopg.Connection, tenant_id: str, user_id: 
 
 @transactional
 def get_frequent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
-    """Pure fetch of most mentioned entities. No domain filtering."""
+    """Fetch most-mentioned ordinary entities; unresolved records stay separate."""
     limit=limit if limit else settings.query_entities_limit
     sql = """
         SELECT id, tenant_id, user_id, entity_id, payload FROM tomte_memory_engine
         WHERE tenant_id = %s AND user_id = %s 
-        ORDER BY mention_count DESC LIMIT %s;
+        AND entity_domain <> 'unresolved_memories'
+        ORDER BY mention_count DESC, entity_id LIMIT %s;
     """
     with conn.cursor() as cur:
         cur.execute(sql, (tenant_id, user_id, limit))
+        return cur.fetchall()
+
+
+@transactional
+def get_profile_entities(conn, tenant_id, user_id):
+    """Profile-only read, without the legacy important-entity result cap."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT id, tenant_id, user_id, entity_id, payload FROM tomte_memory_engine
+            WHERE tenant_id=%s AND user_id=%s AND entity_domain=%s
+            ORDER BY importance DESC, mention_count DESC, entity_id
+        """, (tenant_id, user_id, MemoryDomain.IDENTITY.value))
         return cur.fetchall()
 
 @transactional
@@ -62,6 +78,7 @@ def get_recent_entities(conn: psycopg.Connection, tenant_id: str, user_id: str, 
     sql = """
         SELECT id, tenant_id, user_id, entity_id, payload FROM tomte_memory_engine
         WHERE tenant_id = %s AND user_id = %s 
+        AND entity_domain <> 'unresolved_memories'
         ORDER BY last_mentioned_at DESC LIMIT %s;
     """
     with conn.cursor() as cur:
@@ -75,11 +92,12 @@ def _semantic_rows(conn, tenant_id, user_id, vector, limit, *, threshold=None, e
             WITH scored AS (
                 SELECT m.id,m.tenant_id,m.user_id,m.entity_id,m.payload,m.mention_count,m.last_mentioned_at,
                     NULLIF(GREATEST(1-(m.embedding <=> %(vector)s::vector),
-                        (SELECT max(1-(s.embedding <=> %(vector)s::vector)) FROM tomte_memory_search s
+                        (SELECT max(1-(s.embedding <=> %(vector)s::vector)) FROM tomte_memory_retrieval s
                          WHERE s.entity_uuid=m.id AND s.tenant_id=m.tenant_id AND s.user_id=m.user_id)),
                         'NaN'::double precision) AS raw_cosine
                 FROM tomte_memory_engine m
                 WHERE m.tenant_id=%(tenant)s AND m.user_id=%(user)s
+                  AND m.entity_domain <> 'unresolved_memories'
                   AND (NOT %(exclude)s OR m.entity_domain<>%(identity)s)
             ), ranked AS (
                 SELECT *, CASE WHEN %(weighted)s THEN
@@ -101,7 +119,33 @@ def get_semantic_context(conn, tenant_id, user_id, vector, limit):
 
 @transactional
 def get_raw_semantic_context(conn, tenant_id, user_id, vector, limit):
-    return _semantic_rows(conn, tenant_id, user_id, vector, limit or settings.semantic_retrieval_limit)
+    """Union independent summary and plain-field top-k lists of distinct entities."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            WITH scored AS (
+                SELECT m.id,m.tenant_id,m.user_id,m.entity_id,m.payload,
+                    NULLIF(1-(m.embedding <=> %(vector)s::vector), 'NaN'::double precision) AS summary_cosine,
+                    (SELECT max(NULLIF(1-(s.embedding <=> %(vector)s::vector), 'NaN'::double precision))
+                     FROM tomte_memory_retrieval s
+                     WHERE s.entity_uuid=m.id AND s.tenant_id=m.tenant_id AND s.user_id=m.user_id) AS field_cosine
+                FROM tomte_memory_engine m
+                WHERE m.tenant_id=%(tenant)s AND m.user_id=%(user)s
+                  AND m.entity_domain <> 'unresolved_memories'
+            ), summaries AS (
+                SELECT id FROM scored ORDER BY summary_cosine DESC NULLS LAST,entity_id,id LIMIT %(limit)s
+            ), fields AS (
+                SELECT id FROM scored WHERE field_cosine IS NOT NULL
+                ORDER BY field_cosine DESC,entity_id,id LIMIT %(limit)s
+            ), selected AS (
+                SELECT id FROM summaries UNION SELECT id FROM fields
+            )
+            SELECT s.*,GREATEST(summary_cosine,field_cosine) AS raw_cosine,
+                GREATEST(summary_cosine,field_cosine) AS relevance_score
+            FROM scored s JOIN selected USING(id)
+            ORDER BY relevance_score DESC NULLS LAST,entity_id,id
+        """, {"tenant":tenant_id,"user":user_id,"vector":vector,
+               "limit":limit or settings.semantic_retrieval_limit})
+        return cur.fetchall()
 
 
 @transactional
@@ -116,7 +160,7 @@ def get_history_candidates(conn, tenant_id, user_id, entity_ids, vector, limit):
         cur.execute("""
             WITH scored AS (
                 SELECT entity_uuid,fact_id,history_index,max(1-(embedding <=> %s::vector)) AS similarity
-                FROM tomte_memory_search WHERE tenant_id=%s AND user_id=%s
+                FROM tomte_memory_retrieval WHERE tenant_id=%s AND user_id=%s
                     AND entity_uuid=ANY(%s::uuid[]) AND history_index>=0
                 GROUP BY entity_uuid,fact_id,history_index
             ), ranked AS (
@@ -139,6 +183,7 @@ def find_session_entity_mentions(conn, tenant_id, user_id, message, vector, limi
                    1 - (m.embedding <=> %s::vector) AS raw_cosine
             FROM tomte_memory_engine m
             WHERE m.tenant_id = %s AND m.user_id = %s
+              AND m.entity_domain <> 'unresolved_memories'
               AND m.entity_domain <> %s AND EXISTS (
                 SELECT 1 FROM (
                     SELECT m.entity_name AS term
@@ -168,6 +213,7 @@ def get_entities_by_ids(conn, tenant_id, user_id, entity_ids):
             SELECT id, tenant_id, user_id, entity_id, payload
             FROM tomte_memory_engine
             WHERE tenant_id = %s AND user_id = %s AND entity_id = ANY(%s::text[])
+              AND entity_domain <> 'unresolved_memories'
             ORDER BY array_position(%s::text[], entity_id), id ASC
         """, (tenant_id, user_id, entity_ids, entity_ids))
         return cur.fetchall()
@@ -183,6 +229,7 @@ def get_ontology_dictionaries(conn: psycopg.Connection, tenant_id: str, chat_vec
             SELECT entity_domain, entity_type, payload 
             FROM tomte_memory_engine 
             WHERE tenant_id = %s
+              AND entity_domain <> 'unresolved_memories'
             ORDER BY embedding <=> %s::vector 
             LIMIT 20
         )
@@ -211,9 +258,9 @@ def get_ontology_dictionaries(conn: psycopg.Connection, tenant_id: str, chat_vec
 
 @transactional
 def get_user_graph_skeleton(conn: psycopg.Connection, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
-    """Retrieves anchors including human-friendly name for extraction mapping."""
+    """Full scoped administrative dump, including pending and resolved records."""
     sql = """
-        SELECT id, entity_id, entity_name, entity_domain, entity_type, payload 
+        SELECT id, tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload
         FROM tomte_memory_engine 
         WHERE tenant_id = %s AND user_id = %s;
     """
@@ -239,10 +286,13 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
     """Atomic scoped writes with canonical UUIDs and immutable history prefixes."""
     from tomte.engine.core.extraction import validate_operation_provenance
     from tomte.engine.core.memory import public_entity
-    from tomte.engine.llm.embedder import get_search_entries, changed_search_entries, search_entry_key
+    from tomte.engine.llm.embedder import (get_search_entries, changed_search_entries, search_entry_key,
+                                          get_retrieval_entries, changed_retrieval_entries)
     from tomte.engine.workers.control import StaleSnapshot
     import math
     validate_operation_provenance(updates)
+    from tomte.engine.core.unresolved import validate_transitions
+    validate_transitions(updates)
     identities = [(op["tenant_id"], op["user_id"], op["entity_id"]) for op in updates]
     if len(set(identities)) != len(identities):
         raise ValueError("Duplicate entity operation")
@@ -257,6 +307,13 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
             raise ValueError("Updates require an expected payload")
         old = op.get("_expected_payload")
         if old:
+            from tomte.engine.core.resolution import compatible_identity_domains
+            if not compatible_identity_domains(old["entity_domain"], op["payload"]["entity_domain"]):
+                raise ValueError("Thought and non-thought identities cannot be converted")
+            if old.get("first_mentioned_at") is not None:
+                first = op["payload"].get("first_mentioned_at")
+                if first is None or first > old["first_mentioned_at"]:
+                    raise ValueError("First mention cannot be removed or moved later")
             current = {f["fact_id"]: f for f in op["payload"]["facts"]}
             for fact in old["facts"]:
                 new = current.get(fact["fact_id"])
@@ -270,7 +327,13 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
             entries = op.get("search_entries", [])
             if [{k: v for k, v in entry.items() if k != "embedding"} for entry in entries] != expected:
                 raise ValueError("Search entries must cover every changed current and historical item")
-            vectors = [op.get("embedding"), *[entry.get("embedding") for entry in entries]]
+            expected_retrieval = [{k:v for k,v in e.items() if k != "text"}
+                                  for e in changed_retrieval_entries(op["payload"], old)]
+            retrieval_entries = op.get("retrieval_entries", [])
+            if [{k:v for k,v in e.items() if k != "embedding"} for e in retrieval_entries] != expected_retrieval:
+                raise ValueError("Retrieval entries must cover every changed current and historical text")
+            vectors = [op.get("embedding"), *[entry.get("embedding") for entry in entries],
+                       *[entry.get("embedding") for entry in retrieval_entries]]
             if any(not isinstance(v, list) or not v or not any(v) or
                    any(type(x) not in (int, float) or not math.isfinite(x) for x in v) for v in vectors):
                 raise ValueError("Missing or invalid memory embedding")
@@ -327,7 +390,54 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                         DO UPDATE SET embedding=EXCLUDED.embedding
                     """, (op["entity_id"], op["tenant_id"], op["user_id"], entry["fact_id"], entry["history_index"],
                           entry["field_name"], entry["chunk_index"], entry["embedding"]))
+                old_retrieval = {search_entry_key(e) for e in get_retrieval_entries(op["_expected_payload"])} if op.get("_expected_payload") else set()
+                new_retrieval = {search_entry_key(e) for e in get_retrieval_entries(op["payload"])}
+                for key in old_retrieval - new_retrieval:
+                    cur.execute("""DELETE FROM tomte_memory_retrieval WHERE entity_uuid=%s AND tenant_id=%s AND user_id=%s
+                        AND fact_id=%s AND history_index=%s AND field_name=%s AND chunk_index=%s""",
+                        (op["entity_id"], op["tenant_id"], op["user_id"], *key))
+                _upsert_retrieval_entries(cur, op["tenant_id"], op["user_id"], op["entity_id"], op["retrieval_entries"])
     return True
+
+
+def _upsert_retrieval_entries(cur, tenant_id, user_id, entity_id, entries):
+    for entry in entries:
+        cur.execute("""
+            INSERT INTO tomte_memory_retrieval (entity_uuid,tenant_id,user_id,fact_id,history_index,field_name,chunk_index,embedding)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s::vector)
+            ON CONFLICT(entity_uuid,fact_id,history_index,field_name,chunk_index)
+            DO UPDATE SET embedding=EXCLUDED.embedding
+        """, (entity_id, tenant_id, user_id, entry["fact_id"], entry["history_index"],
+              entry["field_name"], entry["chunk_index"], entry["embedding"]))
+
+
+@transactional
+def replace_retrieval_index(conn, tenant_id, user_id, entity_id, expected_payload, entries, *, summary_embedding=None):
+    """Backfill derived vectors atomically; stale/foreign targets cannot write."""
+    from tomte.engine.llm.embedder import get_retrieval_entries
+    from tomte.engine.workers.control import StaleSnapshot
+    import math
+    expected = [{k:v for k,v in e.items() if k != "text"} for e in get_retrieval_entries(expected_payload)]
+    if str(entity_id) != expected_payload["entity_id"] or [{k:v for k,v in e.items() if k != "embedding"} for e in entries] != expected:
+        raise ValueError("Complete scoped retrieval entries required")
+    vectors = [e.get("embedding") for e in entries]
+    if summary_embedding is not None:
+        vectors.append(summary_embedding)
+    if any(not isinstance(v,list) or not v or not any(v) or
+           any(type(x) not in (int,float) or not math.isfinite(x) for x in v) for v in vectors):
+        raise ValueError("Invalid retrieval embedding")
+    with conn.cursor() as cur:
+        cur.execute("SELECT payload FROM tomte_memory_engine WHERE id=%s AND tenant_id=%s AND user_id=%s FOR UPDATE",
+                    (entity_id, tenant_id, user_id))
+        row = cur.fetchone()
+        if row is None or row["payload"] != expected_payload:
+            raise StaleSnapshot("Memory changed during retrieval-index rebuild")
+        cur.execute("DELETE FROM tomte_memory_retrieval WHERE entity_uuid=%s AND tenant_id=%s AND user_id=%s",
+                    (entity_id, tenant_id, user_id))
+        _upsert_retrieval_entries(cur, tenant_id, user_id, entity_id, entries)
+        if summary_embedding is not None:
+            cur.execute("UPDATE tomte_memory_engine SET embedding=%s::vector WHERE id=%s AND tenant_id=%s AND user_id=%s",
+                        (summary_embedding, entity_id, tenant_id, user_id))
 
 
 
@@ -350,30 +460,57 @@ def claim_consolidation_batch(conn: psycopg.Connection, tenant_id: str, user_id:
 
 
 @transactional
-def get_resolution_candidates(conn, tenant_id, user_id, names, domain, vector, context, limit=5):
+def get_resolution_candidates(conn, tenant_id, user_id, names, domain, vector, context, limit=CANDIDATE_LIMIT):
     """Bounded scoped identity search; similarity proposes candidates, never a match."""
-    if not 1 <= limit <= 5:
-        raise ValueError("Resolution candidate limit must be between one and five")
+    if type(limit) is not int or not 1 <= limit <= IDENTITY_CANDIDATE_LIMIT:
+        raise ValueError(f"Resolution candidate limit must be between one and {IDENTITY_CANDIDATE_LIMIT}")
+    # Retain context in the provider interface for compatibility, but a name
+    # elsewhere in the conversation must not outrank this object's similarity.
     with conn.cursor() as cur:
         cur.execute(r"""
             WITH scored AS (
-                SELECT id, entity_id, entity_name, entity_domain, entity_type, payload,
+                SELECT id, tenant_id, user_id, entity_id, entity_name, entity_domain, entity_type, payload,
                     lower(regexp_replace(trim(entity_name), '\s+', ' ', 'g')) = ANY(%(names)s)
                     OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(payload->'aliases','[]'::jsonb)) a
                         WHERE lower(regexp_replace(trim(a), '\s+', ' ', 'g')) = ANY(%(names)s)) AS exact_match,
-                    (length(entity_name)>2 AND strpos(lower(%(context)s),lower(entity_name))>0)
-                    OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(payload->'aliases','[]'::jsonb)) a
-                        WHERE length(a)>2 AND strpos(lower(%(context)s),lower(a))>0) AS context_match,
                     entity_domain=%(domain)s AS domain_match,
                     GREATEST(1 - (embedding <=> %(vector)s::vector),
                         (SELECT max(1-(s.embedding <=> %(vector)s::vector)) FROM tomte_memory_search s
                          WHERE s.entity_uuid=tomte_memory_engine.id AND s.tenant_id=tomte_memory_engine.tenant_id
                          AND s.user_id=tomte_memory_engine.user_id)) AS similarity
                 FROM tomte_memory_engine WHERE tenant_id=%(tenant)s AND user_id=%(user)s
-            ) SELECT *, sum((exact_match OR context_match)::int) OVER () AS identity_matches_total FROM scored
-            ORDER BY exact_match DESC, (context_match AND domain_match) DESC, domain_match DESC,
-                     context_match DESC, similarity DESC NULLS LAST, id
+                    AND entity_domain <> 'unresolved_memories'
+                    AND (%(domain)s = '' OR
+                         ((entity_domain = %(thought_domain)s) = (%(domain)s = %(thought_domain)s)))
+            ) SELECT *, sum(exact_match::int) OVER () AS identity_matches_total FROM scored
+            ORDER BY exact_match DESC, similarity DESC NULLS LAST, domain_match DESC, id
             LIMIT %(limit)s
-        """, {"tenant":tenant_id,"user":user_id,"names":names,"domain":domain,
-               "vector":vector,"context":context,"limit":limit})
+        """, {"tenant":tenant_id,"user":user_id,"names":names,"domain":domain,"thought_domain":MemoryDomain.THOUGHTS.value,
+               "vector":vector,"limit":limit})
+        return cur.fetchall()
+
+
+@transactional
+def get_unresolved_memories(conn, tenant_id, user_id, vector, limit=3, recent_limit=0):
+    """Pending claims only; optional recent candidates help bind short clarifications."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            WITH pending AS (
+                SELECT m.id,m.tenant_id,m.user_id,m.entity_id,m.entity_name,m.entity_domain,m.entity_type,m.payload,
+                    m.last_mentioned_at,
+                    NULLIF(GREATEST(1-(m.embedding <=> %(vector)s::vector),
+                        (SELECT max(1-(s.embedding <=> %(vector)s::vector)) FROM tomte_memory_retrieval s
+                         WHERE s.entity_uuid=m.id AND s.tenant_id=m.tenant_id AND s.user_id=m.user_id)),
+                         'NaN'::double precision) AS similarity
+                FROM tomte_memory_engine m WHERE m.tenant_id=%(tenant)s AND m.user_id=%(user)s
+                    AND m.entity_domain='unresolved_memories' AND m.payload->'_unresolved'->>'status'='pending'
+            ), semantic AS (
+                SELECT * FROM pending ORDER BY similarity DESC NULLS LAST,id LIMIT %(limit)s
+            ), recent AS (
+                SELECT * FROM pending WHERE id NOT IN (SELECT id FROM semantic)
+                ORDER BY last_mentioned_at DESC,id LIMIT %(recent)s
+            )
+            SELECT * FROM (SELECT * FROM semantic UNION ALL SELECT * FROM recent) candidates
+            ORDER BY similarity DESC NULLS LAST,id
+        """, {"tenant": tenant_id, "user": user_id, "vector": vector, "limit": limit, "recent": recent_limit})
         return cur.fetchall()

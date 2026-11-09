@@ -83,7 +83,14 @@ class LazyOpenAI:
         llm = object.__new__(OpenAILLMProvider)
         llm.strong_model = OpenAIResponsesModel(settings.openai.strong_model, provider=provider)
         llm.cheap_model = OpenAIResponsesModel(settings.openai.cheap_model, provider=provider)
-        llm.embedder = Embedder(OpenAIEmbeddingModel(settings.openai.embed_model.removeprefix('openai:'), provider=provider))
+        llm.candidate_filter_model = OpenAIResponsesModel(settings.openai.candidate_filter_model, provider=provider)
+        llm.embedder = Embedder(
+            OpenAIEmbeddingModel(settings.openai.embed_model.removeprefix('openai:'), provider=provider),
+            settings={"dimensions": settings.openai.vector_dimension},
+        )
+        from tomte.engine.llm.embedding_identity import openai_embedding_identity
+        llm._embedding_cache_identity = openai_embedding_identity(
+            settings.openai.embed_model, settings.openai.vector_dimension, client.base_url)
         llm.extractor_agent, llm.junk_agent = make_agents()
         llm.agent_retries = 0
         self.instance = llm

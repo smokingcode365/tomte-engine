@@ -97,7 +97,7 @@ class ProposalResponse(MemoryModel):
             # Keep correlation/identity fixed. Repairs may correct content/shape,
             # never move a proposal to another offered identity or fact.
             anchors = ("target_key", "entity_id", "extracted_entity_id",
-                       "target_fact_id", "incoming_fact_key", "operation")
+                       "target_fact_id", "incoming_fact_key", "contextual_action_key", "operation")
             if any(key in previous and replacement.get(key) != previous[key] for key in anchors):
                 continue
             if len(path) == 4 and any(key in parent and new_parent.get(key) != parent[key]

@@ -16,6 +16,38 @@ pilot = importlib.import_module('evaluate_memory_quality')
 ApiBudget, BudgetStop = budget_module.ApiBudget, budget_module.BudgetStop
 
 
+@pytest.mark.parametrize('supported', [False, True])
+def test_recorded_provider_forwards_filter_capability_and_calls(supported):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from tomte.engine.core.candidate_filter import CandidateFilterResponse
+    from tomte.engine.runtime import ControlledLLM
+    response = CandidateFilterResponse(keep=['c1'], drop=[])
+    live = SimpleNamespace(supports_candidate_filter=supported,
+                           parse_structured=Mock(return_value=response))
+    calls = []
+    recorded = pilot.RecordedLLM(live, calls)
+    control = SimpleNamespace(check=Mock())
+    controlled = ControlledLLM(recorded, control)
+    assert controlled.supports_candidate_filter is supported
+    assert controlled.parse_structured('prompt', '{}', CandidateFilterResponse) is response
+    assert calls[0]['stage'] == 'CandidateFilterResponse'
+    assert calls[0]['output'] == {'keep': ['c1'], 'drop': []}
+    assert control.check.call_count == 2
+
+
+def test_real_world_recorder_forwards_filter_capability_without_running_evaluation():
+    # Instantiate just the local adapter class, never the script's live runner.
+    import ast
+    from types import SimpleNamespace
+    tree = ast.parse((SCRIPTS / 'evaluate_real_world_conversations.py').read_text(encoding='utf-8'))
+    node, = [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == 'RecordedProvider']
+    for supported in (False, True):
+        namespace = {'live': SimpleNamespace(supports_candidate_filter=supported)}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), '<recorder>', 'exec'), namespace)
+        assert namespace['RecordedProvider']().supports_candidate_filter is supported
+
+
 def request():
     return {'model': 'gpt-6.1-sol', 'input': [{'role': 'user', 'content': [{'type': 'input_text', 'text': 'synthetic text'}]}]}
 
@@ -44,17 +76,31 @@ def test_recovery_plan_starts_with_failures_and_repeats_without_editing_frozen_d
     assert len(pilot.build_plan(data)) == 7 and data == original
 
 
-def test_budget_reserves_before_call_and_reconciles_usage_without_discounts():
+@pytest.mark.parametrize('model, expected_cost', [('gpt-6.1-sol', '.0007'), ('gpt-6.1-terra', '.00035')])
+def test_budget_reserves_before_call_and_reconciles_usage_without_discounts(model, expected_cost):
     budget = ApiBudget()
-    body, ticket = budget.reserve('https://api.openai.com/v1/responses', request())
+    body, ticket = budget.reserve('https://api.openai.com/v1/responses', {**request(), 'model': model})
     assert body['max_output_tokens'] == 8192
     assert body['service_tier'] == 'default' and body['store'] is False
     assert budget.charged == Decimal(ticket['reservation_usd']) > 0
     budget.reconcile(ticket, response())
-    assert budget.usage_cost == Decimal('.0007')
-    assert budget.charged == Decimal('.0007') * Decimal('1.375')
+    assert budget.usage_cost == Decimal(expected_cost)
+    assert budget.charged == Decimal(expected_cost) * Decimal('1.375')
     with pytest.raises(ValueError):
         budget.reconcile(ticket, response())
+
+
+def test_large_embedding_model_is_priced_and_restricted_to_embedding_endpoint():
+    payload = {'model': 'text-embedding-3-large', 'input': 'synthetic text', 'dimensions': 1536}
+    budget = ApiBudget()
+    body, ticket = budget.reserve('https://api.openai.com/v1/embeddings', payload)
+    assert body == payload
+    budget.reconcile(ticket, httpx.Response(200, json={'model': payload['model'],
+                     'usage': {'prompt_tokens': 100, 'total_tokens': 100}}))
+    assert budget.usage_cost == Decimal('.000013')
+    assert budget.records[0]['output_token_bound'] == 0
+    with pytest.raises(BudgetStop, match='model_route_mismatch'):
+        ApiBudget().reserve('https://api.openai.com/v1/responses', payload)
 
 
 def test_subject_pilot_uses_separate_frozen_data_and_nine_runs():

@@ -7,14 +7,16 @@ import json
 import time
 from typing import List, Optional, Dict, Any, Tuple
 from tomte.engine.core.config import settings
-from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS
+from tomte.engine.core.extraction import RECENT_CONTEXT_TURNS, build_extraction_input, extraction_item_bytes
 from tomte.engine.database.cache_interfaces import CacheProvider
 from tomte.engine import tomtelog
 from tomte.engine.exceptions import TomteSessionStateUnavailable
 from tomte.engine.utils.keys import generate_session_entity_key
 from tomte.engine.utils.keys import generate_common_key, generate_persona_key, get_section_key_active_sessions
 from tomte.engine.utils.keys import generate_consolidation_key, generate_consolidation_batch_key, generate_session_ref, parse_session_ref
+from tomte.engine.utils.keys import validate_id
 from tomte.engine.utils.security import get_security_guard
+from tomte.engine.providers.redis_pending import PendingWindowCache, RETIRE_LUA, keys as pending_cache_keys
 
 class RedisCacheProvider(CacheProvider):
     def __init__(self, url: str = "redis://localhost:6379/0", **kwargs):
@@ -26,6 +28,18 @@ class RedisCacheProvider(CacheProvider):
         kwargs.setdefault('socket_timeout', 2)
         self.client = redis.Redis.from_url(url, decode_responses=True, **kwargs)
         self._scan_offset = 0
+
+    def get_pending_search_snapshot(self, tenant_id, user_id):
+        return PendingWindowCache(self.client).snapshot(tenant_id, user_id)
+
+    def claim_pending_window(self, tenant_id, user_id, session_id, generation, key, descriptor, owner):
+        return PendingWindowCache(self.client).claim(tenant_id,user_id,session_id,generation,key,descriptor,owner)
+
+    def publish_pending_window(self, tenant_id, user_id, session_id, generation, key, owner, vector):
+        return PendingWindowCache(self.client).publish(tenant_id,user_id,session_id,generation,key,owner,vector)
+
+    def release_pending_window(self, tenant_id, user_id, session_id, key, owner):
+        return PendingWindowCache(self.client).release(tenant_id,user_id,session_id,key,owner)
 
     def promote_session_entities(self, tenant_id, user_id, session_id, entity_ids,
                                  retention, ttl):
@@ -149,7 +163,102 @@ class RedisCacheProvider(CacheProvider):
     # NEW LOGIC: CHAT HOOK & DUAL-WRITE
     # ==========================================
 
-    
+    def store_message(self, tenant_id, user_id, session_id, message, role):
+        """Atomically append history, enqueue and signal activity, without embedding.
+
+        Compare the history tail before writing so concurrent turns capture the
+        context immediately preceding their own append. No worker can consume
+        the message between the history and queue writes.
+        """
+        if not all(validate_id(v) for v in (tenant_id, user_id, session_id)):
+            raise ValueError("Invalid message namespace")
+        if role not in ('user', 'assistant'):
+            raise ValueError("Invalid message role")
+        guard = get_security_guard()
+        content = guard.scrub_pii(guard.sanitize_input(message))
+        history_key = generate_common_key(tenant_id, session_id, user_id)
+        queue_key = generate_consolidation_key(tenant_id, user_id, session_id)
+        session_ref = generate_session_ref(tenant_id, session_id, user_id)
+        message_id = str(uuid.uuid4())
+        lua = """
+        local expected_types = {'list', 'list', 'zset'}
+        for i = 1, 3 do
+            local kind = redis.call('type', KEYS[i]).ok
+            if kind ~= 'none' and kind ~= expected_types[i] then
+                return redis.error_reply('Invalid message storage key type')
+            end
+        end
+        local expected = cjson.decode(ARGV[1])
+        local actual = redis.call('lrange', KEYS[1], -tonumber(ARGV[7]), -1)
+        if #actual ~= #expected then return 0 end
+        for i = 1, #actual do
+            if actual[i] ~= expected[i] then return 0 end
+        end
+        redis.call('rpush', KEYS[1], ARGV[3])
+        redis.call('ltrim', KEYS[1], -tonumber(ARGV[4]), -1)
+        redis.call('expire', KEYS[1], 86400)
+        redis.call('rpush', KEYS[2], ARGV[2])
+        redis.call('zadd', KEYS[3], ARGV[5], ARGV[6])
+        return 1
+        """
+        for _ in range(8):
+            raw_context = self.client.lrange(history_key, -RECENT_CONTEXT_TURNS, -1)
+            context = []
+            for raw in raw_context:
+                try:
+                    turn = json.loads(raw)
+                    if turn['role'] in ('user', 'assistant') and isinstance(turn['content'], str):
+                        context.append({'role': turn['role'], 'content': guard.scrub_pii(turn['content'])})
+                except (ValueError, TypeError, KeyError):
+                    tomtelog.error("Corrupted JSON in Redis history")
+            stamp = time.time()
+            payload = dict(item_id=message_id, tenant_id=tenant_id, user_id=user_id,
+                           session_id=session_id, role=role, content=content, vector=None,
+                           timestamp=stamp, recent_context=context)
+            history = dict(role=role, content=content, timestamp=stamp)
+            if self.client.eval(lua, 3, history_key, queue_key, get_section_key_active_sessions(),
+                                json.dumps(raw_context), json.dumps(payload), json.dumps(history),
+                                settings.history_chat_number, stamp, session_ref, RECENT_CONTEXT_TURNS):
+                return {'message_id': message_id, 'status': 'queued'}
+        raise redis.WatchError("Message history changed repeatedly; retry storage")
+
+    def get_pending_message_batches(self, tenant_id, user_id, session_id=None, limit=20):
+        """Atomically snapshot queue tails and complete frozen batches, read-only."""
+        if (not all(validate_id(v) for v in (tenant_id, user_id))
+                or (session_id is not None and not validate_id(session_id))):
+            raise ValueError("Invalid pending message namespace")
+        if type(limit) is not int or limit < 1:
+            raise ValueError("Pending message limit must be positive")
+        lua = """
+        local prefix = ARGV[1]
+        local refs = {}
+        if ARGV[2] ~= '' then
+            refs = {prefix .. ARGV[2]}
+        else
+            for _, ref in ipairs(redis.call('zrange', KEYS[1], 0, -1)) do
+                if string.sub(ref, 1, #prefix) == prefix then
+                    refs[#refs + 1] = ref
+                end
+            end
+        end
+        local batches = {}
+        for _, ref in ipairs(refs) do
+            local queue = 'Tomte:consolidation:queue:' .. ref
+            batches[#batches + 1] = {
+                string.sub(ref, #prefix + 1), redis.call('llen', queue),
+                redis.call('lrange', queue, -(tonumber(ARGV[3]) + 1), -1),
+                redis.call('lrange', queue .. ':processing', 0, -1)
+            }
+        end
+        return batches
+        """
+        rows = self.client.eval(lua, 1, get_section_key_active_sessions(),
+                                f'{tenant_id}:{user_id}:', session_id or '', limit)
+        return [{'session_id': sid, 'queued_count': count,
+                 'queued': [json.loads(raw) for raw in queued],
+                 'processing': [json.loads(raw) for raw in processing]}
+                for sid, count, queued, processing in rows]
+
 
     def append_chat_history(self, tenant_id: str, session_id: str, message: str, role: str, user_id: Optional[str] = None) -> None:
         """
@@ -269,14 +378,65 @@ class RedisCacheProvider(CacheProvider):
         )
         return parse_session_ref(idle_refs[0]) if idle_refs else None
 
+    def _pending_batch(self, queue_key, session_id):
+        """Read only a bounded prefix. Return original rows, frozen rows, and readiness.
+
+        Count the extraction wire, not vectors/Redis JSON. A malformed or individually
+        oversized row is isolated intact for the existing worker failure policy.
+        """
+        originals, prepared = [], []
+        total = 0
+        legacy_prefix = str(uuid.uuid4())
+        while True:
+            rows = self.client.lrange(queue_key, len(originals), len(originals) + 15)
+            if not rows:
+                return originals, prepared, False
+            for raw in rows:
+                try:
+                    item = json.loads(raw)
+                    changed = False
+                    for key, fallback in (("item_id", f"{legacy_prefix}:{len(originals) + 1}"),
+                                          ("session_id", session_id)):
+                        if key not in item or item[key] is False:
+                            item[key] = fallback
+                            changed = True
+                    if not originals:
+                        candidate_size = len(build_extraction_input([item]).encode("utf-8"))
+                        # Preserve current content. Trim only oldest reference turns
+                        # when even the first complete message needs more room.
+                        while candidate_size > settings.consolidation_batch_bytes and item.get("recent_context"):
+                            item["recent_context"] = item["recent_context"][-RECENT_CONTEXT_TURNS:][1:]
+                            changed = True
+                            candidate_size = len(build_extraction_input([item]).encode("utf-8"))
+                    else:
+                        candidate_size = total + 2 + extraction_item_bytes(item)
+                    if originals and candidate_size > settings.consolidation_batch_bytes:
+                        return originals, prepared, True
+                except (ValueError, TypeError, KeyError, AttributeError):
+                    # Leave valid preceding/following messages in separate batches.
+                    return (originals, prepared, True) if originals else ([raw], [raw], True)
+                originals.append(raw)
+                prepared.append(json.dumps(item) if changed else raw)
+                total = candidate_size
+                if total >= settings.consolidation_batch_bytes:
+                    return originals, prepared, True
+
     def pop_session_chat_log_4_consolidation(self, tenant_id: str, user_id: str, session_id: str) -> list[dict]:
-        """Freeze one batch; retries read it while later messages remain queued."""
+        """Atomically freeze a whole-message prefix; never resize an existing retry."""
         queue_key = generate_consolidation_key(tenant_id, user_id, session_id)
         batch_key = generate_consolidation_batch_key(tenant_id, user_id, session_id)
         lua = """
+        -- bounded-prefix-freeze: tail appends do not invalidate this comparison.
         if redis.call('exists', KEYS[2]) == 0 then
-            if redis.call('exists', KEYS[1]) == 0 then return {} end
-            redis.call('rename', KEYS[1], KEYS[2])
+            local n = tonumber(ARGV[3])
+            if n == 0 then return {} end
+            local actual = redis.call('lrange', KEYS[1], 0, n - 1)
+            if #actual ~= n then return false end
+            for i, raw in ipairs(actual) do
+                if raw ~= ARGV[3 + i] then return false end
+            end
+            for i = 1, n do redis.call('rpush', KEYS[2], ARGV[3 + n + i]) end
+            redis.call('ltrim', KEYS[1], n, -1)
         end
         local items = redis.call('lrange', KEYS[2], 0, -1)
         for i, raw in ipairs(items) do
@@ -293,8 +453,15 @@ class RedisCacheProvider(CacheProvider):
         end
         return items
         """
-        raw_items = self.client.eval(lua, 2, queue_key, batch_key, str(uuid.uuid4()), session_id)
-        return [json.loads(item) for item in raw_items]
+        for _ in range(3):
+            originals, prepared = [], []
+            if not self.client.exists(batch_key):
+                originals, prepared, _ = self._pending_batch(queue_key, session_id)
+            raw_items = self.client.eval(lua, 2, queue_key, batch_key, str(uuid.uuid4()), session_id,
+                                         len(originals), *originals, *prepared)
+            if raw_items is not None:
+                return [json.loads(item) for item in raw_items]
+        raise redis.WatchError("Pending consolidation prefix changed while freezing")
 
     def clear_session_4_consolidation(self, tenant_id: str, user_id: str, session_id: str, chat_items: Optional[List[Dict[str, Any]]] = None) -> bool:
         """Acknowledge only the supplied snapshot, never newly queued messages."""
@@ -302,7 +469,7 @@ class RedisCacheProvider(CacheProvider):
         batch_key = generate_consolidation_batch_key(tenant_id, user_id, session_id)
         session_ref = generate_session_ref(tenant_id, session_id, user_id)
         ids = [item['item_id'] for item in chat_items] if chat_items else []
-        lua = """
+        lua = RETIRE_LUA + """
         local expected = cjson.decode(ARGV[2])
         local items = redis.call('lrange', KEYS[2], 0, -1)
         if #expected > 0 then
@@ -310,6 +477,7 @@ class RedisCacheProvider(CacheProvider):
             for i, raw in ipairs(items) do
                 if cjson.decode(raw).item_id ~= expected[i] then return 0 end
             end
+            retire_windows(KEYS[4], KEYS[5], KEYS[6], ARGV[3], items)
             redis.call('del', KEYS[2])
         elseif #items > 0 then
             return 0
@@ -319,7 +487,8 @@ class RedisCacheProvider(CacheProvider):
         end
         return 1
         """
-        return bool(self.client.eval(lua, 3, queue_key, batch_key, get_section_key_active_sessions(), session_ref, json.dumps(ids)))
+        return bool(self.client.eval(lua, 6, queue_key, batch_key, get_section_key_active_sessions(),
+            *pending_cache_keys(tenant_id,user_id,session_id), session_ref, json.dumps(ids), session_id))
 
     def renew_lock(self, lock_key, token, ttl_seconds=120):
         return bool(self.client.eval("if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('expire',KEYS[1],ARGV[2]) else return 0 end",
@@ -338,13 +507,23 @@ class RedisCacheProvider(CacheProvider):
         return json.loads(raw) if raw else None
 
     def worker_candidates(self, now, idle_seconds, limit=64):
-        # Rotate the bounded idle scan: a locked oldest user cannot starve others.
+        # Rotate all active sessions so a continuously growing chat need not go idle.
+        # Readiness only measures bytes; the worker still enforces locks/retry due times.
         due = self.client.zrangebyscore('Tomte:worker:due', '-inf', now, start=0, num=limit)
-        idle = self.client.zrangebyscore(get_section_key_active_sessions(), '-inf', now-idle_seconds,
-                                        start=self._scan_offset, num=limit)
-        self._scan_offset = self._scan_offset + len(idle) if len(idle) == limit else 0
+        active = self.client.zrange(get_section_key_active_sessions(), self._scan_offset,
+                                   self._scan_offset + limit - 1, withscores=True)
+        self._scan_offset = self._scan_offset + len(active) if len(active) == limit else 0
         from tomte.engine.utils.keys import validate_id
-        scopes = [tuple(parse_session_ref(ref)) for ref in dict.fromkeys(due + idle)]
+        ready = []
+        for ref, last_activity in active:
+            scope = tuple(parse_session_ref(ref))
+            if len(scope) != 3 or not all(validate_id(value) for value in scope):
+                continue
+            if (last_activity <= now - idle_seconds
+                    or self.client.exists(generate_consolidation_batch_key(*scope))
+                    or self._pending_batch(generate_consolidation_key(*scope), scope[2])[2]):
+                ready.append(ref)
+        scopes = [tuple(parse_session_ref(ref)) for ref in dict.fromkeys(due + ready)]
         return [scope for scope in scopes if len(scope) == 3 and all(validate_id(value) for value in scope)]
 
     def worker_save(self, tenant, user, token, state, due):
@@ -370,7 +549,7 @@ class RedisCacheProvider(CacheProvider):
         """Token, state and exact frozen snapshot checked in the same ACK/SKIP."""
         session = state['session']
         ref = generate_session_ref(tenant, session, user)
-        lua = """
+        lua = RETIRE_LUA + """
         if redis.call('get', KEYS[1]) ~= ARGV[1] then return 0 end
         local state = redis.call('get', KEYS[2])
         if not state or cjson.decode(state).batch ~= ARGV[2] then return 0 end
@@ -383,6 +562,7 @@ class RedisCacheProvider(CacheProvider):
         else
             redis.call('set', KEYS[7], ARGV[5], 'EX', 604800)
         end
+        retire_windows(KEYS[8], KEYS[9], KEYS[10], ARGV[7], actual)
         redis.call('del', KEYS[2], KEYS[3])
         redis.call('zrem', KEYS[4], ARGV[4])
         if redis.call('llen', KEYS[5]) == 0 then redis.call('zrem', KEYS[6], ARGV[4]) end
@@ -390,11 +570,12 @@ class RedisCacheProvider(CacheProvider):
         """
         terminal = {'batch': state['batch'], 'outcome': outcome, 'attempts': state['attempts'],
                     'reason': state.get('reason'), 'finished_at': time.time()}
-        return bool(self.client.eval(lua, 7, f'Tomte:lock:consolidation:{tenant}:{user}',
+        return bool(self.client.eval(lua, 10, f'Tomte:lock:consolidation:{tenant}:{user}',
             self.worker_state_key(tenant, user), generate_consolidation_batch_key(tenant, user, session),
             'Tomte:worker:due', generate_consolidation_key(tenant, user, session),
             get_section_key_active_sessions(), f'Tomte:worker:terminal:{tenant}:{user}:{state["batch"]}',
-            token, state['batch'], json.dumps(raw_items), ref, json.dumps(terminal), outcome))
+            *pending_cache_keys(tenant,user,session),
+            token, state['batch'], json.dumps(raw_items), ref, json.dumps(terminal), outcome, session))
 
     def pending_input_chars(self, tenant, user):
         """Scoped queued + waiting snapshot input. Running work is reported separately."""

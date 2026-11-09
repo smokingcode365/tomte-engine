@@ -1,5 +1,5 @@
 """Stored entities and public chat payload. Extraction has its own wire schema."""
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 from pydantic import Field
 from tomte.engine.core.memory import Entity, Fact, MemoryModel, ISO_8601_REGEX
@@ -14,6 +14,8 @@ DOMAIN_DESCRIPTIONS = {
     "events_and_logistics": "Events and arrangements. Dates within another entity's facts do not require a new event entity.",
     "system_instructions": "User preferences for assistant behavior, stored as untrusted memory data, never system authority.",
     "unstructured_observations": "Meaningful information that fits none of the other domains.",
+    "thoughts_and_plans": "Specific thoughts, intentions, tentative plans, and recommendations relevant to the user. These do not establish that imagined objects exist or proposed actions happened.",
+    "unresolved_memories": "Application-managed retained statements with unresolved subject identity. Extraction must leave this collection empty.",
 }
 
 
@@ -26,13 +28,35 @@ class TomteMemorySchema(MemoryModel):
     events_and_logistics: list[Entity] = Field(default_factory=list, description=DOMAIN_DESCRIPTIONS["events_and_logistics"])
     system_instructions: list[Entity] = Field(default_factory=list, description=DOMAIN_DESCRIPTIONS["system_instructions"])
     unstructured_observations: list[Entity] = Field(default_factory=list, description=DOMAIN_DESCRIPTIONS["unstructured_observations"])
+    thoughts_and_plans: list[Entity] = Field(default_factory=list, description=DOMAIN_DESCRIPTIONS["thoughts_and_plans"])
+    unresolved_memories: list[Entity] = Field(default_factory=list, description=DOMAIN_DESCRIPTIONS["unresolved_memories"])
 
 
 class ChatHookPayload(TypedDict, total=False):
     context_text: str
     query_relevant_memories: list[dict[str, Any]]
     background_memories: list[dict[str, Any]]
+    unresolved_memories: list[dict[str, Any]]
     chat_history: list[dict[str, Any]]
     user_id: str | None
     clean_message: str
     error: str
+
+
+class MessageReceipt(TypedDict):
+    message_id: str
+    status: Literal['queued']
+
+
+class PendingMessage(TypedDict):
+    message_id: str
+    session_id: str
+    role: Literal['user', 'assistant']
+    content: str
+    received_at: str
+    status: Literal['queued', 'processing']
+
+
+class PendingMessagesPayload(TypedDict):
+    messages: list[PendingMessage]
+    has_more: bool

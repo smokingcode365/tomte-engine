@@ -11,6 +11,42 @@ See [the current entity/fact design](docs/memory-design.md) for public JSON,
 internal metadata, dictionary alignment, search, safeguards and breaking-upgrade
 requirements. Old scalar/assertion payloads are not automatically migrated.
 
+## Primary SDK API
+
+After `Tomte.init(...)`, create a tenant-scoped client with
+`Tomte.create_tomte_client(tenant_id="my-app")`:
+
+```python
+client.store_user_message(user_id, session_id, message)
+client.store_assistant_message(user_id, session_id, response)
+context = client.get_context(user_id, message)
+# Alternatively, ask Tomte to generate an answer from memory:
+answer = client.answer_question(user_id, question)
+
+# Separate reads when the application needs structured data:
+client.get_profile_entities(user_id)
+client.get_most_mentioned_entities(user_id, limit=5)
+client.get_relevant_entities(user_id, message, limit=5)
+client.get_pending_messages(user_id, session_id=session_id, limit=20)
+```
+
+Storage returns a queue receipt; the background worker extracts memory later.
+`get_context()` returns one text string with relevant stored memories and pending
+conversation, ready to pass to the chatting agent as background information.
+Use `get_relevant_memories()` when structured results or retrieval options are needed.
+Profile, most-mentioned and pending reads make no model calls. Relevant retrieval
+uses embeddings but no generative LLM. `answer_question()` separately uses the
+configured strong model to plan a search and answer from the retrieved evidence,
+with at most three retrieval rounds. It returns one answer string and does not
+store the question or generated answer.
+Combined retrieval lazily embeds pending windows and reuses their cached vectors.
+Queue acknowledgement automatically removes affected cache entries; TTL is a
+fallback. Pending search exposes coverage limits separately from returned memory.
+Existing `send_user_message` / `log_assistant_response` methods remain available
+for callers using the combined chat hook described later in this document.
+See the [API contract](docs/memory-read-api.md) for return shapes, history,
+pending batches, failure behavior and provider requirements.
+
 ## Local development
 
 For a small runnable chat interface, see the [Tomte V1 local demo](docs/demo.md).
@@ -51,6 +87,17 @@ Select the vector dimension explicitly to match the actual embedding provider
 (current configured defaults: OpenAI/Anthropic 1536, Gemini 768). Existing vector
 columns cannot be resized by rerunning bootstrap; mismatches fail before setup.
 
+OpenAI embeddings default to `text-embedding-3-large` with an explicit
+1,536-dimensional output. This uses the larger model while retaining the
+existing PostgreSQL vector columns and IVFFlat dimension limit. Set
+`OPENAI__EMBED_MODEL` and `OPENAI__VECTOR_DIMENSION` together when overriding it.
+The provider applies the selected dimensions to both queries and documents.
+Switching models changes the vector space even when the dimensions match:
+re-embed existing entity summaries, fact/history fields, and dictionary anchors
+before using the new query model. Stop workers during the switch and drain or
+rebuild cached/queued vectors as well. Bootstrap does not migrate vectors.
+See [embedding model rollout](docs/embedding-model-rollout.md) for details.
+
 Docker init SQL creates `vector` and `pgcrypto` in the target database before
 `PostgresProvider` is constructed. It runs only on an empty PostgreSQL volume.
 The host bootstrap script verifies those extensions and uses Tomte's Python
@@ -88,6 +135,14 @@ Normal shutdown preserves named volumes; persistence is not a backup.
 
 
 ## Consolidation replay safety
+
+Supported statements whose particular subject cannot be identified can be retained
+in `unresolved_memories`. Later user clarification can bind a pending statement to
+an entity through the existing mutation planner; the target update and resolution
+marker commit together. Pending statements remain separate from ordinary entities
+and are returned with explicit attribution warnings by `get_relevant_memories()`
+and the chat context. See [memory design](docs/memory-design.md) and
+[read API](docs/memory-read-api.md) for lifecycle, candidate limits and API usage.
 
 Queue messages receive stable UUIDs. A worker freezes one Redis snapshot per
 session; later messages remain in the pending queue. The ordered item identities
@@ -163,22 +218,29 @@ Registered-user context combines persona (stable identity), recent memories
 (continuity across nearby conversations), raw semantic memories (long-term
 meaning-based retrieval), and session entities (continuity within a conversation).
 Successful chat payloads additionally expose `query_relevant_memories` and
-`background_memories`: lists of flat entities, including canonical DB `id`,
-original payload fields and available row metadata. Query candidates keep raw
+`background_memories`: public entity views with canonical UUIDs, current values,
+selected history and confidence; internal row metadata is excluded. Query candidates keep raw
 semantic rank, followed by unique current-message lexical hits. Background keeps
 persona, recent and session-only order, excluding entities already in the query
 list. Session-read payloads win overlaps, preserving canonical DB identity.
 
-`context_text` remains a string, now headed `QUERY-RELEVANT MEMORIES` then
-`BACKGROUND/CONTINUITY`; it renders current facts only. Structured lists retain
-the full stored facts and lifecycle states; hosts must not treat historical or
-invalid assertions as current. Existing history/message/user fields remain;
+`context_text` defaults to labelled rows with one column guide, followed by
+`QUERY-RELEVANT MEMORIES`, `BACKGROUND/CONTINUITY` and any separately labelled
+`UNRESOLVED MEMORIES`. Current values and selected history remain distinct.
+`MEMORY_TEXT_FORMAT=compact_json` switches to compact JSON sections. The structured
+lists remain available independently of the text format. Send only `context_text`
+as the memory input to an LLM to avoid duplicating those lists. See the
+[memory read API](docs/memory-read-api.md) for per-call options and history limits.
+Existing history/message/user fields remain;
 guest and assistant success payloads have empty memory lists, and errors retain
 their error-only shape. Hosts can keep using the text or consume the new lists;
 exact-text/order parsers must account for the new headings and order.
 
-Live semantic retrieval returns the closest five memories with no similarity
-cutoff and deterministic entity-ID/DB-ID ties. Age and mention frequency do not
+Live semantic retrieval unions the closest five summary entities with the closest
+five distinct entities by plain-text fact-field cosine, returning up to ten unique
+entities. Overlap is deduplicated; matching fields cannot crowd out other entities.
+There is no similarity cutoff, and entity-ID/DB-ID ties are deterministic.
+Age and mention frequency do not
 affect this ranking. Session activation remains separate: exact name/alias or
 cosine at least 0.25, with the existing caps and TTL. Frequent retrieval and
 weighted semantic APIs remain available for comparisons and other callers; their
@@ -188,3 +250,16 @@ and ungated retrieval still adds irrelevant context on unrelated questions.
 Transient raw-semantic unavailability can fall back to the other streams.
 Recent retrieval retains its existing strict failure behavior. Malformed rows,
 programming/security errors, and failed outer transactions still raise.
+
+## Read-only memory search
+
+Use `client.get_relevant_entities(user_id, message, limit=5)` to retrieve public
+entities from an arbitrary message without ingesting it or generating an answer.
+See [the read API contract](docs/memory-read-api.md) for usage, history limits,
+embedding cost and error behavior.
+
+Caller retrieval uses a separate plain-text current/history field index;
+mutation candidate search retains its labelled field vectors. New writes update
+both atomically. Populated installations must backfill the derived caller index
+with `admin.rebuild_retrieval_index(user_id)` after bootstrap and before serving
+the new retrieval. See the read API's rollout instructions.

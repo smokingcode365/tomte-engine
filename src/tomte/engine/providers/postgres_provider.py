@@ -12,6 +12,7 @@ from tomte.engine.core.config import settings
 from tomte.engine.core.memory import Entity
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.core.enums import MemoryDomain
+from tomte.engine.core.resolution import CANDIDATE_LIMIT
 from tomte.engine.exceptions import TomteDatabaseConnectionError
 from tomte.engine import tomtelog
 
@@ -106,7 +107,9 @@ class PostgresProvider(DatabaseProvider):
             if isinstance(entity.get("id"), UUID):
                 entity["id"] = str(entity["id"])  # Portable through Redis persona JSON.
             try:
-                stored = row["payload"] if "payload" in row else {k: entity[k] for k in Entity.model_fields}
+                stored = row["payload"] if "payload" in row else {
+                    field.alias or name: entity[field.alias or name]
+                    for name, field in Entity.model_fields.items() if (field.alias or name) in entity}
                 payload = Entity.model_validate(stored).model_dump(mode="json")
             except (ValidationError, KeyError):
                 raise ValueError(f"Invalid retrieved memory row at index {index}: invalid stored entity") from None
@@ -142,11 +145,30 @@ class PostgresProvider(DatabaseProvider):
         with self.transaction():
             return self._normalize_memory_rows(operations.get_frequent_entities(self.conn, tenant_id, user_id, limit))
 
+    def get_profile_entities(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
+        if not validate_id(tenant_id) or not validate_id(user_id):
+            raise ValueError("Invalid profile namespace")
+        with self.transaction():
+            return self._normalize_memory_rows(operations.get_profile_entities(self.conn, tenant_id, user_id))
+
     def semantic_retrieval(self, tenant_id: str, user_id: str, query_vector: List[float], limit: int|None = None) -> List[Dict[str, Any]]:
         with self.transaction():
             return self._normalize_memory_rows(operations.get_semantic_context(self.conn, tenant_id, user_id, query_vector, limit))
 
+    def get_unresolved_memories(self, tenant_id, user_id, vector, limit=3, recent_limit=0):
+        if not validate_id(tenant_id) or not validate_id(user_id):
+            raise ValueError("Invalid unresolved memory namespace")
+        if type(limit) is not int or not 1 <= limit <= 20 or type(recent_limit) is not int or not 0 <= recent_limit <= 10:
+            raise ValueError("Invalid unresolved memory limits")
+        with self.transaction():
+            rows = self._validate_storage_rows(operations.get_unresolved_memories(
+                self.conn, tenant_id, user_id, vector, limit, recent_limit))
+            if any(row['tenant_id'] != tenant_id or row['user_id'] != user_id for row in rows):
+                raise ValueError("Unresolved memory outside requested namespace")
+            return rows
+
     def get_raw_semantic_context(self, tenant_id: str, user_id: str, query_vector: List[float], limit: int | None = None) -> List[Dict[str, Any]]:
+        """Up to limit from each independent ranking, deduplicated (at most 2*limit)."""
         limit = settings.semantic_retrieval_limit if limit is None else limit
         if type(limit) is not int or limit < 1:
             raise ValueError("Raw semantic limit must be a positive integer")
@@ -157,6 +179,13 @@ class PostgresProvider(DatabaseProvider):
                 return self._normalize_memory_rows(operations.get_raw_semantic_context(self.conn, tenant_id, user_id, query_vector, limit))
         except (psycopg.OperationalError, psycopg.InterfaceError):
             raise TomteSessionStateUnavailable("Raw semantic context unavailable") from None
+
+    def replace_retrieval_index(self, tenant_id, user_id, entity_id, expected_payload, entries, *, summary_embedding=None):
+        if not validate_id(tenant_id) or not validate_id(user_id):
+            raise ValueError("Invalid retrieval-index namespace")
+        with self.transaction():
+            operations.replace_retrieval_index(self.conn, tenant_id, user_id, entity_id, expected_payload, entries,
+                                               summary_embedding=summary_embedding)
 
     def get_recent_entities(self, tenant_id: str, user_id: str, limit: int|None = None) -> List[Dict[str, Any]]:
         with self.transaction():
@@ -205,7 +234,7 @@ class PostgresProvider(DatabaseProvider):
         with self.transaction():
             return self._validate_storage_rows(operations.get_user_graph_skeleton(self.conn, tenant_id, user_id))
 
-    def get_resolution_candidates(self, tenant_id, user_id, names, domain, vector, context, limit=5):
+    def get_resolution_candidates(self, tenant_id, user_id, names, domain, vector, context, limit=CANDIDATE_LIMIT):
         with self.transaction():
             return self._validate_storage_rows(operations.get_resolution_candidates(self.conn, tenant_id, user_id, names, domain, vector, context, limit))
 

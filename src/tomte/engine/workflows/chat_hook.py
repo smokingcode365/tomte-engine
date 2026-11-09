@@ -6,6 +6,7 @@ from tomte.engine.exceptions import TomteInvalidIdError, TomteInvalidInputError,
 from tomte.engine import tomtelog, Tomte
 from tomte.engine.core.schema import ChatHookPayload
 from tomte.engine.core.memory import public_entity
+from tomte.engine.core.memory_text import UNRESOLVED_HEADING
 from tomte.engine.core.retrieval import prepare_memory_views
 from tomte.engine.database.db_interface import DatabaseProvider
 from tomte.engine.database.cache_interfaces import CacheProvider
@@ -109,8 +110,13 @@ class ChatHookWorkflow:
         relevant, background = self._group_memories(persona, recent, query_matches, session_entities)
         selected = prepare_memory_views(relevant + background, message, query_vector, tenant_id, user_id, self.db, self.llm)
         relevant, background = selected[:len(relevant)], selected[len(relevant):]
-        context_text = ("QUERY-RELEVANT MEMORIES\n" + self.cog.format_entities(relevant)
-                        + "\n\nBACKGROUND/CONTINUITY\n" + self.cog.format_entities(background)) if selected else ""
+        from tomte.engine.core.unresolved import pending_records
+        unresolved = [row['payload'] for row in pending_records(
+            self.db, tenant_id, user_id, query_vector, settings.unresolved_return_limit)]
+        sections = [('QUERY-RELEVANT MEMORIES', relevant), ('BACKGROUND/CONTINUITY', background)]
+        if unresolved:
+            sections.append((UNRESOLVED_HEADING, unresolved))
+        context_text = self.cog.format_context(sections)
 
         # 3. History Handshake (Append Last Rule)
         chat_history = self.cache.get_chat_history(tenant_id, session_id, user_id=user_id,limit=settings.history_chat_number)
@@ -121,6 +127,7 @@ class ChatHookWorkflow:
             context_text=context_text,
             query_relevant_memories=relevant,
             background_memories=background,
+            unresolved_memories=unresolved,
             chat_history=chat_history,
             clean_message=message,
             user_id=user_id
@@ -176,6 +183,8 @@ class ChatHookWorkflow:
         cosine = self._session_call(self.db, "discover_session_entities", tenant_id, user_id,
                                     query_vector, settings.session_entity_cosine_floor, cap) or []
         self._check_session_scope(lexical + cosine, tenant_id, user_id)
+        lexical = [e for e in lexical if e['entity_domain'] != MemoryDomain.UNRESOLVED]
+        cosine = [e for e in cosine if e['entity_domain'] != MemoryDomain.UNRESOLVED]
         # SQL already ranks each source deterministically. Lexical wins across sources.
         activated = list(dict.fromkeys(entity["entity_id"] for entity in lexical + cosine))[:cap]
         self._session_call(self.cache, "promote_session_entities", tenant_id, user_id, session_id,
@@ -193,6 +202,9 @@ class ChatHookWorkflow:
 
     def _group_memories(self, persona, recent, query_matches, session_entities):
         """Group by retrieval source, retaining query order and latest payloads."""
+        persona, recent, query_matches, session_entities = (
+            [e for e in group if e.get('entity_domain') != MemoryDomain.UNRESOLVED]
+            for group in (persona, recent, query_matches, session_entities))
         query_count = len(self.cog.merge_entities(query_matches))
         # The initial query list establishes positions; subsequent reads only
         # replace payloads. Session rows keep their existing freshness priority.
@@ -204,8 +216,8 @@ class ChatHookWorkflow:
         relevant, background = self._group_memories(persona, recent, semantic, session_entities or [])
         if not relevant and not background:
             return ""
-        return ("QUERY-RELEVANT MEMORIES\n" + self.cog.format_entities(relevant)
-                + "\n\nBACKGROUND/CONTINUITY\n" + self.cog.format_entities(background))
+        return self.cog.format_context([
+            ('QUERY-RELEVANT MEMORIES', relevant), ('BACKGROUND/CONTINUITY', background)])
 
 
     def _build_payload(
@@ -217,6 +229,7 @@ class ChatHookWorkflow:
         error: Optional[str] = None,
         query_relevant_memories: Optional[List[Dict[str, Any]]] = None,
         background_memories: Optional[List[Dict[str, Any]]] = None,
+        unresolved_memories: Optional[List[Dict[str, Any]]] = None,
     ) -> ChatHookPayload:
         """Centralized factory for the Chat Hook return payload to avoid magic strings."""
         if error:
@@ -226,6 +239,7 @@ class ChatHookWorkflow:
             context_text=context_text,
             query_relevant_memories=[public_entity(e, e.get("_history_selection")) for e in (query_relevant_memories or [])],
             background_memories=[public_entity(e, e.get("_history_selection")) for e in (background_memories or [])],
+            unresolved_memories=[public_entity(e) for e in (unresolved_memories or [])],
             chat_history=chat_history or [],
             user_id=user_id,
             clean_message=clean_message

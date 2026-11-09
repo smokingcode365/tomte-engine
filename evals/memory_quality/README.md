@@ -2,7 +2,14 @@
 
 For the proposed longer-conversation, retrieval-scale and caller-comprehension
 campaign, see [the evaluation plan](../../docs/memory-quality-evaluation-plan.md).
-That plan is future work; the commands below run the existing short pilots.
+The commands below run the existing short pilots. Stage 1's first two longer
+development runs have completed; further runs are held for review. See the
+[dataset, harness and budget preparation record](LONG_CAMPAIGN.md).
+
+Retrieval supplies whole entities as conversational background. Extra facts inside
+a relevant entity are not errors merely because they do not answer a narrow test
+question. The evaluation plan records this scope clarification and the prospective
+rubric change; existing frozen fixtures, labels and results remain unchanged.
 
 This is a small, authored end-to-end evaluation of the current memory format.
 It is separate from deterministic engine regression tests and stage prompt
@@ -16,6 +23,13 @@ state. Seven runs contain twelve consolidation batches.
 Gold is never passed to the engine or its models. Field names and wording are
 not scored as exact matches. The reviewer must inspect all stored items,
 including extra claims, and record source/snapshot evidence for judgments.
+
+`temporal_wording_v1.json` is a separate seven-case development fixture for
+extraction/mutation checks: week references, mixed source dates, vague timing,
+recurring schedules, Chinese, later enrichment, and an explicit local date.
+Its `expected` strings are review criteria, never model input. These focused
+checks use a fixed single subject and do not establish end-to-end identity or
+retrieval quality. The pilot commands below do not select this fixture.
 
 Report wrong propositions, missed required facts, update/history integrity and
 returned-memory usefulness separately. Wrong propositions count five error

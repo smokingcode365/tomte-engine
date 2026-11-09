@@ -67,6 +67,7 @@ def test_raw_undefined_cosine_sorts_after_valid_matches_without_gating(local_db)
     insert(db,t,u,'valid',.2);insert(db,t,u,'zero-vector',0.0)
     db.conn.execute("UPDATE tomte_memory_engine SET embedding=%s::vector WHERE tenant_id=%s AND user_id=%s AND entity_name='zero-vector'",([0.0]*1536,t,u))
     db.conn.execute("UPDATE tomte_memory_search SET embedding=%s::vector WHERE tenant_id=%s AND user_id=%s AND entity_uuid=%s",([0.0]*1536,t,u,fixture_id(t,u,'zero-vector')))
+    db.conn.execute("UPDATE tomte_memory_retrieval SET embedding=%s::vector WHERE tenant_id=%s AND user_id=%s AND entity_uuid=%s",([0.0]*1536,t,u,fixture_id(t,u,'zero-vector')))
     rows=db.get_raw_semantic_context(t,u,[1.0]+[0.0]*1535)
     assert [r['entity_name'] for r in rows]==['valid','zero-vector']
     assert rows[0]['raw_cosine']==pytest.approx(.2)
@@ -154,10 +155,11 @@ def test_memory_groups_keep_query_rank_and_complete_fresh_overlap(live_workflow)
     assert [e['entity_id'] for e in background] == [fixture_id('t','u',label) for label in ('p','act_01')]
     assert len(relevant + background) == 5
     text = result['context_text']
-    assert text.startswith('QUERY-RELEVANT MEMORIES\n')
+    from tomte.engine.core.memory_text import ROWS_GUIDE
+    assert text.startswith(ROWS_GUIDE + 'QUERY-RELEVANT MEMORIES\n')
     assert text.index('BACKGROUND/CONTINUITY') < text.index(fixture_id('t','u','p'))
     assert text.count(tesla['entity_id']) == 1
-    assert '"text": "red"' in text and '"text": "white"' in text
+    assert 'field ["detail","red","high"]' in text and 'field ["detail","white","high"]' in text
     assert relevant[0]['facts'][0]['history_is_partial'] is False
     assert {'context_text', 'chat_history', 'clean_message', 'user_id'} <= result.keys()
     workflow.llm.embed_text.assert_called_once_with('Tesla Model Y')
@@ -174,7 +176,8 @@ def test_empty_query_groups_keep_background_without_claiming_abstention(live_wor
     result = workflow.on_chat('t', 's', 'hello', ChatSenderRole.USER, 'u')
     assert result['query_relevant_memories'] == []
     assert [e['entity_id'] for e in result['background_memories']] == [fixture_id('t','u',label) for label in ('p','r','s')]
-    assert result['context_text'].startswith('QUERY-RELEVANT MEMORIES\n\n\nBACKGROUND/CONTINUITY')
+    from tomte.engine.core.memory_text import ROWS_GUIDE
+    assert result['context_text'].startswith(ROWS_GUIDE + 'QUERY-RELEVANT MEMORIES\n\n\nBACKGROUND/CONTINUITY')
 
 
 def test_memory_group_dedup_uses_db_identity_not_just_logical_id(live_workflow):

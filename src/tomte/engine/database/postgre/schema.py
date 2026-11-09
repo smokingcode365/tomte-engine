@@ -101,6 +101,25 @@ def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
             );
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_search_owner ON tomte_memory_search(tenant_id,user_id)")
+        # Separate plain-text caller retrieval from labelled mutation candidates.
+        # Existing data/identity vectors are retained; populated installations
+        # explicitly backfill this derived index before serving the new route.
+        cur.execute(f"""
+            CREATE TABLE IF NOT EXISTS tomte_memory_retrieval (
+                entity_uuid UUID NOT NULL,
+                tenant_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                fact_id UUID NOT NULL,
+                history_index INT NOT NULL CHECK(history_index >= -1),
+                field_name TEXT NOT NULL,
+                chunk_index INT NOT NULL CHECK(chunk_index >= 0),
+                embedding vector({safe_dim}) NOT NULL,
+                PRIMARY KEY(entity_uuid,fact_id,history_index,field_name,chunk_index),
+                FOREIGN KEY(entity_uuid,tenant_id,user_id)
+                    REFERENCES tomte_memory_engine(id,tenant_id,user_id) ON DELETE CASCADE
+            );
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_retrieval_owner ON tomte_memory_retrieval(tenant_id,user_id)")
 
         # Performance Indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_importance ON tomte_memory_engine (importance DESC);")

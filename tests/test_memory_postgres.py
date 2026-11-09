@@ -5,7 +5,7 @@ import pytest
 
 from tomte.engine.core.assertions import apply_mutations
 from tomte.engine.database.postgre.operations import bulk_commit_updates
-from tomte.engine.llm.embedder import changed_search_entries
+from tomte.engine.llm.embedder import changed_search_entries, changed_retrieval_entries
 from tomte.engine.workers.control import StaleSnapshot
 from test_postgres_transactions import local_db
 from test_memory_retrieval import entity
@@ -29,6 +29,9 @@ def operation(case, payload=None, old=None, user=None):
     op["search_entries"] = [{**{k: v for k, v in entry.items() if k != "text"},
                              "embedding": vector(1 if entry["history_index"] >= 0 else 0)}
                             for entry in changed_search_entries(payload, old)]
+    op["retrieval_entries"] = [{**{k: v for k, v in entry.items() if k != "text"},
+                                "embedding": vector(1 if entry["history_index"] >= 0 else 0)}
+                               for entry in changed_retrieval_entries(payload, old)]
     return op
 
 
@@ -74,6 +77,41 @@ def test_mention_only_write_keeps_search_vectors_and_original_message_time(ready
     assert row["facts"][0]["_mention_count"] == old["facts"][0]["_mention_count"] + 1
     assert row["facts"][0]["value"] == old["facts"][0]["value"]
     assert ready.db.get_raw_semantic_context(ready.tenant, ready.users[0], vector(1), 1)[0]["raw_cosine"] == pytest.approx(1)
+
+
+def test_thought_persistence_candidates_and_first_mention_are_scoped(ready):
+    from memory_fixtures import simple_entity, simple_fact
+    from tomte.engine.core.memory import public_entity
+    db, tenant, user = ready.db, ready.tenant, ready.users[0]
+    payload = simple_entity("Car purchase intention", facts=[simple_fact("intention", "Considering buying a Tesla.")])
+    payload.update(entity_domain="thoughts_and_plans", first_mentioned_at="2026-01-05T10:00:00Z")
+    idea = operation(ready, payload)
+    cars = [operation(ready, simple_entity("Tesla", domain="assets_and_possessions", facts=[simple_fact("colour", "Blue")]))
+            for _ in range(6)]
+    assert db.commit_graph_updates([idea, *cars])
+    rows = db.get_resolution_candidates(tenant, user, ["tesla"], "thoughts_and_plans", vector(0), "", 5)
+    assert [str(r["id"]) for r in rows] == [idea["entity_id"]]  # Filter before the five-candidate limit.
+    assert rows[0]["payload"]["first_mentioned_at"] == payload["first_mentioned_at"]
+    assert public_entity(rows[0]["payload"])["first_mentioned_at"] == payload["first_mentioned_at"]
+    rows = db.get_resolution_candidates(tenant, user, [], "assets_and_possessions", vector(0), "", 5)
+    assert len(rows) == 5 and all(r["entity_domain"] == "assets_and_possessions" for r in rows)
+    rows = db.get_resolution_candidates(tenant, user, ["car purchase intention"], "", vector(0), "", 5)
+    assert {r["entity_domain"] for r in rows} == {"thoughts_and_plans", "assets_and_possessions"}
+    for foreign_tenant, foreign_user in ((tenant, ready.users[1]), (tenant + "-other", user)):
+        assert db.get_resolution_candidates(foreign_tenant, foreign_user, [], "", vector(0), "", 5) == []
+    old = idea["payload"]
+    changed = deepcopy(old)
+    changed["first_mentioned_at"] = "2026-02-01T10:00:00Z"
+    with pytest.raises(ValueError, match="First mention"):
+        bulk_commit_updates(db.conn, [operation(ready, changed, old)])
+    converted = dict(old, entity_domain="assets_and_possessions")
+    with pytest.raises(ValueError, match="identities cannot be converted"):
+        bulk_commit_updates(db.conn, [operation(ready, converted, old)])
+    assert db.get_resolution_candidates(tenant, user, [], "thoughts_and_plans", vector(0), "", 5)[0]["payload"] == old
+    changed["first_mentioned_at"] = "2025-12-01T10:00:00Z"
+    assert db.commit_graph_updates([operation(ready, changed, old)])
+    saved = db.get_resolution_candidates(tenant, user, [], "thoughts_and_plans", vector(0), "", 5)[0]["payload"]
+    assert saved["first_mentioned_at"] == "2025-12-01T10:00:00Z"
 
 
 def test_stale_payload_rolls_back_batch_marker_without_overwriting(ready):
@@ -126,4 +164,6 @@ def test_delta_search_updates_preserve_history_and_remove_obsolete_current_field
     assert ready.db.commit_graph_updates([write])
     keys = ready.observer.execute("SELECT history_index,field_name FROM tomte_memory_search WHERE entity_uuid=%s", (op["entity_id"],)).fetchall()
     assert (-1, "job_title") not in keys and (0, "job_title") in keys
+    plain_keys = ready.observer.execute("SELECT history_index,field_name FROM tomte_memory_retrieval WHERE entity_uuid=%s", (op["entity_id"],)).fetchall()
+    assert set(plain_keys) == set(keys)
     assert ready.db.get_raw_semantic_context(ready.tenant, ready.users[0], vector(1), 1)[0]["raw_cosine"] == pytest.approx(1)

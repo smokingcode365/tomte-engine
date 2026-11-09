@@ -10,6 +10,18 @@ historical v1 cases. Those original cases and their saved results remain unchang
 see `cases/v2/README.md`. `fixtures/harness_smoke_v2.json` contains ten artificial
 mechanics fixtures and fake outputs, explicitly not an accuracy benchmark.
 
+Evaluator 2.3 uses the current identity request: `CANDIDATES_BY_ID` contains one
+record per UUID, and `CANDIDATES_BY_OBJECT` contains ordered references with
+per-object similarity scores. References must resolve to a shared record; scoring
+still checks each object's own allowed targets. The artificial v2 smoke fixture
+uses this format. Historical benchmark cases and saved results are unchanged;
+reproduce their original input contracts with the corresponding Git revision.
+
+Identity targets now contain only `db_id`. Retired response confidence/evidence
+fields are ignored for saved-output compatibility. Gold cases must specify the
+intended kind and target UUIDs; `allowed_evidence_labels` is no longer supported
+and is rejected during case validation. Label agreement is not identity accuracy.
+
 ## Validation and execution
 
 Run from `tomte-engine` in the existing uv environment:
@@ -99,7 +111,7 @@ reasoning. Production output-schema validation still applies to model results.
   or unoffered selections fail. The engine separately checks item containment.
 - **identity_resolution:** `resolutions`, each with `extracted_entity_id`,
   `expected_kind`, `required_target_ids`, `forbidden_target_ids`; optional
-  `allowed_evidence_labels`, `allow_additional_targets` (default false),
+  `allow_additional_targets` (default false),
   `explicitly_new`, `evidence_quote_contains`, `exact_evidence_quote`. Target IDs
   use the production UUID string form. MATCH_ONE requires one expected target;
   MATCH_MANY requires at least two and an equal-distribution output. UNRESOLVED

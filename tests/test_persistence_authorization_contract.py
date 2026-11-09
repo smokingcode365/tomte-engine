@@ -55,8 +55,9 @@ def contract(mechanics, monkeypatch):
             for entity in data["EXTRACTED_SEMANTIC_INFORMATION"]:
                 fixture_id = entity["id"].removeprefix("tmp_")
                 name = case.matches.get(fixture_id)
-                candidate = next((c for c in data["CANDIDATES_BY_OBJECT"][entity["id"]]
-                                  if c["name"] == name), None)
+                candidates = (data["CANDIDATES_BY_ID"][c["id"]]
+                              for c in data["CANDIDATES_BY_OBJECT"][entity["id"]])
+                candidate = next((c for c in candidates if c["name"] == name), None)
                 if name is not None:
                     assert candidate is not None, "Fixture target must be offered by scoped retrieval"
                 resolutions.append({
@@ -162,12 +163,12 @@ def contextual_action(case, unresolved=False, action_type="CORRECTION"):
     case.contextual = action
 
 
-def test_junk_batch_is_successful_processed_noop_contract(contract):
-    """Junk completes once without graph/dictionary writes or replay model work."""
+def test_empty_extraction_is_successful_processed_noop_contract(contract):
+    """Empty extraction completes once without graph/dictionary writes or replay model work."""
     case = contract
     case.junk = True
     complete_noop(case, freeze(case, ("user", "Thanks!")))
-    assert case.calls == ["junk"]
+    assert case.calls == ["ExtractionMemorySchema"]
 
 
 def test_assistant_only_batch_is_successful_processed_noop_contract(contract):
@@ -177,8 +178,8 @@ def test_assistant_only_batch_is_successful_processed_noop_contract(contract):
 
 
 @pytest.mark.parametrize("has_other_user_vector", [False, True])
-def test_user_batch_missing_required_embedding_remains_retryable_control(contract, has_other_user_vector):
-    """Missing user vectors are not silently processed as assistant-only no-ops."""
+def test_user_batch_embeds_missing_vectors_without_changing_snapshot(contract, has_other_user_vector, monkeypatch):
+    """Storage-only inputs are embedded once; supplied vectors are reused."""
     case = contract
     if has_other_user_vector:
         case.cache.enqueue_for_consolidation(case.tenant, case.user, case.session,
@@ -186,14 +187,16 @@ def test_user_batch_missing_required_embedding_remains_retryable_control(contrac
     case.cache.enqueue_for_consolidation(case.tenant, case.user, case.session,
                                         "I bought a bicycle.", "user", vector=None)
     batch = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
-    before, vocabulary = rows(case), dictionary(case)
-    try:
-        result = ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, batch)
-    except ValueError:
-        result = False  # An explicit data-integrity error is also retryable.
-    assert result is False
-    assert rows(case) == before and dictionary(case) == vocabulary
-    assert processed_count(case) == 0
+    original = deepcopy(batch)
+    calls = []
+    embed = case.llm.embed_batch
+    def tracked(texts):
+        calls.append(list(texts))
+        return embed(texts)
+    monkeypatch.setattr(case.llm, 'embed_batch', tracked)
+    complete_noop(case, batch)
+    assert calls == [["I bought a bicycle."]]
+    assert batch == original
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == batch
 
 

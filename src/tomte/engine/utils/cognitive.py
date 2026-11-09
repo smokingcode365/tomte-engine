@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
-import json
 from tomte.engine.core.memory import public_entity
+from tomte.engine.core.memory_text import MemoryTextFormat, render_memory_context
 
 
 class CognitiveProcessor:
@@ -29,6 +29,13 @@ class CognitiveProcessor:
                     
         return list(master_map.values())
 
-    def format_entities(self, entities: List[Dict[str, Any]]) -> str:
+    def format_entities(self, entities: List[Dict[str, Any]], *, output_format: MemoryTextFormat | None = None) -> str:
         """Serialize the shared public allowlist, including selected history."""
-        return json.dumps([public_entity(entity, entity.get("_history_selection")) for entity in entities], ensure_ascii=False) if entities else ""
+        return self.format_context([('', entities)], output_format=output_format)
+
+    def format_context(self, sections, *, output_format: MemoryTextFormat | None = None) -> str:
+        """Project stored records before formatting, with one guide per packet."""
+        return render_memory_context([
+            (title, [public_entity(entity, entity.get('_history_selection')) for entity in entities])
+            for title, entities in sections
+        ], output_format)

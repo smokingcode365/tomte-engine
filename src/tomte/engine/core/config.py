@@ -1,10 +1,13 @@
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from tomte.engine.core.memory_text import MemoryTextFormat
 
 class OpenAISettings(BaseModel):
     strong_model: str = "gpt-6.1-sol"
     cheap_model: str = "gpt-6-luna"
-    embed_model: str = "openai:text-embedding-3-small"
+    candidate_filter_model: str = "gpt-6.1-terra"
+    embed_model: str = "openai:text-embedding-3-large"
+    # Request the supported shortened output to fit existing vector/IVFFlat storage.
     vector_dimension: int = 1536
 
 class AnthropicSettings(BaseModel):
@@ -20,11 +23,31 @@ class GeminiSettings(BaseModel):
     embed_model: str = "google-gla:text-embedding-004"
     vector_dimension: int = 768  # Standard for Google embeddings
 
+class PendingSearchSettings(BaseModel):
+    max_messages: int = Field(default=1000, ge=1, le=10000)
+    max_input_bytes: int = Field(default=262144, ge=1024, le=2097152)
+    window_bytes: int = Field(default=6000, ge=512, le=8000)
+    max_embedding_bytes: int = Field(default=262144, ge=512, le=2097152)
+    return_windows: int = Field(default=3, ge=1, le=20)
+    return_bytes: int = Field(default=8000, ge=512, le=131072)
+    cache_windows: int = Field(default=256, ge=1, le=1024)
+    cache_bytes: int = Field(default=8388608, ge=1024, le=67108864)
+    cache_ttl_seconds: int = Field(default=86400, ge=60)
+    lease_seconds: int = Field(default=45, ge=5, le=120)
+    wait_seconds: float = Field(default=2, ge=0, le=10)
+
+
 class TomteSettings(BaseSettings):
+    pending_search: PendingSearchSettings = Field(default_factory=PendingSearchSettings)
+    memory_text_format: MemoryTextFormat = Field(default='labelled_rows', description='Caller-facing context text representation; structured entities and storage are unchanged.')
+    unresolved_return_limit: int = Field(default=3, ge=1, le=20)
+    unresolved_candidate_limit: int = Field(default=5, ge=1, le=20)
+    unresolved_recent_limit: int = Field(default=2, ge=0, le=10)
     memory_history_bytes: int = Field(default=12000, ge=0, description="Public history budget per entity; current facts are not truncated.")
     memory_history_candidate_bytes: int = Field(default=20000, ge=1000, description="Bounded history selection input, excluding current values.")
     memory_history_candidate_limit: int = Field(default=40, ge=1, le=200)
-    max_model_input_bytes: int = Field(default=65536, ge=1, description="Conservative UTF-8 input capacity per model stage; not a token/context guarantee.")
+    max_model_input_bytes: int = Field(default=327680, ge=1, description="Conservative UTF-8 input capacity per model stage; not a token/context guarantee.")
+    consolidation_batch_bytes: int = Field(default=65536, ge=1, description="Prepared chat-input budget for new Redis batches; whole messages are never truncated.")
     provider_diagnostics_enabled: bool = Field(default=False, description="Emit bounded metadata-only provider diagnostics; no raw payloads.")
     max_keywords_for_llm: int = Field(default=400, description="The maximum number of keywords to send to the LLM for extraction.")
     max_input_length: int = Field(default=4000, description="The maximum length of the input text.")
@@ -33,7 +56,7 @@ class TomteSettings(BaseSettings):
     history_chat_number: int = Field(default=20)
     isolate_chat_sessions: bool = Field(default=True)
     query_entities_limit: int = Field(default=3) # Limit for the number of entities to query from the database
-    semantic_retrieval_limit: int = Field(default=5) # Limit for the number of entities to retrieve from the semantic retrieval
+    semantic_retrieval_limit: int = Field(default=5) # Per ranking: summary/field union returns at most twice this many entities.
     # Empirical for current-message -> Tomte summaries with text-embedding-3-small.
     session_entity_cosine_floor: float = Field(default=0.25, ge=-1, le=1)
     session_entity_activation_cap: int = Field(default=5, ge=1)

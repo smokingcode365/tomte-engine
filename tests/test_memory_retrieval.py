@@ -6,7 +6,7 @@ import pytest
 from tomte.engine.core.config import settings
 from tomte.engine.core.memory import public_entity
 from tomte.engine.core.retrieval import HistorySelectionResponse, select_history
-from tomte.engine.llm.embedder import get_search_entries, search_entry_key, changed_search_entries
+from tomte.engine.llm.embedder import get_entity_summary, get_search_entries, search_entry_key, changed_search_entries
 from test_memory_values import job, apply, update, fields
 
 
@@ -56,6 +56,33 @@ def test_search_chunks_preserve_every_character_of_long_text():
     # Prefix is identical, then chunks preserve the complete item representation.
     prefix = entries[0]["text"].split("detail:")[0]
     assert "".join(e["text"][len(prefix):] for e in entries) == "detail: " + text + " (fact_confidence: high)"
+
+
+def test_entity_summary_keeps_current_details_after_2000_characters():
+    value = entity()
+    item = next(iter(value["facts"][0]["value"].values()))
+    value["facts"][0]["value"] = {
+        "description": {**item, "text": "A longer current description. " * 100},
+        "workplace_address": {**item, "text": "25 Pine Avenue"},
+    }
+    original = deepcopy(value)
+    summary = get_entity_summary(value)
+    assert summary.index("25 Pine Avenue") > 2000
+    assert json.loads(summary)["facts"][0]["value"]["workplace_address"]["text"] == "25 Pine Avenue"
+    assert "Cedar Labs" not in summary  # History is indexed separately.
+    assert "_recorded_at" not in summary
+    assert value == original
+
+
+@pytest.mark.parametrize("character", ["a", "中", "🙂"])
+def test_entity_summary_preserves_complete_text_beyond_old_byte_cap(character):
+    value = entity()
+    item = next(iter(value["facts"][0]["value"].values()))
+    value["facts"][0]["value"] = {"detail": {**item, "text": character * 9000}}
+    summary = get_entity_summary(value)
+    assert len(summary.encode("utf-8")) > 8000
+    assert "\ufffd" not in summary
+    assert json.loads(summary)["facts"][0]["value"]["detail"]["text"] == character * 9000
 
 
 def test_small_history_returns_all_without_model_call_or_internal_metadata():

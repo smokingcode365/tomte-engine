@@ -1,0 +1,34 @@
+{
+  "dataset_version": "contextual_changes_v1",
+  "description": "Synthetic contextual-routing development probes. Expected meanings are review-only and must never enter model inputs.",
+  "cases": [
+    {
+      "case_id": "continuing_worry",
+      "message": "My Beacon College job has ended and I still work at Harbour Hospital. But I am still worried about balancing my commitments, even with only the hospital job now.",
+      "primary_subject": "college",
+      "primary_text": "Former Beacon College teaching role; the user has left. The hospital job continues.",
+      "expected": "Qualify the prior two-job situation and explicitly preserve the continuing worry about commitments. Do not declare the worry resolved. End only the college employment. Keep the same concern UUID and archive its prior value on real change."
+    },
+    {
+      "case_id": "considering_leaving",
+      "message": "I am thinking about leaving Beacon College, but I have not resigned and I still teach there. No decision has been made. I still have my Harbour Hospital job too.",
+      "primary_subject": "college",
+      "primary_text": "Still teaching at Beacon College; considering leaving, but no decision or resignation.",
+      "expected": "Both jobs remain active. The two-job concern must not be ended or described as a past-only situation. No history may falsely describe a completed departure. A supported qualification about considering leaving is allowed."
+    },
+    {
+      "case_id": "brother_left",
+      "message": "My brother Bob left his job at Beacon College. I have not left my own Beacon College teaching job; I still work there and at Harbour Hospital. His decision is about his work, not mine.",
+      "primary_subject": "brother",
+      "primary_text": "Bob's own Beacon College employment has ended; the user's separate college employment continues.",
+      "expected": "Update Bob's employment only as ended. Neither user job nor the user's two-job concern may be ended. Mentions of the user's continuing jobs are allowed; no unsupported content or history change."
+    },
+    {
+      "case_id": "ended_chinese",
+      "message": "我在 Beacon College 的最后一节课已经结束了，也已经离职。我仍然在 Harbour Hospital 工作。至于我现在的心情，我还没有说。",
+      "primary_subject": "college",
+      "primary_text": "Beacon College employment has ended; Harbour Hospital employment continues. Present feelings have not been stated.",
+      "expected": "Qualify the concern's former two-active-job premise while preserving the fact's UUID and prior value in history. Do not infer relief, lack of worry or any new emotional state. Only college employment ends."
+    }
+  ]
+}

@@ -177,7 +177,8 @@ def _event(operation, schema, model, messages, result, exc, started, history_own
     return {
         "event": "provider_diagnostic", "correlation_id": uuid4().hex,
         "operation": operation, "stage": {"MutationPlanResponse": "fact_mutation", "TerminologyAlignmentResponse": "terminology_alignment", "FieldAlignmentResponse": "terminology_alignment",
-            "ResolutionResponse": "entity_resolution", "ExtractionMemorySchema": "extraction", "TomteMemorySchema": "extraction"}.get(getattr(schema, "__name__", ""), operation),
+            "UnresolvedResolutionResponse": "unresolved_resolution",
+            "ResolutionResponse": "entity_resolution", "CandidateFilterResponse": "candidate_filter", "ExtractionMemorySchema": "extraction", "TomteMemorySchema": "extraction"}.get(getattr(schema, "__name__", ""), operation),
         "schema": _name(schema) if isinstance(schema, type) else None,
         "proposal_recovery": result.recovery_summary() if isinstance(result, ProposalResponse) else None,
         "model_fingerprint": _fingerprint(model if isinstance(model, str) else getattr(model, "model_name", None)),
@@ -213,7 +214,9 @@ def observe_provider(model_attribute):
             started, result, error = time.monotonic(), None, None
             bound = signature.bind(self, *args, **kwargs)
             schema = bound.arguments.get("schema")
-            attribute = "cheap_model" if getattr(schema, "__name__", "") == "TerminologyAlignmentResponse" else model_attribute
+            attribute = {"CandidateFilterResponse": "candidate_filter_model",
+                         "TerminologyAlignmentResponse": "cheap_model",
+                         "FieldAlignmentResponse": "cheap_model"}.get(getattr(schema, "__name__", ""), model_attribute)
             model = getattr(self, attribute, None)
             metadata = {}
             token = _result_metadata.set(metadata)

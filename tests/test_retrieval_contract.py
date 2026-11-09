@@ -80,6 +80,7 @@ def test_row_metadata_precedence_and_empty_results(monkeypatch, provider, entity
 
 
 def test_registered_chat_context_equivalent_for_flat_and_postgres_rows(monkeypatch, provider, entity):
+    monkeypatch.setattr(provider, "get_unresolved_memories", Mock(return_value=[]))
     monkeypatch.setattr(provider, "find_session_entity_mentions", Mock(return_value=[]))
     monkeypatch.setattr(provider, "discover_session_entities", Mock(return_value=[]))
     heartbeat = Mock()

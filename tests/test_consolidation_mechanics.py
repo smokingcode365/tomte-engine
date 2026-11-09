@@ -218,7 +218,7 @@ def test_deterministic_insert_is_committed_and_retrievable(mechanics):
     context = ChatHookWorkflow().on_chat(case.tenant, case.session, QUESTION, ChatSenderRole.USER, case.user)
     assert "favorite_programming_language" in context["context_text"] and "Python" in context["context_text"]
     assert context["context_text"].count(payload["entity_id"]) == 1
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile", "mutate", "embed_batch", "embed_text"]
+    assert case.llm.calls == ["embed_text", "extract", "dictionary_embed", "align", "field_embed", "field_align", "embed_batch", "reconcile", "mutate", "embed_batch", "embed_text"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -243,7 +243,7 @@ def test_keyword_write_failure_rolls_back_only_dictionary_and_retains_ack_snapsh
     assert all(case.db.get_anchor_keywords(str(a)) == [] for a in case.anchors)
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == queue
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is not None
-    assert case.llm.calls == ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile", "mutate", "embed_batch"]
+    assert case.llm.calls == ["embed_text", "extract", "dictionary_embed", "align", "field_embed", "field_align", "embed_batch", "reconcile", "mutate", "embed_batch"]
     assert case.db.conn.info.transaction_status == TransactionStatus.IDLE
 
 
@@ -345,7 +345,7 @@ def run_message(case):
     queue = case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session)
     assert len(queue) == 1 and queue[0]["content"] == case.llm.message
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
-    expected = ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile"]
+    expected = ["embed_text", "extract", "dictionary_embed", "align", "field_embed", "field_align", "embed_batch", "reconcile"]
     if case.llm.mode != "INSERT":
         expected.append("contextual")
     expected.append("mutate")
@@ -655,7 +655,7 @@ def test_direct_worker_acknowledges_new_and_replayed_success(mechanics, monkeypa
     assert len(memory_rows(case)) == 1 and processed_count(case) == 1
     assert case.cache.pop_session_chat_log_4_consolidation(case.tenant, case.user, case.session) == []
     assert case.cache.client.zscore(get_section_key_active_sessions(), generate_session_ref(case.tenant, case.session, case.user)) is None
-    assert case.llm.calls == ([] if already_processed else ["embed_text", "is_junk", "extract", "dictionary_embed", "align", "field_embed", "field_align", "reconcile", "mutate", "embed_batch"])
+    assert case.llm.calls == ([] if already_processed else ["embed_text", "extract", "dictionary_embed", "align", "field_embed", "field_align", "embed_batch", "reconcile", "mutate", "embed_batch"])
 
 
 @pytest.mark.parametrize("raises", [False, True])

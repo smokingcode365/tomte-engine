@@ -14,19 +14,23 @@ class BudgetStop(RuntimeError):
 
 
 class ApiBudget:
-    # Standard short-context USD / million tokens, verified 2026-11-04.
+    # Standard short-context USD / million tokens; embedding prices verified 2026-11-06.
     # Cache writes are conservatively charged at 1.25x ordinary input.
     RATES = {
         'gpt-6.1-sol': (Decimal('2'), Decimal('10')),
+        'gpt-6.1-terra': (Decimal('1'), Decimal('5')),
         'gpt-6-luna': (Decimal('.1'), Decimal('.5')),
         'text-embedding-3-small': (Decimal('.02'), Decimal('0')),
+        'text-embedding-3-large': (Decimal('.13'), Decimal('0')),
     }
 
     def __init__(self, *, ceiling='1.80', estimate='1.25', request_limit=200,
-                 seconds=2700, output_tokens=8192):
+                 seconds=2700, output_tokens=8192, approved_ceiling=None):
         self.ceiling, self.estimate = Decimal(ceiling), Decimal(estimate)
-        if not 0 < self.ceiling < 5 or not 0 < self.estimate <= self.ceiling:
-            raise ValueError('Explicit estimate and ceiling below USD 5 required')
+        if not 0 < self.estimate <= self.ceiling:
+            raise ValueError('Positive explicit estimate and ceiling required')
+        if self.ceiling >= 5 and (approved_ceiling is None or Decimal(approved_ceiling) < self.ceiling):
+            raise ValueError('Ceilings at or above USD 5 require explicit approved_ceiling')
         self.request_limit, self.seconds, self.output_tokens = request_limit, seconds, output_tokens
         self.started = time.monotonic()
         self.charged = Decimal(0)
@@ -57,7 +61,7 @@ class ApiBudget:
             if model not in self.RATES or route not in ('/v1/responses', '/v1/embeddings'):
                 self.stop('unpriced_model_or_route')
             embedding = route.endswith('/embeddings')
-            if embedding != (model == 'text-embedding-3-small'):
+            if embedding != (model in ('text-embedding-3-small', 'text-embedding-3-large')):
                 self.stop('model_route_mismatch')
             if body.get('stream') or body.get('background') or body.get('previous_response_id'):
                 self.stop('unbounded_response_state')

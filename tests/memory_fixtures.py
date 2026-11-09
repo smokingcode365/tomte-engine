@@ -3,7 +3,7 @@ from copy import deepcopy
 from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
 import json
 from tomte.engine.core.memory import Fact, Entity
-from tomte.engine.llm.embedder import changed_search_entries
+from tomte.engine.llm.embedder import changed_search_entries, changed_retrieval_entries
 
 STAMP = "2026-10-09T12:00:00Z"
 
@@ -50,4 +50,6 @@ def prepare_write(tenant, user, payload, *, old=None, vector=None):
         op["_expected_payload"] = deepcopy(old)
     op["search_entries"] = [{**{k: v for k, v in e.items() if k != "text"}, "embedding": embedding}
                             for e in changed_search_entries(entity, old)]
+    op["retrieval_entries"] = [{**{k: v for k, v in e.items() if k != "text"}, "embedding": embedding}
+                               for e in changed_retrieval_entries(entity, old)]
     return op

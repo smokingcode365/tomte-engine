@@ -6,9 +6,22 @@ T = TypeVar('T', bound=BaseModel)
 class LLMProvider(Protocol):
     """The contract for the Tomte Engine's cognitive operations."""
 
+    # Optional capability: route CandidateFilterResponse through a cheap model.
+    # Custom providers opt in explicitly; older adapters retain the top-ten path.
+    supports_candidate_filter: bool = False
+
     def get_vector_dimension(self) -> int:
         """Returns the size of the vectors this model produces (e.g., 1536)."""
         ...
+
+    def get_embedding_cache_identity(self) -> str | None:
+        """Stable identity of the ACTUAL embedding deployment/configuration.
+
+        Include provider/endpoint, model/revision, dimensions and task mode as
+        appropriate. None disables shared caching; request-local reuse still works.
+        Never expose credentials. Change this identity when the vector space changes.
+        """
+        return None
 
     def embed_text(self, text: str) -> List[float]:
         """Generates a single vector for live RAG searches."""

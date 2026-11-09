@@ -94,24 +94,30 @@ def test_group_uses_each_targets_fact_uuid_and_leaves_third_entity_untouched():
     assert fact_text(af)==fact_text(bf)=='red'
     assert af['history_values'][0]['value']==a['payload']['facts'][0]['value'] and bf['history_values']==[]
     d['targets'][1]['resolution_confidence']=.5
-    assert resolve(workflow([d]),[entity('tmp_group','Both cars','red')],[a,b,c])==[]
+    selected=resolve(workflow([d]),[entity('tmp_group','Both cars','red')],[a,b,c])
+    assert {op['db_id'] for op in selected}=={a['id'],b['id']}  # Retired scores do not change the group.
 
 
-@pytest.mark.parametrize('defect',['abstain','changed_value','missing_proposal','mention_only'])
+@pytest.mark.parametrize('defect',['abstain','unknown_source','missing_proposal','foreign_fact'])
 def test_incomplete_group_plan_cannot_partially_write(defect):
     w,ops,a,b,c,d=group_setup()
     def incomplete(system_prompt,user_text,schema):
         response=mutation_response(schema,user_text)
         if defect=='abstain':response.plans[1].operations=[]
-        elif defect=='changed_value':response.plans[1].operations[0].fields=field_entries('different')
+        elif defect=='unknown_source':response.plans[1].operations[0].source_chat_ids=['not_offered']
         elif defect=='missing_proposal':response.plans[1].operations[0].incoming_fact_key=None
         else:
             from tomte.engine.core.assertions import FactMutation
-            response.plans[0].operations=[FactMutation(operation='MENTION',target_fact_id=a['payload']['facts'][0]['fact_id'],
+            response.plans[0].operations=[FactMutation(operation='MENTION',target_fact_id='8b935a2e-1e12-469c-8f15-6f3e48929e43',
                 source_chat_ids=['source'],incoming_fact_key=response.plans[0].operations[0].incoming_fact_key)]
         return response
     w.llm.parse_structured.side_effect=incomplete
     assert plan(w,ops)==[]
+
+
+# Different wording and MENTION are not structural defects: semantic equivalence
+# and already-known claims belong to the model. Positive group tests cover those
+# in test_group_mutation_contract; live evaluations must assess wrong meaning.
 
 
 @pytest.mark.parametrize('retired',['related_entity_ids','related_entity_uuids'])

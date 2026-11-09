@@ -1,0 +1,3605 @@
+{
+  "dataset_version": "memory-long-conversations-1",
+  "adjudication": "Authored semantic gold; LLM-assisted manual review, not independently blinded human labels. Held out from tuning, not from authoring.",
+  "rules": [
+    "Gold never enters engine/model input. Review extra claims, identity metadata and every stored item at every batch, not just expected facts.",
+    "Checkpoint required meanings are cumulative current expectations; meaningful prior states are explicitly included. Judge meaning rather than field names or phrasing.",
+    "An erroneous current value before a later correction is supported as what the user reported at that time. After correction it must not become a fabricated real historical event. Existing history is immutable.",
+    "Questions and assistant suggestions are not user assertions. Assistant proposals and unconfirmed hypotheses must not become confirmed facts.",
+    "Approximate dates and qualified schedules stay qualified. Confidence concerns support in user statements, not external truth.",
+    "Read query_relevant_memories separately from background_memories. Unknown queries must not acquire fabricated evidence; an unrelated candidate is a relevance error.",
+    "Required/optional misses, wrong propositions, identity errors, history errors and unresolved judgments are separate counts. Later success cannot erase earlier failure.",
+    "Use the frozen progression thresholds in the evaluation plan; do not tune on held-out validation. Preserve failures and mark consumed validation cases after any resulting fix."
+  ],
+  "cases": {
+    "concurrent_work": {
+      "structure": [
+        "Distinct user-job entities for Harbour, Beacon and later Orchard; changes preserve each existing subject UUID. Colleagues remain distinct supported subjects.",
+        "Real hospital move preserves prior address within its fact; address correction does not manufacture relocation. Ending Beacon preserves meaningful history and does not end Harbour."
+      ],
+      "checkpoints": [
+        {
+          "after_batch": 1,
+          "required": [
+            {
+              "id": "hospital",
+              "meaning": "User is a physiotherapist at Harbour Hospital, Mondays/Tuesdays, started approximately early 2024.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "hospital_address",
+              "meaning": "Hospital workplace is currently 12 Quay Road.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "beacon",
+              "meaning": "User teaches adult first aid at Beacon College, Saturday mornings, started approximately autumn 2025.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "beacon_address",
+              "meaning": "College address is reported as 8 Birch Street at this point.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "colleagues",
+              "meaning": "Alex Morgan is the hospital physiotherapist; Alex Reed is the distinct college teacher/coordinator.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "sunday",
+              "meaning": "User prefers Sundays free; this is a preference, not an agreed work shift.",
+              "source_turns": [
+                "u05"
+              ]
+            }
+          ],
+          "forbidden": [
+            "One combined employer for both jobs."
+          ]
+        },
+        {
+          "after_batch": 3,
+          "required": [
+            {
+              "id": "hospital",
+              "meaning": "User is a physiotherapist at Harbour Hospital, Mondays/Tuesdays, started approximately early 2024.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "hospital_address",
+              "meaning": "Hospital workplace is currently 12 Quay Road.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "beacon",
+              "meaning": "User teaches adult first aid at Beacon College, Saturday mornings, started approximately autumn 2025.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "beacon_address",
+              "meaning": "Actual Beacon workplace is 18 Birch Street; 8 was a mistaken report, not an earlier location.",
+              "source_turns": [
+                "u06"
+              ]
+            },
+            {
+              "id": "colleagues",
+              "meaning": "Alex Morgan is the hospital physiotherapist; Alex Reed is the distinct college teacher/coordinator.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "sunday",
+              "meaning": "User prefers Sundays free; this is a preference, not an agreed work shift.",
+              "source_turns": [
+                "u05"
+              ]
+            },
+            {
+              "id": "duration",
+              "meaning": "Beacon class lasts three hours; hospital start/finish times remain unspecified at this stage.",
+              "source_turns": [
+                "u08"
+              ]
+            }
+          ],
+          "forbidden": [
+            "A real move from 8 to 18 Birch Street.",
+            "A booked holiday."
+          ]
+        },
+        {
+          "after_batch": 5,
+          "required": [
+            {
+              "id": "hospital",
+              "meaning": "User is a physiotherapist at Harbour Hospital, Mondays/Tuesdays, started approximately early 2024.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "hospital_address",
+              "meaning": "Hospital workplace moved to 30 Dock Lane; actual earlier location was 12 Quay Road, with same employer/role.",
+              "source_turns": [
+                "u03",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "beacon",
+              "meaning": "User teaches adult first aid at Beacon College, Saturday mornings, started approximately autumn 2025.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "beacon_address",
+              "meaning": "Actual Beacon workplace is 18 Birch Street; 8 was a mistaken report, not an earlier location.",
+              "source_turns": [
+                "u06"
+              ]
+            },
+            {
+              "id": "colleagues",
+              "meaning": "Alex Morgan is the hospital physiotherapist; Alex Reed is the distinct college teacher/coordinator.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "sunday",
+              "meaning": "User prefers Sundays free; this is a preference, not an agreed work shift.",
+              "source_turns": [
+                "u05"
+              ]
+            },
+            {
+              "id": "duration",
+              "meaning": "Beacon class lasts three hours; hospital start/finish times remain unspecified at this stage.",
+              "source_turns": [
+                "u08"
+              ]
+            }
+          ],
+          "forbidden": [
+            "A new hospital employer or an accepted extra workshop."
+          ]
+        },
+        {
+          "after_batch": 7,
+          "required": [
+            {
+              "id": "hospital",
+              "meaning": "User is a physiotherapist at Harbour Hospital, Mondays/Tuesdays, started approximately early 2024.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "hospital_address",
+              "meaning": "Hospital workplace moved to 30 Dock Lane; actual earlier location was 12 Quay Road, with same employer/role.",
+              "source_turns": [
+                "u03",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "beacon",
+              "meaning": "Same Beacon adult first-aid role now runs Thursday evenings, previously Saturday mornings; start remains approximately autumn 2025.",
+              "source_turns": [
+                "u01",
+                "u04",
+                "u16"
+              ]
+            },
+            {
+              "id": "beacon_address",
+              "meaning": "Actual Beacon workplace is 18 Birch Street; 8 was a mistaken report, not an earlier location.",
+              "source_turns": [
+                "u06"
+              ]
+            },
+            {
+              "id": "colleagues",
+              "meaning": "Alex Morgan is the hospital physiotherapist; Alex Reed is the distinct college teacher/coordinator.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "sunday",
+              "meaning": "User prefers Sundays free; this is a preference, not an agreed work shift.",
+              "source_turns": [
+                "u05"
+              ]
+            },
+            {
+              "id": "duration",
+              "meaning": "Beacon class lasts three hours.",
+              "source_turns": [
+                "u08",
+                "u16"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Hospital shifts changed to Thursday.",
+            "Agreed Sunday teaching."
+          ]
+        },
+        {
+          "after_batch": 9,
+          "required": [
+            {
+              "id": "hospital",
+              "meaning": "User is a physiotherapist at Harbour Hospital, Mondays/Tuesdays, started approximately early 2024.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "hospital_address",
+              "meaning": "Hospital workplace moved to 30 Dock Lane; actual earlier location was 12 Quay Road, with same employer/role.",
+              "source_turns": [
+                "u03",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "beacon",
+              "meaning": "Beacon adult first-aid job has ended. It formerly ran Saturday mornings then Thursday evenings; Harbour employment continues.",
+              "source_turns": [
+                "u01",
+                "u16",
+                "u21"
+              ]
+            },
+            {
+              "id": "beacon_address",
+              "meaning": "Actual Beacon workplace is 18 Birch Street; 8 was a mistaken report, not an earlier location.",
+              "source_turns": [
+                "u06"
+              ]
+            },
+            {
+              "id": "colleagues",
+              "meaning": "Alex Morgan remains hospital colleague; Alex Reed is known from former college work, not asserted to have left his employer.",
+              "source_turns": [
+                "u02",
+                "u23"
+              ]
+            },
+            {
+              "id": "sunday",
+              "meaning": "User prefers Sundays free; this is a preference, not an agreed work shift.",
+              "source_turns": [
+                "u05"
+              ]
+            },
+            {
+              "id": "duration",
+              "meaning": "The ended Beacon class lasted three hours.",
+              "source_turns": [
+                "u08",
+                "u16",
+                "u21"
+              ]
+            }
+          ],
+          "forbidden": [
+            "User has no current job.",
+            "Beacon remains active."
+          ]
+        },
+        {
+          "after_batch": 11,
+          "required": [
+            {
+              "id": "hospital",
+              "meaning": "User is a physiotherapist at Harbour Hospital, Mondays/Tuesdays, started approximately early 2024.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "hospital_address",
+              "meaning": "Hospital workplace moved to 30 Dock Lane; actual earlier location was 12 Quay Road, with same employer/role.",
+              "source_turns": [
+                "u03",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "beacon",
+              "meaning": "Beacon adult first-aid job has ended. It formerly ran Saturday mornings then Thursday evenings; Harbour employment continues.",
+              "source_turns": [
+                "u01",
+                "u16",
+                "u21"
+              ]
+            },
+            {
+              "id": "beacon_address",
+              "meaning": "Actual Beacon workplace is 18 Birch Street; 8 was a mistaken report, not an earlier location.",
+              "source_turns": [
+                "u06"
+              ]
+            },
+            {
+              "id": "colleagues",
+              "meaning": "Alex Morgan remains hospital colleague; Alex Reed is known from former college work, not asserted to have left his employer.",
+              "source_turns": [
+                "u02",
+                "u23"
+              ]
+            },
+            {
+              "id": "sunday",
+              "meaning": "User prefers Sundays free; this is a preference, not an agreed work shift.",
+              "source_turns": [
+                "u05"
+              ]
+            },
+            {
+              "id": "duration",
+              "meaning": "The ended Beacon class lasted three hours.",
+              "source_turns": [
+                "u08",
+                "u16",
+                "u21"
+              ]
+            },
+            {
+              "id": "orchard",
+              "meaning": "New separate Orchard Centre first-aid teaching role, Friday afternoons, teenage students, 4 Market Square; Sam Patel coordinates it.",
+              "source_turns": [
+                "u26",
+                "u27",
+                "u28"
+              ]
+            },
+            {
+              "id": "active_jobs",
+              "meaning": "Harbour and Orchard are current; Beacon has ended.",
+              "source_turns": [
+                "u21",
+                "u26",
+                "u29"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Orchard replaces the identity of the former Beacon job."
+          ]
+        },
+        {
+          "after_batch": 13,
+          "required": [
+            {
+              "id": "hospital",
+              "meaning": "Same continuing Harbour physiotherapy job Mondays/Tuesdays; appointments now start 09:00, finishing time unknown; start approximately early 2024.",
+              "source_turns": [
+                "u01",
+                "u04",
+                "u31"
+              ]
+            },
+            {
+              "id": "hospital_address",
+              "meaning": "Hospital workplace moved to 30 Dock Lane; actual earlier location was 12 Quay Road, with same employer/role.",
+              "source_turns": [
+                "u03",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "beacon",
+              "meaning": "Beacon adult first-aid job has ended. It formerly ran Saturday mornings then Thursday evenings; Harbour employment continues.",
+              "source_turns": [
+                "u01",
+                "u16",
+                "u21"
+              ]
+            },
+            {
+              "id": "beacon_address",
+              "meaning": "Actual Beacon workplace is 18 Birch Street; 8 was a mistaken report, not an earlier location.",
+              "source_turns": [
+                "u06"
+              ]
+            },
+            {
+              "id": "colleagues",
+              "meaning": "Alex Morgan remains hospital colleague; Alex Reed is known from former college work, not asserted to have left his employer.",
+              "source_turns": [
+                "u02",
+                "u23"
+              ]
+            },
+            {
+              "id": "sunday",
+              "meaning": "User prefers Sundays free; this is a preference, not an agreed work shift.",
+              "source_turns": [
+                "u05"
+              ]
+            },
+            {
+              "id": "duration",
+              "meaning": "The ended Beacon class lasted three hours.",
+              "source_turns": [
+                "u08",
+                "u16",
+                "u21"
+              ]
+            },
+            {
+              "id": "orchard",
+              "meaning": "New separate Orchard Centre first-aid teaching role, Friday afternoons, teenage students, 4 Market Square; Sam Patel coordinates it.",
+              "source_turns": [
+                "u26",
+                "u27",
+                "u28"
+              ]
+            },
+            {
+              "id": "active_jobs",
+              "meaning": "Harbour and Orchard are current; Beacon has ended.",
+              "source_turns": [
+                "u21",
+                "u26",
+                "u29"
+              ]
+            },
+            {
+              "id": "social",
+              "meaning": "Social contact with Alex Reed does not restart Beacon employment.",
+              "source_turns": [
+                "u33"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Beacon has restarted."
+          ]
+        },
+        {
+          "after_batch": 15,
+          "required": [
+            {
+              "id": "hospital",
+              "meaning": "Same continuing Harbour physiotherapy job Mondays/Tuesdays; appointments now start 09:00, finishing time unknown; start approximately early 2024.",
+              "source_turns": [
+                "u01",
+                "u04",
+                "u31"
+              ]
+            },
+            {
+              "id": "hospital_address",
+              "meaning": "Hospital workplace moved to 30 Dock Lane; actual earlier location was 12 Quay Road, with same employer/role.",
+              "source_turns": [
+                "u03",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "beacon",
+              "meaning": "Beacon adult first-aid job has ended. It formerly ran Saturday mornings then Thursday evenings; Harbour employment continues.",
+              "source_turns": [
+                "u01",
+                "u16",
+                "u21"
+              ]
+            },
+            {
+              "id": "beacon_address",
+              "meaning": "Actual Beacon workplace is 18 Birch Street; 8 was a mistaken report, not an earlier location.",
+              "source_turns": [
+                "u06"
+              ]
+            },
+            {
+              "id": "colleagues",
+              "meaning": "Alex Morgan remains hospital colleague; Alex Reed is known from former college work, not asserted to have left his employer.",
+              "source_turns": [
+                "u02",
+                "u23"
+              ]
+            },
+            {
+              "id": "sunday",
+              "meaning": "User prefers Sundays free; this is a preference, not an agreed work shift.",
+              "source_turns": [
+                "u05"
+              ]
+            },
+            {
+              "id": "duration",
+              "meaning": "The ended Beacon class lasted three hours.",
+              "source_turns": [
+                "u08",
+                "u16",
+                "u21"
+              ]
+            },
+            {
+              "id": "orchard",
+              "meaning": "New separate Orchard Centre first-aid teaching role, Friday afternoons, teenage students, 4 Market Square; Sam Patel coordinates it.",
+              "source_turns": [
+                "u26",
+                "u27",
+                "u28"
+              ]
+            },
+            {
+              "id": "active_jobs",
+              "meaning": "Harbour and Orchard are current; Beacon has ended.",
+              "source_turns": [
+                "u21",
+                "u26",
+                "u29"
+              ]
+            },
+            {
+              "id": "social",
+              "meaning": "Social contact with Alex Reed does not restart Beacon employment.",
+              "source_turns": [
+                "u33"
+              ]
+            },
+            {
+              "id": "pay",
+              "meaning": "No pay rate is supplied for any job; do not infer one.",
+              "source_turns": [
+                "u39"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Invented salary or precise Orchard start date."
+          ]
+        }
+      ],
+      "retrieval": [
+        {
+          "query_id": "q01",
+          "meaning": "Harbour 12 Quay Road; Beacon 18 Birch Street, correcting 8 without a move.",
+          "source_turns": [
+            "u03",
+            "u06"
+          ]
+        },
+        {
+          "query_id": "q02",
+          "meaning": "Harbour Monday/Tuesday; Beacon Thursday evening, previously Saturday morning.",
+          "source_turns": [
+            "u01",
+            "u16",
+            "u18"
+          ]
+        },
+        {
+          "query_id": "q03",
+          "meaning": "Beacon ended; Harbour physiotherapy continues.",
+          "source_turns": [
+            "u21",
+            "u24"
+          ]
+        },
+        {
+          "query_id": "q04",
+          "meaning": "Sam Patel; teenage first-aid students, distinct from Beacon adults.",
+          "source_turns": [
+            "u27",
+            "u28"
+          ]
+        },
+        {
+          "query_id": "q05",
+          "meaning": "Harbour physiotherapy Monday/Tuesday from 09:00; Orchard first aid Friday afternoon.",
+          "source_turns": [
+            "u26",
+            "u31",
+            "u35"
+          ]
+        },
+        {
+          "query_id": "q06",
+          "meaning": "Adult first aid, Saturday morning then Thursday evening, now ended; address correction 18 not actual previous 8.",
+          "source_turns": [
+            "u06",
+            "u16",
+            "u21"
+          ]
+        },
+        {
+          "query_id": "q07",
+          "meaning": "Morgan hospital physiotherapist; Reed college teacher/coordinator.",
+          "source_turns": [
+            "u02",
+            "u34",
+            "u40"
+          ]
+        },
+        {
+          "query_id": "q08",
+          "meaning": "No supported rate is available; no invented number.",
+          "source_turns": [
+            "u39"
+          ]
+        }
+      ],
+      "optional": []
+    },
+    "two_civic_cars": {
+      "structure": [
+        "Two car UUIDs stay distinct through repaint, tyres and parking updates; no new car created by changed descriptions.",
+        "Same-fact history retains actual paint, tyres and parking changes; plans and uncertain diagnosis do not become confirmed past events."
+      ],
+      "checkpoints": [
+        {
+          "after_batch": 1,
+          "required": [
+            {
+              "id": "cars",
+              "meaning": "User owns Pebble, blue 2017 Honda Civic, and Comet, silver 2021 Honda Civic; genuine distinct nicknames and model years.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "tyres",
+              "meaning": "Pebble Michelin; Comet Continental.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "parking",
+              "meaning": "Pebble garage; Comet street.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "folders",
+              "meaning": "Pebble documents green folder; Comet documents grey folder, not car paint.",
+              "source_turns": [
+                "u04"
+              ]
+            }
+          ],
+          "forbidden": [
+            "A single car or swapped tyres."
+          ]
+        },
+        {
+          "after_batch": 3,
+          "required": [
+            {
+              "id": "cars",
+              "meaning": "User owns Pebble, blue 2017 Honda Civic, and Comet, silver 2021 Honda Civic; genuine distinct nicknames and model years.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "tyres",
+              "meaning": "Pebble Michelin; Comet Continental.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "parking",
+              "meaning": "Pebble garage; Comet street.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "folders",
+              "meaning": "Pebble documents green folder; Comet documents grey folder, not car paint.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "brakes",
+              "meaning": "Pebble front brake pads replaced at Lakeside service; rear pads unchanged; brand unknown.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "paint_plan",
+              "meaning": "White repaint only considered at this checkpoint; Pebble still blue.",
+              "source_turns": [
+                "u08"
+              ]
+            }
+          ],
+          "forbidden": [
+            "White paint already completed."
+          ]
+        },
+        {
+          "after_batch": 5,
+          "required": [
+            {
+              "id": "cars",
+              "meaning": "Same owned Pebble 2017 Civic is now white, formerly blue; Comet 2021 remains silver.",
+              "source_turns": [
+                "u01",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "tyres",
+              "meaning": "Pebble Michelin; Comet Continental.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "parking",
+              "meaning": "Pebble garage; Comet street.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "folders",
+              "meaning": "Pebble documents green folder; Comet documents grey folder, not car paint.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "brakes",
+              "meaning": "Pebble front brake pads replaced at Lakeside service; rear pads unchanged; brand unknown.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "paint_plan",
+              "meaning": "Earlier considered repaint has now happened on Pebble only.",
+              "source_turns": [
+                "u08",
+                "u11"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Comet repainted."
+          ]
+        },
+        {
+          "after_batch": 7,
+          "required": [
+            {
+              "id": "cars",
+              "meaning": "Same owned Pebble 2017 Civic is now white, formerly blue; Comet 2021 remains silver.",
+              "source_turns": [
+                "u01",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "tyres",
+              "meaning": "Pebble now Pirelli, previously Michelin; Comet still Continental.",
+              "source_turns": [
+                "u02",
+                "u16"
+              ]
+            },
+            {
+              "id": "parking",
+              "meaning": "Pebble garage unchanged; Comet now covered rented space, formerly street.",
+              "source_turns": [
+                "u02",
+                "u18"
+              ]
+            },
+            {
+              "id": "folders",
+              "meaning": "Pebble documents green folder; Comet documents grey folder, not car paint.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "brakes",
+              "meaning": "Pebble front brake pads replaced at Lakeside service; rear pads unchanged; brand unknown.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "paint_plan",
+              "meaning": "Earlier considered repaint has now happened on Pebble only.",
+              "source_turns": [
+                "u08",
+                "u11"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Comet got Pirelli tyres."
+          ]
+        },
+        {
+          "after_batch": 9,
+          "required": [
+            {
+              "id": "cars",
+              "meaning": "Same owned Pebble 2017 Civic is now white, formerly blue; Comet 2021 remains silver.",
+              "source_turns": [
+                "u01",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "tyres",
+              "meaning": "Pebble now Pirelli, previously Michelin; Comet still Continental.",
+              "source_turns": [
+                "u02",
+                "u16"
+              ]
+            },
+            {
+              "id": "parking",
+              "meaning": "Pebble garage unchanged; Comet now covered rented space, formerly street.",
+              "source_turns": [
+                "u02",
+                "u18"
+              ]
+            },
+            {
+              "id": "folders",
+              "meaning": "Pebble documents green folder; Comet documents grey folder, not car paint.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "brakes",
+              "meaning": "Pebble front brake pads replaced at Lakeside service; rear pads unchanged; brand unknown.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "paint_plan",
+              "meaning": "Earlier considered repaint has now happened on Pebble only.",
+              "source_turns": [
+                "u08",
+                "u11"
+              ]
+            },
+            {
+              "id": "rattle",
+              "meaning": "Comet has undiagnosed rattle with inspection booked; loose heat shield is only a possible cause at this point.",
+              "source_turns": [
+                "u21",
+                "u22"
+              ]
+            },
+            {
+              "id": "ownership",
+              "meaning": "Both still owned; sale is only considered.",
+              "source_turns": [
+                "u24"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Confirmed heat-shield diagnosis or sale at this checkpoint."
+          ]
+        },
+        {
+          "after_batch": 11,
+          "required": [
+            {
+              "id": "cars",
+              "meaning": "Same owned Pebble 2017 Civic is now white, formerly blue; Comet 2021 remains silver.",
+              "source_turns": [
+                "u01",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "tyres",
+              "meaning": "Pebble now Pirelli, previously Michelin; Comet still Continental.",
+              "source_turns": [
+                "u02",
+                "u16"
+              ]
+            },
+            {
+              "id": "parking",
+              "meaning": "Pebble garage unchanged; Comet now covered rented space, formerly street.",
+              "source_turns": [
+                "u02",
+                "u18"
+              ]
+            },
+            {
+              "id": "folders",
+              "meaning": "Pebble documents green folder; Comet documents grey folder, not car paint.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "brakes",
+              "meaning": "Pebble front brake pads replaced at Lakeside service; rear pads unchanged; brand unknown.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "paint_plan",
+              "meaning": "Earlier considered repaint has now happened on Pebble only.",
+              "source_turns": [
+                "u08",
+                "u11"
+              ]
+            },
+            {
+              "id": "rattle",
+              "meaning": "Comet rattle confirmed as loose heat shield, secured; noise stopped. Not an engine replacement.",
+              "source_turns": [
+                "u26",
+                "u30"
+              ]
+            },
+            {
+              "id": "ownership",
+              "meaning": "Both remain owned; contemplated sale abandoned for now.",
+              "source_turns": [
+                "u28"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Engine replacement or confirmed garage for Comet."
+          ]
+        },
+        {
+          "after_batch": 13,
+          "required": [
+            {
+              "id": "cars",
+              "meaning": "Same owned Pebble 2017 Civic is now white, formerly blue; Comet 2021 remains silver.",
+              "source_turns": [
+                "u01",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "tyres",
+              "meaning": "Pebble now Pirelli, previously Michelin; Comet still Continental.",
+              "source_turns": [
+                "u02",
+                "u16"
+              ]
+            },
+            {
+              "id": "parking",
+              "meaning": "Pebble garage unchanged; Comet now covered rented space, formerly street.",
+              "source_turns": [
+                "u02",
+                "u18"
+              ]
+            },
+            {
+              "id": "folders",
+              "meaning": "Pebble documents green folder; Comet documents grey folder, not car paint.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "brakes",
+              "meaning": "Pebble front brake pads replaced at Lakeside service; rear pads unchanged; brand unknown.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "paint_plan",
+              "meaning": "Earlier considered repaint has now happened on Pebble only.",
+              "source_turns": [
+                "u08",
+                "u11"
+              ]
+            },
+            {
+              "id": "rattle",
+              "meaning": "Comet rattle confirmed as loose heat shield, secured; noise stopped. Not an engine replacement.",
+              "source_turns": [
+                "u26",
+                "u30"
+              ]
+            },
+            {
+              "id": "ownership",
+              "meaning": "Both remain owned; contemplated sale abandoned for now.",
+              "source_turns": [
+                "u28"
+              ]
+            },
+            {
+              "id": "loan",
+              "meaning": "Future unnamed-cousin weekend loan of Comet next month; user retains ownership and exact dates unknown.",
+              "source_turns": [
+                "u31",
+                "u35"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Loan transfers ownership or creates a third car."
+          ]
+        },
+        {
+          "after_batch": 15,
+          "required": [
+            {
+              "id": "cars",
+              "meaning": "Same owned Pebble 2017 Civic is now white, formerly blue; Comet 2021 remains silver.",
+              "source_turns": [
+                "u01",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "tyres",
+              "meaning": "Pebble now Pirelli, previously Michelin; Comet still Continental.",
+              "source_turns": [
+                "u02",
+                "u16"
+              ]
+            },
+            {
+              "id": "parking",
+              "meaning": "Pebble garage unchanged; Comet now covered rented space, formerly street.",
+              "source_turns": [
+                "u02",
+                "u18"
+              ]
+            },
+            {
+              "id": "folders",
+              "meaning": "Pebble documents green folder; Comet documents grey folder, not car paint.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "brakes",
+              "meaning": "Pebble front brake pads replaced at Lakeside service; rear pads unchanged; brand unknown.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "paint_plan",
+              "meaning": "Earlier considered repaint has now happened on Pebble only.",
+              "source_turns": [
+                "u08",
+                "u11"
+              ]
+            },
+            {
+              "id": "rattle",
+              "meaning": "Comet rattle confirmed as loose heat shield, secured; noise stopped. Not an engine replacement.",
+              "source_turns": [
+                "u26",
+                "u30"
+              ]
+            },
+            {
+              "id": "ownership",
+              "meaning": "Both remain owned; contemplated sale abandoned for now.",
+              "source_turns": [
+                "u28"
+              ]
+            },
+            {
+              "id": "loan",
+              "meaning": "Future unnamed-cousin weekend loan of Comet next month; user retains ownership and exact dates unknown.",
+              "source_turns": [
+                "u31",
+                "u35"
+              ]
+            },
+            {
+              "id": "unknowns",
+              "meaning": "No tyre cost, registration numbers or purchase dates supplied. Model years are not purchase dates.",
+              "source_turns": [
+                "u38",
+                "u39"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Invented price, registration or purchase year."
+          ]
+        }
+      ],
+      "retrieval": [
+        {
+          "query_id": "q01",
+          "meaning": "Still blue; repaint only considered. Front brake pads replaced, no tyre replacement.",
+          "source_turns": [
+            "u06",
+            "u07",
+            "u08"
+          ]
+        },
+        {
+          "query_id": "q02",
+          "meaning": "Pebble Pirelli/garage; Comet Continental/covered space, formerly street.",
+          "source_turns": [
+            "u16",
+            "u18"
+          ]
+        },
+        {
+          "query_id": "q03",
+          "meaning": "No diagnosis yet; heat shield only possible, inspection pending.",
+          "source_turns": [
+            "u21",
+            "u22"
+          ]
+        },
+        {
+          "query_id": "q04",
+          "meaning": "Comet loose heat shield secured; no engine replacement.",
+          "source_turns": [
+            "u26",
+            "u30"
+          ]
+        },
+        {
+          "query_id": "q05",
+          "meaning": "Same Pebble: blue before, white now; Comet silver.",
+          "source_turns": [
+            "u11",
+            "u36"
+          ]
+        },
+        {
+          "query_id": "q06",
+          "meaning": "Pebble 2017 Michelin then Pirelli; Comet 2021 Continental unchanged.",
+          "source_turns": [
+            "u01",
+            "u16",
+            "u37"
+          ]
+        },
+        {
+          "query_id": "q07",
+          "meaning": "Both owned; future Comet weekend loan, no sale or ownership transfer.",
+          "source_turns": [
+            "u28",
+            "u31",
+            "u36"
+          ]
+        },
+        {
+          "query_id": "q08",
+          "meaning": "No supported amount available.",
+          "source_turns": [
+            "u19",
+            "u39"
+          ]
+        }
+      ],
+      "optional": []
+    },
+    "brothers_and_work": {
+      "structure": [
+        "Two brothers retain their UUIDs; Dan maps to Daniel. Daniel concurrent employments may share attribute_name but have separate fact UUIDs.",
+        "Ending Daniel teaching must update only that instance; his pharmacy and David facts survive. Residence and actual rota changes retain meaningful history."
+      ],
+      "checkpoints": [
+        {
+          "after_batch": 1,
+          "required": [
+            {
+              "id": "people",
+              "meaning": "Daniel and David are distinct user brothers and pharmacists; Daniel Rowan, David Linden.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "homes",
+              "meaning": "Daniel near river in York; David near university in York; exact addresses unknown.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "daniel_teaching",
+              "meaning": "Daniel also currently teaches first aid at Northgate College every Wednesday evening.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "rotas",
+              "meaning": "David Linden Monday/Wednesday/Friday; Daniel pharmacy rota varies.",
+              "source_turns": [
+                "u04"
+              ]
+            }
+          ],
+          "forbidden": [
+            "One merged brother or college work assigned to David."
+          ]
+        },
+        {
+          "after_batch": 3,
+          "required": [
+            {
+              "id": "people",
+              "meaning": "Daniel and David are distinct user brothers and pharmacists; Daniel Rowan, David Linden.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "homes",
+              "meaning": "Daniel near river in York; David near university in York; exact addresses unknown.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "daniel_teaching",
+              "meaning": "Daniel also currently teaches first aid at Northgate College every Wednesday evening.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "rotas",
+              "meaning": "David Linden Monday/Wednesday/Friday; Daniel pharmacy rota varies.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "offer",
+              "meaning": "One unidentified brother reportedly received Durham pharmacy offer; no supported identity, acceptance, employer name or home move yet.",
+              "source_turns": [
+                "u06",
+                "u07",
+                "u10"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Durham offer attributed to a named brother or a confirmed move."
+          ]
+        },
+        {
+          "after_batch": 5,
+          "required": [
+            {
+              "id": "people",
+              "meaning": "Daniel and David are distinct user brothers and pharmacists; Daniel Rowan, David Linden.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "homes",
+              "meaning": "Daniel near river in York; David near university in York; exact addresses unknown.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "daniel_teaching",
+              "meaning": "Daniel also currently teaches first aid at Northgate College every Wednesday evening.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "rotas",
+              "meaning": "David Linden Monday/Wednesday/Friday; Daniel pharmacy rota varies.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "offer",
+              "meaning": "David received and declined Ash Pharmacy Durham offer; never held that job or moved there. Daniel was not recipient.",
+              "source_turns": [
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "classroom",
+              "meaning": "Daniel Northgate classroom second floor.",
+              "source_turns": [
+                "u13"
+              ]
+            },
+            {
+              "id": "lunch",
+              "meaning": "Family lunch planned next Sunday; restaurant and exact calendar date not supplied.",
+              "source_turns": [
+                "u14"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Ash treated as current or former employer."
+          ]
+        },
+        {
+          "after_batch": 7,
+          "required": [
+            {
+              "id": "people",
+              "meaning": "Daniel and David are distinct user brothers and pharmacists; Daniel Rowan, David Linden.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "homes",
+              "meaning": "Daniel now near Leeds station, formerly near York river; David remains near York university. Exact addresses unknown.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "daniel_teaching",
+              "meaning": "Same Northgate Wednesday-evening first-aid role now online from home, previously second-floor classroom; Rowan work still in person.",
+              "source_turns": [
+                "u03",
+                "u13",
+                "u18"
+              ]
+            },
+            {
+              "id": "rotas",
+              "meaning": "David Linden Monday/Wednesday/Friday; Daniel pharmacy rota varies.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "offer",
+              "meaning": "David received and declined Ash Pharmacy Durham offer; never held that job or moved there. Daniel was not recipient.",
+              "source_turns": [
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "classroom",
+              "meaning": "Original Northgate teaching classroom was on the second floor before the switch to online teaching.",
+              "source_turns": [
+                "u13",
+                "u18"
+              ]
+            },
+            {
+              "id": "lunch",
+              "meaning": "Family lunch planned next Sunday; restaurant and exact calendar date not supplied.",
+              "source_turns": [
+                "u14"
+              ]
+            }
+          ],
+          "forbidden": [
+            "David moved to Leeds or both jobs ended."
+          ]
+        },
+        {
+          "after_batch": 9,
+          "required": [
+            {
+              "id": "people",
+              "meaning": "Daniel and David are distinct user brothers and pharmacists; Daniel Rowan, David Linden.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "homes",
+              "meaning": "Daniel now near Leeds station, formerly near York river; David remains near York university. Exact addresses unknown.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "daniel_teaching",
+              "meaning": "Same Northgate Wednesday-evening first-aid role now online from home, previously second-floor classroom; Rowan work still in person.",
+              "source_turns": [
+                "u03",
+                "u13",
+                "u18"
+              ]
+            },
+            {
+              "id": "rotas",
+              "meaning": "David Linden Monday/Wednesday/Friday; Daniel pharmacy rota varies.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "offer",
+              "meaning": "David received and declined Ash Pharmacy Durham offer; never held that job or moved there. Daniel was not recipient.",
+              "source_turns": [
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "classroom",
+              "meaning": "Original Northgate teaching classroom was on the second floor before the switch to online teaching.",
+              "source_turns": [
+                "u13",
+                "u18"
+              ]
+            },
+            {
+              "id": "lunch",
+              "meaning": "Family lunch canceled, no replacement booked.",
+              "source_turns": [
+                "u14",
+                "u25"
+              ]
+            },
+            {
+              "id": "rota_ambiguity",
+              "meaning": "Unidentified pharmacy-day change remains unresolved; no supported replacement to a named person at this checkpoint.",
+              "source_turns": [
+                "u21",
+                "u23"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Named rota replacement inferred from assistant guess."
+          ]
+        },
+        {
+          "after_batch": 11,
+          "required": [
+            {
+              "id": "people",
+              "meaning": "Daniel and David are distinct user brothers and pharmacists; Daniel Rowan, David Linden.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "homes",
+              "meaning": "Daniel now near Leeds station, formerly near York river; David remains near York university. Exact addresses unknown.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "daniel_teaching",
+              "meaning": "Same Northgate Wednesday-evening first-aid role now online from home, previously second-floor classroom; Rowan work still in person.",
+              "source_turns": [
+                "u03",
+                "u13",
+                "u18"
+              ]
+            },
+            {
+              "id": "rotas",
+              "meaning": "David now Tuesday/Wednesday/Friday, formerly Monday/Wednesday/Friday. Daniel pharmacy rota still varies.",
+              "source_turns": [
+                "u04",
+                "u26"
+              ]
+            },
+            {
+              "id": "offer",
+              "meaning": "David received and declined Ash Pharmacy Durham offer; never held that job or moved there. Daniel was not recipient.",
+              "source_turns": [
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "classroom",
+              "meaning": "Original Northgate teaching classroom was on the second floor before the switch to online teaching.",
+              "source_turns": [
+                "u13",
+                "u18"
+              ]
+            },
+            {
+              "id": "lunch",
+              "meaning": "Family lunch canceled, no replacement booked.",
+              "source_turns": [
+                "u14",
+                "u25"
+              ]
+            },
+            {
+              "id": "rota_ambiguity",
+              "meaning": "Previously ambiguous pharmacy change resolved to David, Monday replaced with Tuesday.",
+              "source_turns": [
+                "u21",
+                "u26"
+              ]
+            },
+            {
+              "id": "teaching_end",
+              "meaning": "Daniel plans to finish Northgate this month; still active at this checkpoint and exact end date unknown.",
+              "source_turns": [
+                "u28"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Daniel teaching already ended."
+          ]
+        },
+        {
+          "after_batch": 13,
+          "required": [
+            {
+              "id": "people",
+              "meaning": "Daniel and David are distinct user brothers and pharmacists; Daniel Rowan, David Linden.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "homes",
+              "meaning": "Daniel now near Leeds station, formerly near York river; David remains near York university. Exact addresses unknown.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "daniel_teaching",
+              "meaning": "Daniel Northgate teaching ended after final class yesterday; Rowan pharmacy remains current. Earlier Wednesday class became online before ending.",
+              "source_turns": [
+                "u18",
+                "u31",
+                "u32"
+              ]
+            },
+            {
+              "id": "rotas",
+              "meaning": "David now Tuesday/Wednesday/Friday, formerly Monday/Wednesday/Friday. Daniel pharmacy rota still varies.",
+              "source_turns": [
+                "u04",
+                "u26"
+              ]
+            },
+            {
+              "id": "offer",
+              "meaning": "David received and declined Ash Pharmacy Durham offer; never held that job or moved there. Daniel was not recipient.",
+              "source_turns": [
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "classroom",
+              "meaning": "Original Northgate teaching classroom was on the second floor before the switch to online teaching.",
+              "source_turns": [
+                "u13",
+                "u18"
+              ]
+            },
+            {
+              "id": "lunch",
+              "meaning": "Family lunch canceled, no replacement booked.",
+              "source_turns": [
+                "u14",
+                "u25"
+              ]
+            },
+            {
+              "id": "rota_ambiguity",
+              "meaning": "Previously ambiguous pharmacy change resolved to David, Monday replaced with Tuesday.",
+              "source_turns": [
+                "u21",
+                "u26"
+              ]
+            },
+            {
+              "id": "teaching_end",
+              "meaning": "Previously planned Northgate ending has now happened; it does not end Rowan.",
+              "source_turns": [
+                "u28",
+                "u31"
+              ]
+            },
+            {
+              "id": "nickname",
+              "meaning": "Dan is Daniel, not David or a new person.",
+              "source_turns": [
+                "u35"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Daniel lost both jobs or Dan is a new person."
+          ]
+        },
+        {
+          "after_batch": 15,
+          "required": [
+            {
+              "id": "people",
+              "meaning": "Daniel and David are distinct user brothers and pharmacists; Daniel Rowan, David Linden.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "homes",
+              "meaning": "Daniel now near Leeds station, formerly near York river; David remains near York university. Exact addresses unknown.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "daniel_teaching",
+              "meaning": "Daniel Northgate teaching ended after final class yesterday; Rowan pharmacy remains current. Earlier Wednesday class became online before ending.",
+              "source_turns": [
+                "u18",
+                "u31",
+                "u32"
+              ]
+            },
+            {
+              "id": "rotas",
+              "meaning": "David now Tuesday/Wednesday/Friday, formerly Monday/Wednesday/Friday. Daniel pharmacy rota still varies.",
+              "source_turns": [
+                "u04",
+                "u26"
+              ]
+            },
+            {
+              "id": "offer",
+              "meaning": "David received and declined Ash Pharmacy Durham offer; never held that job or moved there. Daniel was not recipient.",
+              "source_turns": [
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "classroom",
+              "meaning": "Original Northgate teaching classroom was on the second floor before the switch to online teaching.",
+              "source_turns": [
+                "u13",
+                "u18"
+              ]
+            },
+            {
+              "id": "lunch",
+              "meaning": "Family lunch canceled, no replacement booked.",
+              "source_turns": [
+                "u14",
+                "u25"
+              ]
+            },
+            {
+              "id": "rota_ambiguity",
+              "meaning": "Previously ambiguous pharmacy change resolved to David, Monday replaced with Tuesday.",
+              "source_turns": [
+                "u21",
+                "u26"
+              ]
+            },
+            {
+              "id": "teaching_end",
+              "meaning": "Previously planned Northgate ending has now happened; it does not end Rowan.",
+              "source_turns": [
+                "u28",
+                "u31"
+              ]
+            },
+            {
+              "id": "nickname",
+              "meaning": "Dan is Daniel, not David or a new person.",
+              "source_turns": [
+                "u35"
+              ]
+            },
+            {
+              "id": "unknowns",
+              "meaning": "Exact salaries and home addresses unknown; location hints do not establish street numbers.",
+              "source_turns": [
+                "u37"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Exact addresses or salaries invented."
+          ]
+        }
+      ],
+      "retrieval": [
+        {
+          "query_id": "q01",
+          "meaning": "Identity is unresolved at this time; neither named brother can be asserted.",
+          "source_turns": [
+            "u06",
+            "u07"
+          ]
+        },
+        {
+          "query_id": "q02",
+          "meaning": "Daniel Leeds near station and online Wednesday teaching; David York near university.",
+          "source_turns": [
+            "u16",
+            "u17",
+            "u18"
+          ]
+        },
+        {
+          "query_id": "q03",
+          "meaning": "Still unresolved at this checkpoint; no named new weekday supported.",
+          "source_turns": [
+            "u21",
+            "u23"
+          ]
+        },
+        {
+          "query_id": "q04",
+          "meaning": "Daniel ending planned but teaching still active; David Tuesday/Wednesday/Friday.",
+          "source_turns": [
+            "u26",
+            "u28"
+          ]
+        },
+        {
+          "query_id": "q05",
+          "meaning": "Dan=Daniel; Rowan pharmacist current, Northgate first-aid teaching ended.",
+          "source_turns": [
+            "u31",
+            "u35",
+            "u36"
+          ]
+        },
+        {
+          "query_id": "q06",
+          "meaning": "David declined Ash Pharmacy; not a job or home he ever took.",
+          "source_turns": [
+            "u11",
+            "u12",
+            "u39"
+          ]
+        },
+        {
+          "query_id": "q07",
+          "meaning": "Monday/Wednesday/Friday became Tuesday/Wednesday/Friday.",
+          "source_turns": [
+            "u04",
+            "u26",
+            "u38"
+          ]
+        },
+        {
+          "query_id": "q08",
+          "meaning": "Unknown; only near railway station is supported.",
+          "source_turns": [
+            "u17",
+            "u37"
+          ]
+        }
+      ],
+      "optional": []
+    },
+    "home_and_plans": {
+      "structure": [
+        "Home identity and related facts preserve supported current/past placement; do not create a home for rejected listings or typos. Supported separate home entities or one stable residence subject are acceptable if temporal meaning is clear.",
+        "Nora remains one person; workplace move and promotion update correct facts with genuine history. User and Nora schedules cannot leak across subjects."
+      ],
+      "checkpoints": [
+        {
+          "after_batch": 1,
+          "required": [
+            {
+              "id": "home",
+              "meaning": "User currently reports rented home 26 Alder Lane Sheffield; Priya Shah landlord; desk beside living-room window.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "work",
+              "meaning": "User mostly works at home; no fixed office day yet.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "nora",
+              "meaning": "Cousin Nora lives Manchester, architect at Cedar Design, office 5 Canal Street.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "nora_days",
+              "meaning": "Nora normally office Tuesday/Wednesday, other weekdays home; qualified routine.",
+              "source_turns": [
+                "u04"
+              ]
+            }
+          ],
+          "forbidden": [
+            "User already moved to Juniper or knows rent."
+          ]
+        },
+        {
+          "after_batch": 3,
+          "required": [
+            {
+              "id": "home",
+              "meaning": "Actual current flat is 62 Alder Lane; 26 was digit error, no move. Same landlord Priya and window desk.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "work",
+              "meaning": "User mostly works at home; no fixed office day yet.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "nora",
+              "meaning": "Cousin Nora lives Manchester, architect at Cedar Design, office 5 Canal Street.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "nora_days",
+              "meaning": "Nora normally office Tuesday/Wednesday, other weekdays home; qualified routine.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "juniper",
+              "meaning": "Juniper Road viewing rejected; never a home or signed tenancy.",
+              "source_turns": [
+                "u08"
+              ]
+            },
+            {
+              "id": "visit",
+              "meaning": "User plans Manchester visit next weekend, not completed and transport unbooked.",
+              "source_turns": [
+                "u10"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Real move from 26 to 62."
+          ]
+        },
+        {
+          "after_batch": 5,
+          "required": [
+            {
+              "id": "home",
+              "meaning": "Actual current flat is 62 Alder Lane; 26 was digit error, no move. Same landlord Priya and window desk.",
+              "source_turns": [
+                "u06",
+                "u07"
+              ]
+            },
+            {
+              "id": "work",
+              "meaning": "User mostly works at home; no fixed office day yet.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "nora",
+              "meaning": "Cousin Nora lives Manchester, architect at Cedar Design, office 5 Canal Street.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "nora_days",
+              "meaning": "Nora normally office Tuesday/Wednesday, other weekdays home; qualified routine.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "juniper",
+              "meaning": "Juniper Road viewing rejected; never a home or signed tenancy.",
+              "source_turns": [
+                "u08"
+              ]
+            },
+            {
+              "id": "visit",
+              "meaning": "Manchester visit canceled; no replacement.",
+              "source_turns": [
+                "u10",
+                "u13"
+              ]
+            },
+            {
+              "id": "future_home",
+              "meaning": "Willow Court 9 Sheffield lease signed; move planned in about two weeks, future landlord Martin Cole. Current home still 62 Alder.",
+              "source_turns": [
+                "u11",
+                "u12"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Willow already current home."
+          ]
+        },
+        {
+          "after_batch": 7,
+          "required": [
+            {
+              "id": "home",
+              "meaning": "User now rents 9 Willow Court Sheffield with Martin Cole; desk spare room. Previous actual 62 Alder with Priya and window desk; not 26 or Juniper.",
+              "source_turns": [
+                "u06",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "work",
+              "meaning": "User mostly works at home; no fixed office day yet.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "nora",
+              "meaning": "Cousin Nora lives Manchester, architect at Cedar Design, office 5 Canal Street.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "nora_days",
+              "meaning": "Nora normally office Tuesday/Wednesday, other weekdays home; qualified routine.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "juniper",
+              "meaning": "Juniper Road viewing rejected; never a home or signed tenancy.",
+              "source_turns": [
+                "u08"
+              ]
+            },
+            {
+              "id": "visit",
+              "meaning": "Manchester visit canceled; no replacement.",
+              "source_turns": [
+                "u10",
+                "u13"
+              ]
+            },
+            {
+              "id": "future_home",
+              "meaning": "Previously planned Willow move now completed; exact move date not supplied.",
+              "source_turns": [
+                "u11",
+                "u16",
+                "u19"
+              ]
+            },
+            {
+              "id": "nora_home",
+              "meaning": "Nora helped boxes but still lives Manchester, not co-tenant.",
+              "source_turns": [
+                "u18"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Nora moved in or canceled Manchester trip completed."
+          ]
+        },
+        {
+          "after_batch": 9,
+          "required": [
+            {
+              "id": "home",
+              "meaning": "User now rents 9 Willow Court Sheffield with Martin Cole; desk spare room. Previous actual 62 Alder with Priya and window desk; not 26 or Juniper.",
+              "source_turns": [
+                "u06",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "work",
+              "meaning": "User mostly works at home; no fixed office day yet.",
+              "source_turns": [
+                "u01",
+                "u04"
+              ]
+            },
+            {
+              "id": "nora",
+              "meaning": "Nora architect at same Cedar Design; office moved from 5 to 15 Canal Street Manchester.",
+              "source_turns": [
+                "u03",
+                "u21",
+                "u22"
+              ]
+            },
+            {
+              "id": "nora_days",
+              "meaning": "Nora normally office Tuesday/Wednesday, other weekdays home; qualified routine.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "juniper",
+              "meaning": "Juniper Road viewing rejected; never a home or signed tenancy.",
+              "source_turns": [
+                "u08"
+              ]
+            },
+            {
+              "id": "visit",
+              "meaning": "Manchester visit canceled; no replacement.",
+              "source_turns": [
+                "u10",
+                "u13"
+              ]
+            },
+            {
+              "id": "future_home",
+              "meaning": "Previously planned Willow move now completed; exact move date not supplied.",
+              "source_turns": [
+                "u11",
+                "u16",
+                "u19"
+              ]
+            },
+            {
+              "id": "nora_home",
+              "meaning": "Nora helped boxes but still lives Manchester, not co-tenant.",
+              "source_turns": [
+                "u18"
+              ]
+            },
+            {
+              "id": "sublet",
+              "meaning": "Subletting suggested only; no tenant or agreement.",
+              "source_turns": [
+                "u24"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Nora changed employer or home."
+          ]
+        },
+        {
+          "after_batch": 11,
+          "required": [
+            {
+              "id": "home",
+              "meaning": "User now rents 9 Willow Court Sheffield with Martin Cole; desk spare room. Previous actual 62 Alder with Priya and window desk; not 26 or Juniper.",
+              "source_turns": [
+                "u06",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "work",
+              "meaning": "User now Monday office at unnamed employer, otherwise mostly home; distinct from Nora schedule.",
+              "source_turns": [
+                "u26",
+                "u27"
+              ]
+            },
+            {
+              "id": "nora",
+              "meaning": "Nora architect at same Cedar Design; office moved from 5 to 15 Canal Street Manchester.",
+              "source_turns": [
+                "u03",
+                "u21",
+                "u22"
+              ]
+            },
+            {
+              "id": "nora_days",
+              "meaning": "Nora normally office Tuesday/Wednesday, other weekdays home; qualified routine.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "juniper",
+              "meaning": "Juniper Road viewing rejected; never a home or signed tenancy.",
+              "source_turns": [
+                "u08"
+              ]
+            },
+            {
+              "id": "visit",
+              "meaning": "Manchester visit canceled; no replacement.",
+              "source_turns": [
+                "u10",
+                "u13"
+              ]
+            },
+            {
+              "id": "future_home",
+              "meaning": "Previously planned Willow move now completed; exact move date not supplied.",
+              "source_turns": [
+                "u11",
+                "u16",
+                "u19"
+              ]
+            },
+            {
+              "id": "nora_home",
+              "meaning": "Nora helped boxes but still lives Manchester, not co-tenant.",
+              "source_turns": [
+                "u18"
+              ]
+            },
+            {
+              "id": "sublet",
+              "meaning": "Subletting suggested only; no tenant or agreement.",
+              "source_turns": [
+                "u24"
+              ]
+            },
+            {
+              "id": "dinner",
+              "meaning": "New dinner with Nora at Willow on an undecided future Friday; accepted but not happened.",
+              "source_turns": [
+                "u28"
+              ]
+            }
+          ],
+          "forbidden": [
+            "User employer is Cedar Design or dinner happened."
+          ]
+        },
+        {
+          "after_batch": 13,
+          "required": [
+            {
+              "id": "home",
+              "meaning": "User now rents 9 Willow Court Sheffield with Martin Cole; desk spare room. Previous actual 62 Alder with Priya and window desk; not 26 or Juniper.",
+              "source_turns": [
+                "u06",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "work",
+              "meaning": "User now Monday office at unnamed employer, otherwise mostly home; distinct from Nora schedule.",
+              "source_turns": [
+                "u26",
+                "u27"
+              ]
+            },
+            {
+              "id": "nora",
+              "meaning": "Nora promoted to senior architect at same Cedar Design, formerly architect; office 15 Canal, formerly 5.",
+              "source_turns": [
+                "u03",
+                "u21",
+                "u31"
+              ]
+            },
+            {
+              "id": "nora_days",
+              "meaning": "Nora normally office Tuesday/Wednesday, other weekdays home; qualified routine.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "juniper",
+              "meaning": "Juniper Road viewing rejected; never a home or signed tenancy.",
+              "source_turns": [
+                "u08"
+              ]
+            },
+            {
+              "id": "visit",
+              "meaning": "Manchester visit canceled; no replacement.",
+              "source_turns": [
+                "u10",
+                "u13"
+              ]
+            },
+            {
+              "id": "future_home",
+              "meaning": "Previously planned Willow move now completed; exact move date not supplied.",
+              "source_turns": [
+                "u11",
+                "u16",
+                "u19"
+              ]
+            },
+            {
+              "id": "nora_home",
+              "meaning": "Nora helped boxes but still lives Manchester, not co-tenant.",
+              "source_turns": [
+                "u18"
+              ]
+            },
+            {
+              "id": "sublet",
+              "meaning": "Subletting suggested only; no tenant or agreement.",
+              "source_turns": [
+                "u24"
+              ]
+            },
+            {
+              "id": "dinner",
+              "meaning": "New dinner with Nora at Willow on an undecided future Friday; accepted but not happened.",
+              "source_turns": [
+                "u28"
+              ]
+            }
+          ],
+          "forbidden": [
+            "26 Alder becomes actual historical home."
+          ]
+        },
+        {
+          "after_batch": 15,
+          "required": [
+            {
+              "id": "home",
+              "meaning": "User now rents 9 Willow Court Sheffield with Martin Cole; desk spare room. Previous actual 62 Alder with Priya and window desk; not 26 or Juniper.",
+              "source_turns": [
+                "u06",
+                "u16",
+                "u17"
+              ]
+            },
+            {
+              "id": "work",
+              "meaning": "User now Monday office at unnamed employer, otherwise mostly home; distinct from Nora schedule.",
+              "source_turns": [
+                "u26",
+                "u27"
+              ]
+            },
+            {
+              "id": "nora",
+              "meaning": "Nora promoted to senior architect at same Cedar Design, formerly architect; office 15 Canal, formerly 5.",
+              "source_turns": [
+                "u03",
+                "u21",
+                "u31"
+              ]
+            },
+            {
+              "id": "nora_days",
+              "meaning": "Nora normally office Tuesday/Wednesday, other weekdays home; qualified routine.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "juniper",
+              "meaning": "Juniper Road viewing rejected; never a home or signed tenancy.",
+              "source_turns": [
+                "u08"
+              ]
+            },
+            {
+              "id": "visit",
+              "meaning": "Manchester visit canceled; no replacement.",
+              "source_turns": [
+                "u10",
+                "u13"
+              ]
+            },
+            {
+              "id": "future_home",
+              "meaning": "Previously planned Willow move now completed; exact move date not supplied.",
+              "source_turns": [
+                "u11",
+                "u16",
+                "u19"
+              ]
+            },
+            {
+              "id": "nora_home",
+              "meaning": "Nora helped boxes but still lives Manchester, not co-tenant.",
+              "source_turns": [
+                "u18"
+              ]
+            },
+            {
+              "id": "sublet",
+              "meaning": "Subletting suggested only; no tenant or agreement.",
+              "source_turns": [
+                "u24"
+              ]
+            },
+            {
+              "id": "dinner",
+              "meaning": "New dinner with Nora at Willow on an undecided future Friday; accepted but not happened.",
+              "source_turns": [
+                "u28"
+              ]
+            },
+            {
+              "id": "unknowns",
+              "meaning": "Rent, flat unit number, exact station distance and user employer office address not supplied.",
+              "source_turns": [
+                "u39"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Invented rent, precise move date or completed dinner."
+          ]
+        }
+      ],
+      "retrieval": [
+        {
+          "query_id": "q01",
+          "meaning": "Current 62 Alder; 26 was typo with no real move.",
+          "source_turns": [
+            "u06"
+          ]
+        },
+        {
+          "query_id": "q02",
+          "meaning": "9 Willow Court, Martin Cole; previous real 62 Alder, Priya Shah.",
+          "source_turns": [
+            "u16",
+            "u17"
+          ]
+        },
+        {
+          "query_id": "q03",
+          "meaning": "Office 5 to 15 Canal, same Cedar employer and Manchester home.",
+          "source_turns": [
+            "u21",
+            "u22"
+          ]
+        },
+        {
+          "query_id": "q04",
+          "meaning": "User Monday at unnamed employer; Nora Tuesday/Wednesday at Cedar.",
+          "source_turns": [
+            "u26",
+            "u27"
+          ]
+        },
+        {
+          "query_id": "q05",
+          "meaning": "Architect then senior architect at Cedar; 5 then15 Canal; not two current employments.",
+          "source_turns": [
+            "u03",
+            "u21",
+            "u31",
+            "u38"
+          ]
+        },
+        {
+          "query_id": "q06",
+          "meaning": "Current 9 Willow, prior62 Alder; not26 or rejected Juniper.",
+          "source_turns": [
+            "u06",
+            "u08",
+            "u16",
+            "u36"
+          ]
+        },
+        {
+          "query_id": "q07",
+          "meaning": "Manchester weekend canceled; Sheffield Friday dinner planned, date undecided, not completed.",
+          "source_turns": [
+            "u13",
+            "u28",
+            "u40"
+          ]
+        },
+        {
+          "query_id": "q08",
+          "meaning": "No supported rent amount.",
+          "source_turns": [
+            "u15",
+            "u39"
+          ]
+        }
+      ],
+      "optional": []
+    },
+    "everyday_threads": {
+      "structure": [
+        "Cat, pottery and walking remain separate subjects through interleaved updates. Preserve meaningful same-fact histories without duplicating unchanged facts.",
+        "Salmon return must retain the intervening trout episode. Temporary pauses and emotions remain qualified text, not arbitrary lifecycle inference."
+      ],
+      "checkpoints": [
+        {
+          "after_batch": 1,
+          "required": [
+            {
+              "id": "cat",
+              "meaning": "Taro user cat, Meadow Bowl salmon food, chicken allergy.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "pottery",
+              "meaning": "User reports Tuesday-evening River Studio pottery with teacher Elena, making bowls.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "walking",
+              "meaning": "User Saturday-morning walking group Oak Park west gate, organiser Yusuf.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "apron",
+              "meaning": "Green apron for pottery, not a class name.",
+              "source_turns": [
+                "u04"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Cat food applied to user or class."
+          ]
+        },
+        {
+          "after_batch": 3,
+          "required": [
+            {
+              "id": "cat",
+              "meaning": "Taro user cat, Meadow Bowl salmon food, chicken allergy.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "pottery",
+              "meaning": "Actual River pottery Thursday evenings with Elena; Tuesday was scheduling error, not genuine past timetable; enjoys bowls.",
+              "source_turns": [
+                "u06",
+                "u10"
+              ]
+            },
+            {
+              "id": "walking",
+              "meaning": "User Saturday-morning walking group Oak Park west gate, organiser Yusuf.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "apron",
+              "meaning": "Green apron for pottery, not a class name.",
+              "source_turns": [
+                "u04"
+              ]
+            }
+          ],
+          "forbidden": [
+            "A true Tuesday-to-Thursday move."
+          ]
+        },
+        {
+          "after_batch": 5,
+          "required": [
+            {
+              "id": "cat",
+              "meaning": "Taro user cat, Meadow Bowl salmon food, chicken allergy.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "pottery",
+              "meaning": "Same River pottery now Sunday afternoon, previously actual Thursday evening, Elena teacher; still attends and is unsure about new time.",
+              "source_turns": [
+                "u06",
+                "u11",
+                "u12"
+              ]
+            },
+            {
+              "id": "walking",
+              "meaning": "Same Saturday-morning group now Oak Park east gate, previously west; Yusuf organiser.",
+              "source_turns": [
+                "u03",
+                "u13"
+              ]
+            },
+            {
+              "id": "apron",
+              "meaning": "Green apron for pottery, not a class name.",
+              "source_turns": [
+                "u04"
+              ]
+            }
+          ],
+          "forbidden": [
+            "User quit pottery or walking moved to Sunday."
+          ]
+        },
+        {
+          "after_batch": 7,
+          "required": [
+            {
+              "id": "cat",
+              "meaning": "Taro now Meadow Bowl trout due salmon shortage, previously salmon; chicken allergy unchanged, no salmon allergy.",
+              "source_turns": [
+                "u01",
+                "u16"
+              ]
+            },
+            {
+              "id": "pottery",
+              "meaning": "Same Sunday River pottery with Elena; bowls plus mugs; now enjoying Sunday routine after earlier uncertainty.",
+              "source_turns": [
+                "u11",
+                "u17",
+                "u19"
+              ]
+            },
+            {
+              "id": "walking",
+              "meaning": "Same Saturday-morning group now Oak Park east gate, previously west; Yusuf organiser.",
+              "source_turns": [
+                "u03",
+                "u13"
+              ]
+            },
+            {
+              "id": "apron",
+              "meaning": "Green apron for pottery, not a class name.",
+              "source_turns": [
+                "u04"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Salmon allergy, abandoned bowls or canceled walking membership."
+          ]
+        },
+        {
+          "after_batch": 9,
+          "required": [
+            {
+              "id": "cat",
+              "meaning": "Taro now Meadow Bowl trout due salmon shortage, previously salmon; chicken allergy unchanged, no salmon allergy.",
+              "source_turns": [
+                "u01",
+                "u16"
+              ]
+            },
+            {
+              "id": "pottery",
+              "meaning": "Same Sunday River pottery with Elena; bowls plus mugs; now enjoying Sunday routine after earlier uncertainty.",
+              "source_turns": [
+                "u11",
+                "u17",
+                "u19"
+              ]
+            },
+            {
+              "id": "walking",
+              "meaning": "Existing Saturday east-gate walking paused next two Saturdays; user intends return, Yusuf away; not a permanent departure.",
+              "source_turns": [
+                "u21",
+                "u24"
+              ]
+            },
+            {
+              "id": "apron",
+              "meaning": "Green apron for pottery, not a class name.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "advanced",
+              "meaning": "Advanced pottery course only asked about, no enrolment.",
+              "source_turns": [
+                "u23"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Permanent walking end or advanced enrolment."
+          ]
+        },
+        {
+          "after_batch": 11,
+          "required": [
+            {
+              "id": "cat",
+              "meaning": "Taro returned to Meadow Bowl salmon after temporary trout, previously salmon; preserve distinct salmon→trout→salmon episodes and unchanged chicken allergy.",
+              "source_turns": [
+                "u01",
+                "u16",
+                "u27"
+              ]
+            },
+            {
+              "id": "pottery",
+              "meaning": "River pottery Sunday afternoon, formerly Thursday (Tuesday was error); bowls/mugs, enjoying routine; now Marcus teacher.",
+              "source_turns": [
+                "u06",
+                "u11",
+                "u17",
+                "u28",
+                "u29"
+              ]
+            },
+            {
+              "id": "walking",
+              "meaning": "Same Saturday-morning Oak Park east-gate group resumed after two-Saturday pause; earlier west-gate history; Yusuf returned.",
+              "source_turns": [
+                "u13",
+                "u21",
+                "u26"
+              ]
+            },
+            {
+              "id": "apron",
+              "meaning": "Green apron for pottery, not a class name.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "advanced",
+              "meaning": "Advanced pottery course only asked about, no enrolment.",
+              "source_turns": [
+                "u23"
+              ]
+            },
+            {
+              "id": "teacher",
+              "meaning": "Marcus replaces Elena in same River Sunday class; no second course or private school.",
+              "source_turns": [
+                "u28"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Trout episode erased or second pottery class created."
+          ]
+        },
+        {
+          "after_batch": 13,
+          "required": [
+            {
+              "id": "cat",
+              "meaning": "Taro returned to Meadow Bowl salmon after temporary trout, previously salmon; preserve distinct salmon→trout→salmon episodes and unchanged chicken allergy.",
+              "source_turns": [
+                "u01",
+                "u16",
+                "u27"
+              ]
+            },
+            {
+              "id": "pottery",
+              "meaning": "Still River Sunday class with Marcus, bowls/mugs; currently frustrated by cracked mug but continues, not permanent dislike or quitting.",
+              "source_turns": [
+                "u31"
+              ]
+            },
+            {
+              "id": "walking",
+              "meaning": "Same Saturday-morning Oak Park east-gate group resumed after two-Saturday pause; earlier west-gate history; Yusuf returned.",
+              "source_turns": [
+                "u13",
+                "u21",
+                "u26"
+              ]
+            },
+            {
+              "id": "apron",
+              "meaning": "Green apron for pottery, not a class name.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "advanced",
+              "meaning": "Advanced pottery course only asked about, no enrolment.",
+              "source_turns": [
+                "u23"
+              ]
+            },
+            {
+              "id": "teacher",
+              "meaning": "Marcus replaces Elena in same River Sunday class; no second course or private school.",
+              "source_turns": [
+                "u28"
+              ]
+            },
+            {
+              "id": "workshop",
+              "meaning": "Sculpture workshop suggested only, unbooked.",
+              "source_turns": [
+                "u32"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Pottery quit or sculpture booked."
+          ]
+        },
+        {
+          "after_batch": 15,
+          "required": [
+            {
+              "id": "cat",
+              "meaning": "Taro returned to Meadow Bowl salmon after temporary trout, previously salmon; preserve distinct salmon→trout→salmon episodes and unchanged chicken allergy.",
+              "source_turns": [
+                "u01",
+                "u16",
+                "u27"
+              ]
+            },
+            {
+              "id": "pottery",
+              "meaning": "Still Sunday River class with Marcus (previously Elena); happier after successful mug, earlier frustration was temporary; no advanced/workshop enrolment.",
+              "source_turns": [
+                "u36",
+                "u39"
+              ]
+            },
+            {
+              "id": "walking",
+              "meaning": "Same Saturday-morning Oak Park east-gate group resumed after two-Saturday pause; earlier west-gate history; Yusuf returned.",
+              "source_turns": [
+                "u13",
+                "u21",
+                "u26"
+              ]
+            },
+            {
+              "id": "apron",
+              "meaning": "Green apron for pottery, not a class name.",
+              "source_turns": [
+                "u04"
+              ]
+            },
+            {
+              "id": "advanced",
+              "meaning": "Advanced pottery course only asked about, no enrolment.",
+              "source_turns": [
+                "u23"
+              ]
+            },
+            {
+              "id": "teacher",
+              "meaning": "Marcus replaces Elena in same River Sunday class; no second course or private school.",
+              "source_turns": [
+                "u28"
+              ]
+            },
+            {
+              "id": "workshop",
+              "meaning": "Sculpture workshop suggested only, unbooked.",
+              "source_turns": [
+                "u32"
+              ]
+            },
+            {
+              "id": "unknowns",
+              "meaning": "No feeding grams, Yusuf occupation, exact activity clock times or exact restart date supplied.",
+              "source_turns": [
+                "u20",
+                "u34",
+                "u38",
+                "u40"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Unknown feeding quantity or Yusuf job invented."
+          ]
+        }
+      ],
+      "retrieval": [
+        {
+          "query_id": "q01",
+          "meaning": "Thursday; Tuesday was mistaken report, no actual timetable move yet.",
+          "source_turns": [
+            "u06"
+          ]
+        },
+        {
+          "query_id": "q02",
+          "meaning": "Meadow Bowl trout now, prior salmon; chicken allergy, not salmon allergy.",
+          "source_turns": [
+            "u01",
+            "u16"
+          ]
+        },
+        {
+          "query_id": "q03",
+          "meaning": "No; temporary two-Saturday pause, intends return.",
+          "source_turns": [
+            "u21",
+            "u24"
+          ]
+        },
+        {
+          "query_id": "q04",
+          "meaning": "Marcus replaced Elena in same class; same group resumed with Yusuf.",
+          "source_turns": [
+            "u26",
+            "u28"
+          ]
+        },
+        {
+          "query_id": "q05",
+          "meaning": "Salmon→trout→salmon; current salmon; chicken allergy unchanged.",
+          "source_turns": [
+            "u01",
+            "u16",
+            "u27",
+            "u37"
+          ]
+        },
+        {
+          "query_id": "q06",
+          "meaning": "Thursday→Sunday, Elena→Marcus, now happier after temporary frustration; continues bowls/mugs; Tuesday was error.",
+          "source_turns": [
+            "u06",
+            "u11",
+            "u28",
+            "u31",
+            "u36"
+          ]
+        },
+        {
+          "query_id": "q07",
+          "meaning": "Saturday mornings east gate now/west before; two-Saturday pause then resumed; Yusuf.",
+          "source_turns": [
+            "u03",
+            "u13",
+            "u21",
+            "u26",
+            "u38"
+          ]
+        },
+        {
+          "query_id": "q08",
+          "meaning": "Not supplied; no inferred portion.",
+          "source_turns": [
+            "u20",
+            "u40"
+          ]
+        }
+      ],
+      "optional": []
+    },
+    "bilingual_sister": {
+      "structure": [
+        "Bilingual identity stays one sister with stable UUID. Employment details belong to sister; user calligraphy is a separate subject.",
+        "Genuine residence, rota and class changes preserve history. Corrected start recollection does not create a fabricated job episode. Uncertain hypothesis is not rewritten into a confirmed past state."
+      ],
+      "checkpoints": [
+        {
+          "after_batch": 1,
+          "required": [
+            {
+              "id": "identity",
+              "meaning": "周岚/Zhou Lan one sister; nurse at 青禾诊所/Green Grain Clinic, not two employers or doctor.",
+              "source_turns": [
+                "u01",
+                "u05"
+              ]
+            },
+            {
+              "id": "home",
+              "meaning": "Sister currently Nanjing, exact address unknown.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "start",
+              "meaning": "Job start only approximately spring 2025, possibly March/April; uncertain, no exact date.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "rota",
+              "meaning": "Usually four varying days per week, not fixed Monday-Thursday.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "class",
+              "meaning": "User Chinese calligraphy at Ink House Wednesday evenings, teacher Mei, regular script; sister not attending.",
+              "source_turns": [
+                "u03"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Separate Zhou Lan and 周岚 or clinic employers."
+          ]
+        },
+        {
+          "after_batch": 3,
+          "required": [
+            {
+              "id": "identity",
+              "meaning": "周岚/Zhou Lan one sister; nurse at 青禾诊所/Green Grain Clinic, not two employers or doctor.",
+              "source_turns": [
+                "u01",
+                "u05"
+              ]
+            },
+            {
+              "id": "home",
+              "meaning": "Sister currently Nanjing, exact address unknown.",
+              "source_turns": [
+                "u01"
+              ]
+            },
+            {
+              "id": "start",
+              "meaning": "Job start only approximately spring 2025, possibly March/April; uncertain, no exact date.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "rota",
+              "meaning": "Usually four varying days per week, not fixed Monday-Thursday.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "class",
+              "meaning": "User Chinese calligraphy at Ink House Wednesday evenings, teacher Mei, regular script; sister not attending.",
+              "source_turns": [
+                "u03"
+              ]
+            },
+            {
+              "id": "possible_move",
+              "meaning": "Hangzhou move only second-hand uncertain possibility; no confirmed move or hospital employment at this checkpoint.",
+              "source_turns": [
+                "u06",
+                "u07",
+                "u09"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Unqualified confirmed Hangzhou residence or hospital employer."
+          ]
+        },
+        {
+          "after_batch": 5,
+          "required": [
+            {
+              "id": "identity",
+              "meaning": "周岚/Zhou Lan one sister; nurse at 青禾诊所/Green Grain Clinic, not two employers or doctor.",
+              "source_turns": [
+                "u01",
+                "u05"
+              ]
+            },
+            {
+              "id": "home",
+              "meaning": "Confirmed sister now Hangzhou near unnamed park, previous Nanjing; recent move exact date/address unknown; same clinic/job.",
+              "source_turns": [
+                "u11",
+                "u12",
+                "u13"
+              ]
+            },
+            {
+              "id": "start",
+              "meaning": "Job start only approximately spring 2025, possibly March/April; uncertain, no exact date.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "rota",
+              "meaning": "Usually four varying days per week, not fixed Monday-Thursday.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "class",
+              "meaning": "Same user Ink House class now Monday evenings, formerly Wednesday; Mei teaches regular script.",
+              "source_turns": [
+                "u03",
+                "u14",
+                "u15"
+              ]
+            },
+            {
+              "id": "possible_move",
+              "meaning": "Prior Hangzhou uncertainty resolved by sister confirmation; not an unconfirmed current residence.",
+              "source_turns": [
+                "u06",
+                "u11"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Guessed commute or invented park/street."
+          ]
+        },
+        {
+          "after_batch": 7,
+          "required": [
+            {
+              "id": "identity",
+              "meaning": "周岚/Zhou Lan one sister; nurse at 青禾诊所/Green Grain Clinic, not two employers or doctor.",
+              "source_turns": [
+                "u01",
+                "u05"
+              ]
+            },
+            {
+              "id": "home",
+              "meaning": "Confirmed sister now Hangzhou near unnamed park, previous Nanjing; recent move exact date/address unknown; same clinic/job.",
+              "source_turns": [
+                "u11",
+                "u12",
+                "u13"
+              ]
+            },
+            {
+              "id": "start",
+              "meaning": "Confirmed clinic start May 2025, exact day unknown; earlier March/April recollection mistaken, not separate employment history.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17",
+                "u20"
+              ]
+            },
+            {
+              "id": "rota",
+              "meaning": "Usually four varying days per week, not fixed Monday-Thursday.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "class",
+              "meaning": "Same user Ink House class now Monday evenings, formerly Wednesday; Mei teaches regular script.",
+              "source_turns": [
+                "u03",
+                "u14",
+                "u15"
+              ]
+            },
+            {
+              "id": "possible_move",
+              "meaning": "Prior Hangzhou uncertainty resolved by sister confirmation; not an unconfirmed current residence.",
+              "source_turns": [
+                "u06",
+                "u11"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Start on May 1 or two employment episodes from correction."
+          ]
+        },
+        {
+          "after_batch": 9,
+          "required": [
+            {
+              "id": "identity",
+              "meaning": "Same sister nurse at same bilingual clinic now also onboarding new staff; not doctor or new employer.",
+              "source_turns": [
+                "u01",
+                "u05",
+                "u21"
+              ]
+            },
+            {
+              "id": "home",
+              "meaning": "Confirmed sister now Hangzhou near unnamed park, previous Nanjing; recent move exact date/address unknown; same clinic/job.",
+              "source_turns": [
+                "u11",
+                "u12",
+                "u13"
+              ]
+            },
+            {
+              "id": "start",
+              "meaning": "Confirmed clinic start May 2025, exact day unknown; earlier March/April recollection mistaken, not separate employment history.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17",
+                "u20"
+              ]
+            },
+            {
+              "id": "rota",
+              "meaning": "Usually four varying days per week, not fixed Monday-Thursday.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "class",
+              "meaning": "Same Monday Ink House calligraphy paused two weeks for repairs, intends resume with Mei/regular script; no new class.",
+              "source_turns": [
+                "u22",
+                "u25"
+              ]
+            },
+            {
+              "id": "possible_move",
+              "meaning": "Prior Hangzhou uncertainty resolved by sister confirmation; not an unconfirmed current residence.",
+              "source_turns": [
+                "u06",
+                "u11"
+              ]
+            },
+            {
+              "id": "bike",
+              "meaning": "Sister only considers bicycle; no purchase yet.",
+              "source_turns": [
+                "u23"
+              ]
+            },
+            {
+              "id": "teaching_suggestion",
+              "meaning": "Calligraphy teaching for sister only user suggestion; no agreement or teaching job.",
+              "source_turns": [
+                "u24"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Bicycle already owned or sister teaching calligraphy."
+          ]
+        },
+        {
+          "after_batch": 11,
+          "required": [
+            {
+              "id": "identity",
+              "meaning": "Same sister nurse at same bilingual clinic now also onboarding new staff; not doctor or new employer.",
+              "source_turns": [
+                "u01",
+                "u05",
+                "u21"
+              ]
+            },
+            {
+              "id": "home",
+              "meaning": "Confirmed sister now Hangzhou near unnamed park, previous Nanjing; recent move exact date/address unknown; same clinic/job.",
+              "source_turns": [
+                "u11",
+                "u12",
+                "u13"
+              ]
+            },
+            {
+              "id": "start",
+              "meaning": "Confirmed clinic start May 2025, exact day unknown; earlier March/April recollection mistaken, not separate employment history.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17",
+                "u20"
+              ]
+            },
+            {
+              "id": "rota",
+              "meaning": "Usually four varying days per week, not fixed Monday-Thursday.",
+              "source_turns": [
+                "u02"
+              ]
+            },
+            {
+              "id": "class",
+              "meaning": "Same Monday Ink House class resumed after two-week pause, originally Wednesday; Mei/regular script unchanged.",
+              "source_turns": [
+                "u03",
+                "u14",
+                "u22",
+                "u26"
+              ]
+            },
+            {
+              "id": "possible_move",
+              "meaning": "Prior Hangzhou uncertainty resolved by sister confirmation; not an unconfirmed current residence.",
+              "source_turns": [
+                "u06",
+                "u11"
+              ]
+            },
+            {
+              "id": "bike",
+              "meaning": "Sister now owns blue bicycle, earlier only considered; brand/price/model year unknown; not user property.",
+              "source_turns": [
+                "u23",
+                "u27"
+              ]
+            },
+            {
+              "id": "teaching_suggestion",
+              "meaning": "Calligraphy teaching for sister only user suggestion; no agreement or teaching job.",
+              "source_turns": [
+                "u24"
+              ]
+            }
+          ],
+          "forbidden": [
+            "User owns bicycle or has calligraphy qualification."
+          ]
+        },
+        {
+          "after_batch": 13,
+          "required": [
+            {
+              "id": "identity",
+              "meaning": "Same sister nurse at same bilingual clinic now also onboarding new staff; not doctor or new employer.",
+              "source_turns": [
+                "u01",
+                "u05",
+                "u21"
+              ]
+            },
+            {
+              "id": "home",
+              "meaning": "Confirmed sister now Hangzhou near unnamed park, previous Nanjing; recent move exact date/address unknown; same clinic/job.",
+              "source_turns": [
+                "u11",
+                "u12",
+                "u13"
+              ]
+            },
+            {
+              "id": "start",
+              "meaning": "Confirmed clinic start May 2025, exact day unknown; earlier March/April recollection mistaken, not separate employment history.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17",
+                "u20"
+              ]
+            },
+            {
+              "id": "rota",
+              "meaning": "Sister now usually three varying workdays, previously four varying; same clinic nurse/onboarding role, not fixed Monday-Wednesday.",
+              "source_turns": [
+                "u02",
+                "u31"
+              ]
+            },
+            {
+              "id": "class",
+              "meaning": "Same Monday Ink House class resumed after two-week pause, originally Wednesday; Mei/regular script unchanged.",
+              "source_turns": [
+                "u03",
+                "u14",
+                "u22",
+                "u26"
+              ]
+            },
+            {
+              "id": "possible_move",
+              "meaning": "Prior Hangzhou uncertainty resolved by sister confirmation; not an unconfirmed current residence.",
+              "source_turns": [
+                "u06",
+                "u11"
+              ]
+            },
+            {
+              "id": "bike",
+              "meaning": "Sister now owns blue bicycle, earlier only considered; brand/price/model year unknown; not user property.",
+              "source_turns": [
+                "u23",
+                "u27"
+              ]
+            },
+            {
+              "id": "teaching_suggestion",
+              "meaning": "Calligraphy teaching for sister only user suggestion; no agreement or teaching job.",
+              "source_turns": [
+                "u24"
+              ]
+            },
+            {
+              "id": "feeling",
+              "meaning": "Sister less tired with new three-day rota; earlier sometimes tired with four days, no medical diagnosis.",
+              "source_turns": [
+                "u04",
+                "u32"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Fixed Monday-Wednesday rota or move back to Nanjing."
+          ]
+        },
+        {
+          "after_batch": 15,
+          "required": [
+            {
+              "id": "identity",
+              "meaning": "Same sister nurse at same bilingual clinic now also onboarding new staff; not doctor or new employer.",
+              "source_turns": [
+                "u01",
+                "u05",
+                "u21"
+              ]
+            },
+            {
+              "id": "home",
+              "meaning": "Confirmed sister now Hangzhou near unnamed park, previous Nanjing; recent move exact date/address unknown; same clinic/job.",
+              "source_turns": [
+                "u11",
+                "u12",
+                "u13"
+              ]
+            },
+            {
+              "id": "start",
+              "meaning": "Confirmed clinic start May 2025, exact day unknown; earlier March/April recollection mistaken, not separate employment history.",
+              "source_turns": [
+                "u02",
+                "u16",
+                "u17",
+                "u20"
+              ]
+            },
+            {
+              "id": "rota",
+              "meaning": "Sister now usually three varying workdays, previously four varying; same clinic nurse/onboarding role, not fixed Monday-Wednesday.",
+              "source_turns": [
+                "u02",
+                "u31"
+              ]
+            },
+            {
+              "id": "class",
+              "meaning": "Same Monday Ink House class resumed after two-week pause, originally Wednesday; Mei/regular script unchanged.",
+              "source_turns": [
+                "u03",
+                "u14",
+                "u22",
+                "u26"
+              ]
+            },
+            {
+              "id": "possible_move",
+              "meaning": "Prior Hangzhou uncertainty resolved by sister confirmation; not an unconfirmed current residence.",
+              "source_turns": [
+                "u06",
+                "u11"
+              ]
+            },
+            {
+              "id": "bike",
+              "meaning": "Sister now owns blue bicycle, earlier only considered; brand/price/model year unknown; not user property.",
+              "source_turns": [
+                "u23",
+                "u27"
+              ]
+            },
+            {
+              "id": "teaching_suggestion",
+              "meaning": "Calligraphy teaching for sister only user suggestion; no agreement or teaching job.",
+              "source_turns": [
+                "u24"
+              ]
+            },
+            {
+              "id": "feeling",
+              "meaning": "Sister less tired with new three-day rota; earlier sometimes tired with four days, no medical diagnosis.",
+              "source_turns": [
+                "u04",
+                "u32"
+              ]
+            },
+            {
+              "id": "unknowns",
+              "meaning": "No exact start day, move date, street address, rent, park name or bicycle price/brand/year supplied.",
+              "source_turns": [
+                "u36",
+                "u38",
+                "u39"
+              ]
+            }
+          ],
+          "forbidden": [
+            "Invented address, exact dates or bicycle price."
+          ]
+        }
+      ],
+      "retrieval": [
+        {
+          "query_id": "q01",
+          "meaning": "Not confirmed yet; move only second-hand possibility, no hospital job supported.",
+          "source_turns": [
+            "u06",
+            "u07",
+            "u09"
+          ]
+        },
+        {
+          "query_id": "q02",
+          "meaning": "2025年5月，月份确认，日期未知；三四月是记忆错误。",
+          "source_turns": [
+            "u16",
+            "u17",
+            "u20"
+          ]
+        },
+        {
+          "query_id": "q03",
+          "meaning": "Bicycle only considered; teaching only suggestion, no purchase or teaching job yet.",
+          "source_turns": [
+            "u23",
+            "u24"
+          ]
+        },
+        {
+          "query_id": "q04",
+          "meaning": "原来同一周一晚 Ink House 班已恢复，Mei教楷书；曾暂停两周。",
+          "source_turns": [
+            "u22",
+            "u26"
+          ]
+        },
+        {
+          "query_id": "q05",
+          "meaning": "Same clinic nurse/onboarding; usually three varying days now, four before; not fixed weekdays.",
+          "source_turns": [
+            "u21",
+            "u31",
+            "u36"
+          ]
+        },
+        {
+          "query_id": "q06",
+          "meaning": "现在杭州、以前南京；最近搬家，日期/街道/租金/公园名未知。",
+          "source_turns": [
+            "u11",
+            "u13",
+            "u39"
+          ]
+        },
+        {
+          "query_id": "q07",
+          "meaning": "User class Wednesday→Monday, two-week pause then resumed at Ink House with Mei; sister not student/teacher.",
+          "source_turns": [
+            "u03",
+            "u14",
+            "u22",
+            "u26",
+            "u37"
+          ]
+        },
+        {
+          "query_id": "q08",
+          "meaning": "Price never supplied; ownership sister, no inferred price.",
+          "source_turns": [
+            "u27",
+            "u38"
+          ]
+        }
+      ],
+      "optional": []
+    }
+  }
+}

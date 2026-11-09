@@ -10,7 +10,7 @@ from evaluate_memory_retrieval import state
 from tomte.engine import Tomte
 from tomte.engine.core.config import settings
 from memory_eval_support import entity as fixture_entity, fixture_write, search_texts, value, item_texts, MEMORY_FORMAT
-from tomte.engine.llm.embedder import changed_search_entries
+from tomte.engine.llm.embedder import changed_search_entries, changed_retrieval_entries
 from tomte.engine.core.extraction import ExtractionMemorySchema,resolve_extraction
 from tomte.engine.dictionary import service
 from tomte.engine.providers import openai_provider
@@ -62,6 +62,8 @@ def main():
             operation['embedding']=vector
             operation['search_entries']=[{**{k:v for k,v in entry.items() if k!='text'},'embedding':vector}
                 for entry in changed_search_entries(operation['payload'],operation.get('_expected_payload'))]
+            operation['retrieval_entries']=[{**{k:v for k,v in entry.items() if k!='text'},'embedding':vector}
+                for entry in changed_retrieval_entries(operation['payload'],operation.get('_expected_payload'))]
     def rows(user):return db.conn.execute('SELECT id::text,id AS native_id,tenant_id,user_id,entity_id,entity_name,entity_domain,entity_type,payload FROM tomte_memory_engine WHERE tenant_id=%s AND user_id=%s ORDER BY entity_id',(prefix,user)).fetchall()
     try:
         Tomte._db=Tomte._cache=Tomte._llm=Tomte._worker=None;service._dictionary_service_instance=None

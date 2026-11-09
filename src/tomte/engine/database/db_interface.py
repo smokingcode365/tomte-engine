@@ -3,6 +3,7 @@ from uuid import UUID
 
 from tomte.engine.core.config import settings
 from tomte.engine.core.enums import MemoryDomain
+from tomte.engine.core.resolution import CANDIDATE_LIMIT
 
 class DatabaseProvider(Protocol):
     """
@@ -45,11 +46,27 @@ class DatabaseProvider(Protocol):
         """Performs RAG via vector similarity + synaptic time decay."""
         ...
 
+    def get_unresolved_memories(self, tenant_id: str, user_id: str, vector: List[float],
+                                limit: int = 3, recent_limit: int = 0) -> List[Dict[str, Any]]:
+        """Scoped pending storage rows: bounded semantic results plus optional recent rows.
+
+        Ordinary entity reads must exclude unresolved_memories (including resolved rows).
+        """
+        raise NotImplementedError("Unresolved memory lookup is not supported")
+
     def get_raw_semantic_context(
         self, tenant_id: str, user_id: str, query_vector: List[float], limit: int | None = None
     ) -> List[Dict[str, Any]]:
-        """Flat scoped entities ranked by ungated cosine, independent of age/frequency."""
+        """Union of summary top-limit and plain-field top-limit DISTINCT entities.
+
+        At most 2*limit flat scoped entities, sorted by best cosine, with stable
+        UUID ties. No age/frequency weighting or generative relevance selection.
+        """
         raise NotImplementedError("Raw semantic context is not supported")
+
+    def replace_retrieval_index(self, tenant_id, user_id, entity_id, expected_payload, entries, *, summary_embedding=None):
+        """Replace plain vectors and optionally the summary if the scoped payload is unchanged."""
+        raise NotImplementedError("Retrieval index rebuild is not supported")
 
     def discover_session_entities(self, tenant_id: str, user_id: str,
                                   query_vector: List[float], threshold: float,
@@ -71,8 +88,11 @@ class DatabaseProvider(Protocol):
         """Temporal Context: Fetches the last N updated entities."""
         ...
     def get_frequent_entities(self, tenant_id: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
-        """Long-term Context: Fetches entities with the highest mention_count (excluding identity)."""
+        """Fetch ordinary entities by summed fact mention counts, including identity."""
         ...
+    def get_profile_entities(self, tenant_id: str, user_id: str) -> List[Dict[str, Any]]:
+        """All scoped identity_and_demographics entities, with flat storage payloads."""
+        raise NotImplementedError("Profile entity retrieval is not supported")
     def get_important_entities(self, tenant_id: str, user_id: str, domain: Optional[MemoryDomain], limit: int|None ) -> List[Dict]:
         """Fetches the most important entities for the user."""
         ...
@@ -97,8 +117,18 @@ class DatabaseProvider(Protocol):
 
     def get_resolution_candidates(self, tenant_id: str, user_id: str, names: List[str],
                                   domain: str, vector: List[float], context: str,
-                                  limit: int = 5) -> List[Dict[str, Any]]:
-        """Scoped, bounded storage records for identity resolution; no automatic matches."""
+                                  limit: int = CANDIDATE_LIMIT) -> List[Dict[str, Any]]:
+        """Scoped, bounded storage records for identity resolution; no automatic matches.
+
+        For a known incoming domain, separate thoughts_and_plans from all other
+        domains before applying the limit. Empty domain is untyped contextual
+        lookup and must allow both. Other domains may match across categories.
+        Rank exact incoming names/aliases, then cosine similarity; ordinary
+        domain equality is only a tie-break. Do not promote names found elsewhere
+        in context (retained as an interface argument for compatibility).
+        identity_matches_total counts exact name/alias matches before limiting;
+        a small count does not establish semantic candidate completeness.
+        """
         ...
 
     def find_exact_fact(

@@ -37,6 +37,41 @@ class TomteAdminClient:
             tomtelog.error("Failed to fetch graph")
             return []
 
+    def rebuild_retrieval_index(self, user_id: str, *, refresh_summary: bool = False) -> int:
+        """Backfill plain-text vectors; optionally refresh the shared summary vector.
+
+        Makes embedding calls. Stop application writers for a rollout. Each entity
+        replacement is atomic; errors propagate, and the operation is safe to rerun.
+        """
+        from tomte.engine.clients.chat_client import TomteChatClient
+        from tomte.engine.llm.embedder import get_entity_summary, get_retrieval_entries, embed_texts
+        from tomte.engine.exceptions import TomteSecurityViolationError
+        TomteChatClient(self.tenant_id)._validate_user(user_id)
+        if type(refresh_summary) is not bool:
+            raise ValueError("refresh_summary must be a boolean")
+        rebuilt = 0
+        with Tomte.operation_context() as (db, llm):
+            with db.user_guard(self.tenant_id, user_id) as acquired:
+                if not acquired:
+                    raise TomteError("User memory is busy; retry the index rebuild later")
+                for row in db.get_user_graph_skeleton(self.tenant_id, user_id):
+                    if (row.get('tenant_id'), row.get('user_id')) != (self.tenant_id, user_id):
+                        raise TomteSecurityViolationError("Retrieval rebuild namespace mismatch")
+                    entries = get_retrieval_entries(row['payload'])
+                    texts = [e['text'] for e in entries]
+                    if refresh_summary:
+                        texts.insert(0, get_entity_summary(row['payload']))
+                    vectors = embed_texts(llm, texts)
+                    summary_option = {'summary_embedding': vectors[0]} if refresh_summary else {}
+                    if refresh_summary:
+                        vectors = vectors[1:]
+                    embedded = [{**{k:v for k,v in e.items() if k != 'text'}, 'embedding':v}
+                                for e,v in zip(entries,vectors)]
+                    db.replace_retrieval_index(self.tenant_id, user_id, row['id'], row['payload'], embedded,
+                                               **summary_option)
+                    rebuilt += 1
+        return rebuilt
+
     def wipe_user_memory(self, user_id: str) -> bool:
         """
         Deletes durable memory and the legacy persona cache only.

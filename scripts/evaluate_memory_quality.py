@@ -42,7 +42,7 @@ from tomte.engine.workflows.consolidation import ConsolidationWorkflow
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'evals/memory_quality'
-TABLES = ('tomte_memory_engine', 'tomte_memory_search', 'tomte_processed_consolidations',
+TABLES = ('tomte_memory_engine', 'tomte_memory_search', 'tomte_memory_retrieval', 'tomte_processed_consolidations',
           'tomte_user_registry', 'tomte_semantic_anchors', 'tomte_keyword_registry', 'tomte_keyword_audit_log')
 
 
@@ -54,29 +54,34 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def case_paths(subject=False, realistic=False):
-    assert not (subject and realistic)
-    suffix = 'realistic_v1' if realistic else 'subjects_v1' if subject else 'v1'
+def case_paths(subject=False, realistic=False, long=False):
+    assert sum((subject, realistic, long)) <= 1
+    suffix = 'long_v1' if long else 'realistic_v1' if realistic else 'subjects_v1' if subject else 'v1'
     return DATA / f'conversations_{suffix}.json', DATA / f'expectations_{suffix}.json'
 
 
-def load_cases(subject=False, realistic=False):
-    data_path, gold_path = case_paths(subject, realistic)
+def load_cases(subject=False, realistic=False, long=False):
+    data_path, gold_path = case_paths(subject, realistic, long)
     data = json.loads(data_path.read_text(encoding='utf-8'))
     gold = json.loads(gold_path.read_text(encoding='utf-8'))
     assert data['dataset_version'] == gold['dataset_version']
     ids = [case['case_id'] for case in data['cases']]
     assert len(set(ids)) == len(ids) and set(ids) == set(gold['cases'])
     for case in data['cases']:
-        assert set(case) == {'case_id', 'repetitions', 'batches', 'queries'}
+        expected = {'case_id', 'repetitions', 'batches', 'queries'}
+        assert set(case) == expected | ({'split', 'batch_metadata'} if long else set())
         assert re.fullmatch('[a-z_]+', case['case_id'])
         assert type(case['repetitions']) is int and 1 <= case['repetitions'] <= 3
         assert case['batches'] and case['queries']
         for batch in case['batches']:
             assert batch and any(turn['role'] == 'user' for turn in batch)
-            assert all(set(turn) == {'role', 'content'} and turn['role'] in ('user', 'assistant')
+            assert all(set(turn) == ({'role', 'content', 'message_id'} if long else {'role', 'content'}) and turn['role'] in ('user', 'assistant')
                        and isinstance(turn['content'], str) and 0 < len(turn['content']) <= settings.max_input_length for turn in batch)
-        assert all(isinstance(query, str) and query.strip() for query in case['queries'])
+        if long:
+            from long_memory_cases import validate_case
+            validate_case(case, gold['cases'][case['case_id']])
+        else:
+            assert all(isinstance(query, str) and query.strip() for query in case['queries'])
     return data, gold
 
 
@@ -156,6 +161,10 @@ class RecordedLLM:
         self.live, self.calls = live, calls
         self.vectors = {}
 
+    @property
+    def supports_candidate_filter(self):
+        return getattr(self.live, 'supports_candidate_filter', False) is True
+
     def get_vector_dimension(self):
         return self.live.get_vector_dimension()
 
@@ -207,7 +216,8 @@ def stored(db, tenant, user):
 
 
 def source_hashes():
-    paths = list((ROOT / 'src').rglob('*.py')) + [Path(__file__), ROOT / 'scripts/eval_api_budget.py']
+    paths = list((ROOT / 'src').rglob('*.py')) + [Path(__file__), ROOT / 'scripts/eval_api_budget.py',
+        ROOT / 'scripts/long_memory_cases.py', ROOT / 'scripts/campaign_budget.py', ROOT / 'scripts/run_memory_campaign.py']
     return {str(path.relative_to(ROOT)).replace('\\', '/'): sha(path) for path in sorted(paths)}
 
 
@@ -219,9 +229,29 @@ def execute_case(case, repetition, db, cache, tenant, llm, budget, stamp, progre
     original_clock = redis_provider.time
     clock = [stamp]
     redis_provider.time = SimpleNamespace(time=lambda: clock[0])
+    def retrieve(query, query_index, after_batch):
+        # Each query has its own session. Never consolidate it or let it become
+        # recent chat context for another query or a later ingestion batch.
+        text = query['text'] if isinstance(query, dict) else query
+        clock[0] += 60
+        before = stored(db, tenant, user)
+        started = time.monotonic()
+        payload = hook.on_chat(tenant, f'eval-query-{query_index}', text, ChatSenderRole.USER, user)
+        if payload.get('error'):
+            raise RuntimeError('Retrieval hook error')
+        assert stored(db, tenant, user) == before, 'Retrieval changed durable memory'
+        result['retrieval'].append({'query': text, 'query_id': query.get('query_id') if isinstance(query, dict) else query_index,
+                                    'after_batch': after_batch, 'payload': payload,
+                                    'elapsed_seconds': time.monotonic() - started})
+        progress(result)
     try:
         for batch_index, batch in enumerate(case['batches']):
-            row = {'batch_index': batch_index, 'turns': deepcopy(batch), 'before': stored(db, tenant, user)}
+            if 'batch_metadata' in case:
+                meta = case['batch_metadata'][batch_index]
+                session = meta['session_id']
+                clock[0] = datetime.fromisoformat(meta['at'].replace('Z', '+00:00')).timestamp()
+            row = {'batch_index': batch_index, 'session_id': session, 'turns': deepcopy(batch), 'before': stored(db, tenant, user)}
+            started = time.monotonic()
             result['batches'].append(row)
             try:
                 for turn in batch:
@@ -231,23 +261,36 @@ def execute_case(case, repetition, db, cache, tenant, llm, budget, stamp, progre
                         raise RuntimeError('Chat hook error')
                     clock[0] += 60
                 items = cache.pop_session_chat_log_4_consolidation(tenant, user, session)
-                assert items and all(item['tenant_id'] == tenant and item['user_id'] == user for item in items)
-                row['queued_messages'] = [{k: v for k, v in item.items() if k != 'vector'} for item in items]
-                row['success'] = workflow.run_consolidation_cycle(tenant, user, items)
-                row['after'] = stored(db, tenant, user)
-                row['dictionary_feedback'] = getattr(workflow, 'last_dictionary_feedback', None)
-                row['terminology_metrics'] = getattr(workflow, 'last_terminology_metrics', None)
-                row['proposal_recovery'] = deepcopy(getattr(workflow, 'last_proposal_recovery', {}))
-                row['mutation_recovery'] = deepcopy(getattr(workflow, 'last_mutation_recovery', {}))
-                if row['success']:
+                assert items
+                row.update(success=False, queued_messages=[], processing_batches=[])
+                while items:
+                    assert all(item['tenant_id'] == tenant and item['user_id'] == user for item in items)
+                    row['queued_messages'].extend({k: v for k, v in item.items() if k != 'vector'} for item in items)
+                    part = {'item_ids': [item['item_id'] for item in items]}
+                    row['processing_batches'].append(part)
+                    part['success'] = workflow.run_consolidation_cycle(tenant, user, items)
+                    row['after'] = stored(db, tenant, user)
+                    # Preserve per-processing-batch diagnostics. Existing top-level
+                    # fields describe the last part, as before for unsplit batches.
+                    for name, default in [('dictionary_feedback', None), ('terminology_metrics', None),
+                                          ('proposal_recovery', {}), ('mutation_recovery', {})]:
+                        part[name] = deepcopy(getattr(workflow, 'last_' + name, default))
+                        row[name] = part[name]
+                    if not part['success']:
+                        raise RuntimeError('Consolidation did not complete')
                     before_requests = len(budget.records)
                     assert workflow.run_consolidation_cycle(tenant, user, items)
                     assert len(budget.records) == before_requests and stored(db, tenant, user) == row['after']
-                    row['replay_verified'] = True
+                    part['replay_verified'] = True
                     assert cache.clear_session_4_consolidation(tenant, user, session, items)
-                else:
-                    raise RuntimeError('Consolidation did not complete')
+                    progress(result)
+                    items = cache.pop_session_chat_log_4_consolidation(tenant, user, session)
+                row.update(success=True, replay_verified=True)
+                row['elapsed_seconds'] = time.monotonic() - started
                 progress(result)
+                for query_index, query in enumerate(case['queries']):
+                    if isinstance(query, dict) and query['after_batch'] == batch_index:
+                        retrieve(query, query_index, batch_index)
                 print(case['case_id'], repetition, 'batch', batch_index + 1, 'committed', len(row['after']), flush=True)
             except Exception as exc:
                 row.update(error_type=type(exc).__name__, after=stored(db, tenant, user))
@@ -257,10 +300,9 @@ def execute_case(case, repetition, db, cache, tenant, llm, budget, stamp, progre
                 progress(result)
                 return result
         result['final'] = stored(db, tenant, user)
-        for query in case['queries']:
-            clock[0] += 60
-            payload = hook.on_chat(tenant, 'fresh-query-session', query, ChatSenderRole.USER, user)
-            result['retrieval'].append({'query': query, 'payload': payload})
+        for query_index, query in enumerate(case['queries']):
+            if isinstance(query, str):
+                retrieve(query, query_index, len(case['batches']) - 1)
         result['completed'] = True
         return result
     except Exception as exc:
@@ -280,15 +322,26 @@ def main():
     variants.add_argument('--recovery-pilot', action='store_true', help='Failed cases first; repeat jobs/cars three times, other cases once.')
     variants.add_argument('--subject-pilot', action='store_true', help='User jobs, brother jobs and stable car naming; three repetitions each.')
     variants.add_argument('--realistic-pilot', action='store_true', help='Five eight-message conversations; ambiguity, history, mixed topics and languages.')
+    variants.add_argument('--long-pilot', action='store_true', help='Validate the six 40-message, multi-session cases. Live campaign budget requires separate approval.')
+    parser.add_argument('--long-phase', choices=('all', 'smoke', 'development', 'validation'), default=None)
     args = parser.parse_args()
-    data_path, gold_path = case_paths(args.subject_pilot, args.realistic_pilot)
-    data, gold = load_cases(args.subject_pilot, args.realistic_pilot)
+    data_path, gold_path = case_paths(args.subject_pilot, args.realistic_pilot, args.long_pilot)
+    data, gold = load_cases(args.subject_pilot, args.realistic_pilot, args.long_pilot)
     plan = build_plan(data, args.recovery_pilot)
+    if args.long_phase and not args.long_pilot:
+        parser.error('--long-phase requires --long-pilot')
+    if args.long_pilot:
+        from long_memory_cases import build_long_plan, dataset_statistics
+        plan = build_long_plan(data, args.long_phase or 'all')
+    if args.long_pilot and args.live:
+        parser.error('Use run_memory_campaign.py with a separately approved persistent campaign budget; --long-pilot validates offline only.')
     if not args.live and not args.preflight:
         print(json.dumps({'mode': 'validate', 'cases': len(data['cases']), 'runs': len(plan),
                           'batches': sum(len(case['batches']) for case, _ in plan),
                           'dataset_sha256': sha(data_path),
                           'expectations_sha256': sha(gold_path)}))
+        if args.long_pilot:
+            print(json.dumps({'phase': args.long_phase or 'all', 'statistics': dataset_statistics(data)}))
         return
     load_dotenv(ROOT / '.env', override=False)
     for name in ('tomte.engine', 'httpx', 'httpcore', 'openai'):

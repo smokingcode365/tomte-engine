@@ -5,6 +5,13 @@ RECONCILER_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + "\n" + (
     'For extracted_entity_id copy the exact extraction handle. For targets[].db_id copy the offered candidate id UUID, entity_id is the same canonical UUID.\n'
     'For NEW set explicitly_new=true and supply new_entity_evidence. For MATCH_MANY explicitly set applies_equally_to_all=true only when every fact applies to all targets. Otherwise abstain.\n'
     "Resolve EXTRACTED_SEMANTIC_INFORMATION against each object's small candidate set.\r\n"
+    'CANDIDATES_BY_ID stores each existing candidate once, keyed by its UUID.\n'
+    'CANDIDATES_BY_OBJECT maps each extraction handle to its ordered allowed candidate\n'
+    'references: id and candidate_only_similarity. Read a reference\'s identity and\n'
+    'current facts from CANDIDATES_BY_ID[id]. A candidate appearing in the shared\n'
+    'table is not eligible for an object unless its id is in that object\'s list.\n'
+    'Similarity belongs to that object/candidate pair, not to the shared entity.\n'
+    'These are request-local lookup references, not relationships between entities.\n'
     'Extracted IDs are local bookkeeping, never identity evidence. Similarity/type alone\r\n'
     'never proves identity or licenses merging distinct real-world objects.\r\n'
     'Use CURRENT_BATCH and bounded REFERENCE_ONLY_CONTEXT to resolve names, aliases,\r\n'
@@ -15,10 +22,12 @@ RECONCILER_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + "\n" + (
     'Return MATCH_ONE, MATCH_MANY, NEW or UNRESOLVED. NEW requires an explicitly introduced\r\n'
     'genuinely new entity and a verbatim current USER-message introduction as evidence;\r\n'
     'an unknown presupposed nickname is UNRESOLVED, not NEW. Missing evidence is uncertainty.\r\n'
-    'For each target give separate resolution confidence (not a calibrated probability)\r\n'
-    'and evidence: EXPLICIT, ALIAS, RESOLVED_REFERENCE, GROUP_EXPLICIT, GROUP_INFERRED or\r\n'
-    'SEMANTIC_CANDIDATE. Broad category membership is weaker than active conversation.\r\n'
-    'MATCH_MANY may apply an update to every strong target only when all extracted facts\r\n'
+    'You make the semantic identity decision. Return each selected target as db_id\n'
+    'only; do not return confidence scores or evidence labels. Explain your choice\n'
+    'in reasoning. Semantic rephrasing can identify the same subject: a recurring\n'
+    'dessert preference may match its stored preference despite different wording.\n'
+    'Shared topics do not make distinct dogs, cars or episodes the same identity.\n'
+    'MATCH_MANY may apply an update to every selected target only when all extracted facts\r\n'
     'clearly apply equally to them. One unspecified member or an unidentified plural set\r\n'
     'is UNRESOLVED. Never distribute individual facts indiscriminately.\r\n'
     '\r\n'
@@ -108,6 +117,14 @@ RECONCILER_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + "\n" + (
 )
 
 RECONCILER_SYSTEM_PROMPT += """
+THOUGHT IDENTITY
+A current USER introduction such as "I am considering buying a Tesla" can support
+NEW for the purchase intention, never for an owned Tesla. Match an existing thought
+only when evidence identifies that same idea. Desired objects, overlapping topics
+and first_mentioned_at alone do not prove identity. Never match a thought entity
+to a non-thought entity, even when the user now reports carrying out the plan.
+Return unresolved when the idea's identity is unclear; do not force a new write.
+
 IDENTITY AND GROUP CONTRACT
 Extraction ids are tmp_ correlation handles only. NEW UUIDs are allocated by Python.
 Return at most one resolution per extraction handle. MATCH_ONE has exactly one
@@ -120,5 +137,21 @@ that CURRENT USER message, plus applies_equally_to_all. Establish every member f
 current/recent conversation; 'both cars' after Tesla and Honda excludes another BMW.
 Return group_member_handles for all recognized extraction participants. Never select
 a partial group or infer membership from type, candidate count or similarity alone.
-Ambiguous David is UNRESOLVED, not MATCH_MANY with reduced confidence.
+CANDIDATE_SET_TRUNCATED means exact name/alias matches exceeded the offered limit.
+False does not establish completeness: semantic candidates may still be missing.
+If CANDIDATES_FILTERED is true for an object, a preliminary model removed some
+candidates. That is only a shortlist, not an identity decision or proof of complete
+coverage. A lone survivor is not automatically the right identity.
+Neither flag proves nor disproves the identity of a selected target or group. An
+explicitly identified Tesla and Honda can form the complete requested group even
+if other cars were omitted. If 'all my cars' includes an unoffered member, or you
+cannot identify the complete requested group, return UNRESOLVED. Never select an
+unoffered UUID or treat the visible candidate list as the user's complete group.
+Ambiguous David is UNRESOLVED, not MATCH_MANY.
+UNRESOLVED means the extracted user-supported claim has an unidentified subject
+or incomplete group. Explain precisely what identity is missing in reasoning.
+The application preserves those claims separately for later clarification; do not
+guess a match or invent NEW merely to avoid loss. These pending records are not
+ordinary identity candidates. A clear introduction can still be NEW; absence of
+an existing candidate alone neither proves a new subject nor makes it unresolved.
 """

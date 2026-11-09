@@ -1,0 +1,2568 @@
+{
+  "dataset_version": "memory-long-conversations-1",
+  "timestamp": "2026-09-01T12:00:00Z",
+  "cases": [
+    {
+      "case_id": "concurrent_work",
+      "split": "development",
+      "repetitions": 3,
+      "batches": [
+        [
+          {
+            "message_id": "u01",
+            "role": "user",
+            "content": "I have two part-time jobs, and balancing them is the main thing on my mind lately. I am a physiotherapist at Harbour Hospital on Mondays and Tuesdays. Separately, I teach first aid at Beacon College on Saturday mornings. They are two different employers, not two departments of one organisation."
+          },
+          {
+            "message_id": "u02",
+            "role": "user",
+            "content": "At the hospital I work with another physiotherapist called Alex Morgan. We usually share the downstairs treatment room. At the college my course coordinator is Alex Reed, who is a teacher rather than a physiotherapist. The shared first name sometimes makes my diary confusing."
+          },
+          {
+            "message_id": "u03",
+            "role": "user",
+            "content": "Harbour Hospital's building where I work is at 12 Quay Road. Beacon College holds my classes at 8 Birch Street. I travel between them by bus when I need to collect materials, but I do not have a regular college shift on a hospital workday."
+          },
+          {
+            "message_id": "a01",
+            "role": "assistant",
+            "content": "That sounds like a busy week. How do the two workplaces differ?"
+          }
+        ],
+        [
+          {
+            "message_id": "u04",
+            "role": "user",
+            "content": "The hospital work is mostly patient rehabilitation, while my college classes cover basic first aid for adults. I like both jobs for different reasons. I began the hospital job in early 2024, and the college role started around autumn 2025; neither start date is exact."
+          },
+          {
+            "message_id": "u05",
+            "role": "user",
+            "content": "I am trying to keep Sundays free, so I would prefer not to take on any new Sunday teaching. That is a preference rather than a change to either contract. At the moment the hospital is still Monday and Tuesday, and college is still Saturday morning."
+          },
+          {
+            "message_id": "a02",
+            "role": "assistant",
+            "content": "Keeping Sunday free sounds useful."
+          }
+        ],
+        [
+          {
+            "message_id": "u06",
+            "role": "user",
+            "content": "I checked the college paperwork this morning and realised I gave you the wrong street number. My Beacon College classroom has always been at 18 Birch Street, not 8. Nobody has relocated; I simply left out the digit one when I told you the address."
+          },
+          {
+            "message_id": "u07",
+            "role": "user",
+            "content": "Alex Reed at the college sent me the next term's teaching outline. Alex Morgan at Harbour Hospital had nothing to do with that email. I know their names are similar, so please keep the college coordinator and the hospital physiotherapist separate when we talk about them."
+          },
+          {
+            "message_id": "u08",
+            "role": "user",
+            "content": "The Saturday teaching session is three hours long, with a short break in the middle. The hospital shifts are full days, though I have not told you their exact starting or finishing times. I do not want to guess those times just to make my calendar look tidy."
+          },
+          {
+            "message_id": "a03",
+            "role": "assistant",
+            "content": "Thanks for clarifying the address. Have you booked the holiday?"
+          }
+        ],
+        [
+          {
+            "message_id": "u09",
+            "role": "user",
+            "content": "I have been thinking about taking a short holiday, but I have not booked anything and have not requested leave. We can leave the destination undecided for now. I would rather understand my teaching commitments before I spend money on travel."
+          },
+          {
+            "message_id": "u10",
+            "role": "user",
+            "content": "My hospital role has not changed. I still enjoy working directly with patients, and I am still teaching adult first aid at Beacon. The only factual correction today was the college street number, which should now be eighteen rather than eight."
+          },
+          {
+            "message_id": "a04",
+            "role": "assistant",
+            "content": "We can leave travel undecided."
+          }
+        ],
+        [
+          {
+            "message_id": "u11",
+            "role": "user",
+            "content": "This week's news is about Harbour Hospital. The department has moved my treatment room to the building at 30 Dock Lane. This is a real move from 12 Quay Road, and I am already working at the new location rather than merely considering it."
+          },
+          {
+            "message_id": "u12",
+            "role": "user",
+            "content": "My employer is still Harbour Hospital and my job is still physiotherapist. The relocation did not make me a new employee or change my start year. Alex Morgan moved with the same team, while Alex Reed continues to coordinate my classes at Beacon College."
+          },
+          {
+            "message_id": "u13",
+            "role": "user",
+            "content": "I feel a little unsettled by the new hospital building because I used to know where everything was. That is how I feel about the move, not a statement that the workplace is unsafe or that I dislike my colleagues. I expect the unfamiliarity will take time."
+          },
+          {
+            "message_id": "a05",
+            "role": "assistant",
+            "content": "How does the new treatment room feel?"
+          }
+        ],
+        [
+          {
+            "message_id": "u14",
+            "role": "user",
+            "content": "The college has offered the option of an extra workshop, but I have not accepted it. Please do not turn that possibility into a third job or an agreed extra shift. My current college commitment is still the Saturday class at 18 Birch Street."
+          },
+          {
+            "message_id": "u15",
+            "role": "user",
+            "content": "For now I am keeping the same weekly routine: hospital on Monday and Tuesday, teaching on Saturday, and keeping Sunday free where possible. If we return to this after a while, the real location change belongs to the hospital job, not the college one."
+          },
+          {
+            "message_id": "a06",
+            "role": "assistant",
+            "content": "I understand the workshop is only an offer."
+          }
+        ],
+        [
+          {
+            "message_id": "u16",
+            "role": "user",
+            "content": "I accepted a change to my teaching timetable today. My Beacon College class now runs on Thursday evenings instead of Saturday mornings. It is the same three-hour adult first-aid class at the same college; I have not taken on an additional teaching role."
+          },
+          {
+            "message_id": "u17",
+            "role": "user",
+            "content": "Alex Reed arranged that timetable change. Alex Morgan is still the physiotherapist I work with at Harbour Hospital and did not organise my teaching schedule. I am looking forward to having Saturday mornings free, although I have not decided how I will use them yet."
+          },
+          {
+            "message_id": "u18",
+            "role": "user",
+            "content": "Harbour Hospital remains a Monday-and-Tuesday commitment at 30 Dock Lane. I am spelling that out because changing my college day should not also move the hospital shifts. The earlier hospital address was 12 Quay Road, before the department actually relocated."
+          },
+          {
+            "message_id": "a07",
+            "role": "assistant",
+            "content": "Does Thursday work better for you?"
+          }
+        ],
+        [
+          {
+            "message_id": "u19",
+            "role": "user",
+            "content": "Someone suggested that I could teach online on Sundays as well. I am not agreeing to that idea. My preference is still to keep Sunday free, and I already have enough work to balance. Please treat the suggestion as a suggestion rather than a booking."
+          },
+          {
+            "message_id": "u20",
+            "role": "user",
+            "content": "I have started keeping the teaching materials in a blue folder, which is just an organisational habit. The important timetable change is Thursday evening at Beacon. The two Alexes remain different colleagues attached to different workplaces."
+          },
+          {
+            "message_id": "a08",
+            "role": "assistant",
+            "content": "An online Sunday class could be another option."
+          }
+        ],
+        [
+          {
+            "message_id": "u21",
+            "role": "user",
+            "content": "I handed in my notice for Beacon College, and my final Thursday class has now happened. I am no longer teaching there. I still work as a physiotherapist at Harbour Hospital on Monday and Tuesday; ending the teaching role does not mean I am unemployed."
+          },
+          {
+            "message_id": "u22",
+            "role": "user",
+            "content": "I left the college because I wanted more breathing room in my week, not because I changed career or lost the hospital job. My teaching experience there still matters to me. It would be useful to remember that the Beacon role existed and has ended."
+          },
+          {
+            "message_id": "u23",
+            "role": "user",
+            "content": "Alex Reed remains someone I know from the college, but he is no longer coordinating my current work. Alex Morgan is still my hospital colleague. I have not said that either Alex left their own employer, so their employment should not change just because mine did."
+          },
+          {
+            "message_id": "a09",
+            "role": "assistant",
+            "content": "How do you feel after finishing the college role?"
+          }
+        ],
+        [
+          {
+            "message_id": "u24",
+            "role": "user",
+            "content": "The hospital is still at 30 Dock Lane. I briefly looked at an advertisement for another rehabilitation role, but I did not apply and I have no new employer to report. For now there is just the continuing hospital work and the finished college role."
+          },
+          {
+            "message_id": "u25",
+            "role": "user",
+            "content": "I am relieved to have more free time. That feeling does not erase the fact that I enjoyed teaching adults there. I would like any later summary to distinguish my current hospital job from the previous Beacon College job instead of describing both as active."
+          },
+          {
+            "message_id": "a10",
+            "role": "assistant",
+            "content": "The former role can still be part of your experience."
+          }
+        ],
+        [
+          {
+            "message_id": "u26",
+            "role": "user",
+            "content": "I have taken a new, separate role at Orchard Centre teaching first aid on Friday afternoons. This is not a return to Beacon College, and Orchard is a different employer. My Harbour Hospital job continues as before, so I again have two current part-time commitments."
+          },
+          {
+            "message_id": "u27",
+            "role": "user",
+            "content": "Orchard Centre is at 4 Market Square, and the person coordinating my new sessions is Sam Patel. I met Sam through this role. Alex Reed has no part in the Orchard schedule; he was the coordinator at the college job that has already ended."
+          },
+          {
+            "message_id": "u28",
+            "role": "user",
+            "content": "These Friday sessions are for teenagers rather than the adult groups I taught at Beacon. I am still teaching first aid, but the audience and employer are different. I do not want the old college fact simply renamed as if it had always been Orchard."
+          },
+          {
+            "message_id": "a11",
+            "role": "assistant",
+            "content": "What age group will you teach at Orchard?"
+          }
+        ],
+        [
+          {
+            "message_id": "u29",
+            "role": "user",
+            "content": "At Harbour Hospital I remain a physiotherapist, working Monday and Tuesday at 30 Dock Lane. Alex Morgan is still on the team there. I have not supplied a precise start date for Orchard beyond telling you about the new job in this conversation."
+          },
+          {
+            "message_id": "u30",
+            "role": "user",
+            "content": "The new arrangement feels manageable so far, though it is too early to say how it will work out. I am not promising to keep it forever. I would still prefer Sundays free, and no Sunday teaching has been agreed with Orchard or anyone else."
+          },
+          {
+            "message_id": "a12",
+            "role": "assistant",
+            "content": "How does the new arrangement feel so far?"
+          }
+        ],
+        [
+          {
+            "message_id": "u31",
+            "role": "user",
+            "content": "Back to the hospital after talking about other work: my patient appointments now begin at nine in the morning on my normal workdays. This is new detail about the existing physiotherapist role, not another job. I still have not given you an exact finishing time."
+          },
+          {
+            "message_id": "u32",
+            "role": "user",
+            "content": "The Orchard sessions are still Friday afternoons at 4 Market Square. Sam Patel coordinates them and the students are teenagers. Nothing in today's hospital detail changes those sessions, and nothing brings back my old Thursday class at Beacon College."
+          },
+          {
+            "message_id": "u33",
+            "role": "user",
+            "content": "I caught up with Alex Reed socially after leaving the college. We remain on friendly terms, but that conversation was not a new employment agreement. I am mentioning it because knowing someone from a former workplace does not make that job current again."
+          },
+          {
+            "message_id": "a13",
+            "role": "assistant",
+            "content": "What else matters about the hospital schedule?"
+          }
+        ],
+        [
+          {
+            "message_id": "u34",
+            "role": "user",
+            "content": "I also spoke with Alex Morgan during a hospital shift. He is the physiotherapist, whereas Alex Reed is the teacher from the college. I have not told you the home addresses, salaries or ages of either person, and I do not know all of those details myself."
+          },
+          {
+            "message_id": "u35",
+            "role": "user",
+            "content": "I am still pleased that the two current roles fit into different parts of the week. Harbour is Monday and Tuesday from nine; Orchard is Friday afternoon. My old Beacon timetable changed from Saturday morning to Thursday evening before that job ended."
+          },
+          {
+            "message_id": "a14",
+            "role": "assistant",
+            "content": "We can distinguish the colleagues when discussing work."
+          }
+        ],
+        [
+          {
+            "message_id": "u36",
+            "role": "user",
+            "content": "The Orchard coordinator has corrected something I copied into my own notes: Sam spells his surname Patel, as I originally told you. There is no new person or new coordinator. My current arrangement there remains Friday afternoons, teaching first aid to teenagers."
+          },
+          {
+            "message_id": "u37",
+            "role": "user",
+            "content": "I want to review where things stand without losing the past. Harbour Hospital is my continuing physiotherapy job at 30 Dock Lane, previously 12 Quay Road. Beacon College was the adult first-aid teaching job at 18 Birch Street, and it has ended."
+          },
+          {
+            "message_id": "u38",
+            "role": "user",
+            "content": "Orchard Centre is the new teaching employer at 4 Market Square. It should be distinct from Beacon even though both involve first aid. I still keep Sundays free when I can, and I have not agreed to the extra Sunday teaching people previously suggested."
+          },
+          {
+            "message_id": "a15",
+            "role": "assistant",
+            "content": "It sounds useful to review current and former work separately."
+          }
+        ],
+        [
+          {
+            "message_id": "u39",
+            "role": "user",
+            "content": "I cannot remember whether I ever told you my hourly pay at any of these places. I am not giving a figure now. If it was never supplied, I would rather a later answer admit that than invent a plausible rate from my occupation."
+          },
+          {
+            "message_id": "u40",
+            "role": "user",
+            "content": "Nothing else changed this week. Alex Morgan belongs with Harbour Hospital, Alex Reed with the former college work, and Sam Patel with Orchard. I would like to be able to ask about my earlier Saturday teaching as history while getting my two current roles right."
+          },
+          {
+            "message_id": "a16",
+            "role": "assistant",
+            "content": "I can answer from the details you have actually shared."
+          }
+        ]
+      ],
+      "batch_metadata": [
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:00:00Z"
+        },
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:30:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:00:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:30:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:00:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:30:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:00:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:30:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:00:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:30:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:00:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:30:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:00:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:30:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:00:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:30:00Z"
+        }
+      ],
+      "queries": [
+        {
+          "query_id": "q01",
+          "after_batch": 3,
+          "text": "Where are my two workplaces, and did the college move?"
+        },
+        {
+          "query_id": "q02",
+          "after_batch": 7,
+          "text": "Which days do I work at the hospital and college now?"
+        },
+        {
+          "query_id": "q03",
+          "after_batch": 9,
+          "text": "Am I still teaching at Beacon, and do I have another current job?"
+        },
+        {
+          "query_id": "q04",
+          "after_batch": 11,
+          "text": "Who coordinates my Orchard teaching, and what is the group?"
+        },
+        {
+          "query_id": "q05",
+          "after_batch": 15,
+          "text": "What are my current jobs and their schedules?"
+        },
+        {
+          "query_id": "q06",
+          "after_batch": 15,
+          "text": "What changed about my former Beacon College work?"
+        },
+        {
+          "query_id": "q07",
+          "after_batch": 15,
+          "text": "Which Alex was at the hospital and which at the college?"
+        },
+        {
+          "query_id": "q08",
+          "after_batch": 15,
+          "text": "What is my hourly rate at Orchard?"
+        }
+      ]
+    },
+    {
+      "case_id": "two_civic_cars",
+      "split": "validation",
+      "repetitions": 3,
+      "batches": [
+        [
+          {
+            "message_id": "u01",
+            "role": "user",
+            "content": "I own two Honda Civics and would like to keep their details straight. One is a blue 2017 model that I call Pebble, and the other is a silver 2021 model called Comet. Those are names I actually use for the cars, not names I just want you to invent."
+          },
+          {
+            "message_id": "u02",
+            "role": "user",
+            "content": "Pebble normally stays in my garage and Comet is parked on the street outside. Pebble has Michelin tyres, while Comet has Continental tyres. Both cars are still mine. The model years tell you which versions they are, not the years when I bought them."
+          },
+          {
+            "message_id": "u03",
+            "role": "user",
+            "content": "I tend to drive Pebble on local errands because I know it well, and I take Comet on longer journeys. That is a loose habit rather than a strict rule. I do sometimes use the other car, so please do not turn the habit into an absolute restriction."
+          },
+          {
+            "message_id": "a01",
+            "role": "assistant",
+            "content": "Which car do you normally use for errands?"
+          }
+        ],
+        [
+          {
+            "message_id": "u04",
+            "role": "user",
+            "content": "Pebble's service book is in a green folder. Comet's paperwork is in a grey folder next to it. I am organising the folders this week, which is why I keep mentioning them, but the folder colours are not descriptions of the cars' paint."
+          },
+          {
+            "message_id": "u05",
+            "role": "user",
+            "content": "I have not told you the purchase prices or either registration number. I may add them another time, but I do not have the paperwork in front of me. For now the reliable distinction is the older blue Pebble and the newer silver Comet."
+          },
+          {
+            "message_id": "a02",
+            "role": "assistant",
+            "content": "The folder colours are useful labels for the paperwork."
+          }
+        ],
+        [
+          {
+            "message_id": "u06",
+            "role": "user",
+            "content": "Pebble went into Lakeside Garage for a routine service today. The mechanic said its tyres could stay on for now, so there was no tyre replacement. Comet did not go in for service with it. I am trying to keep maintenance notes separate for each vehicle."
+          },
+          {
+            "message_id": "u07",
+            "role": "user",
+            "content": "The garage replaced Pebble's front brake pads. The rear pads were left alone, and I have not said that anything was done to Comet's brakes. I do not know the brand of the new pads, only which car and which part were worked on."
+          },
+          {
+            "message_id": "u08",
+            "role": "user",
+            "content": "I wondered whether I should have Pebble repainted white, but I have not booked or agreed to any paint work. It is still blue today. Sometimes I talk through ideas before making a decision, and I would like the difference between an idea and a completed repair to stay clear."
+          },
+          {
+            "message_id": "a03",
+            "role": "assistant",
+            "content": "Are you considering a repaint or has it happened?"
+          }
+        ],
+        [
+          {
+            "message_id": "u09",
+            "role": "user",
+            "content": "Comet is still silver, on Continental tyres, and parked on the street. I drove it to visit a friend this weekend but have not given a distance or destination. That trip does not change where I normally keep it or which car I use for most local errands."
+          },
+          {
+            "message_id": "u10",
+            "role": "user",
+            "content": "The maintenance folder system is working well. Pebble's paperwork remains in the green folder and Comet's in the grey one. I have not bought another Civic, sold either car, or given either of them a new nickname during this discussion."
+          },
+          {
+            "message_id": "a04",
+            "role": "assistant",
+            "content": "A routine service can be separate from future plans."
+          }
+        ],
+        [
+          {
+            "message_id": "u11",
+            "role": "user",
+            "content": "The paint work I was considering has now actually happened. Pebble has been repainted white and is no longer blue. It is the same 2017 Honda Civic with the same nickname; the repaint is not a purchase or a replacement vehicle."
+          },
+          {
+            "message_id": "u12",
+            "role": "user",
+            "content": "Comet remains the silver 2021 Civic. Nothing was painted on that car, and I do not want a general comment about my cars to overwrite its colour. Pebble still has the Michelin tyres that were checked during the routine service."
+          },
+          {
+            "message_id": "u13",
+            "role": "user",
+            "content": "I like how Pebble looks now, although keeping white paint clean may take some effort. I am describing my reaction rather than making a prediction that the paint will fail. The front brake pads were replaced earlier; that maintenance detail has not been reversed by the repaint."
+          },
+          {
+            "message_id": "a05",
+            "role": "assistant",
+            "content": "How do you feel about the white paint?"
+          }
+        ],
+        [
+          {
+            "message_id": "u14",
+            "role": "user",
+            "content": "The two cars are still normally parked in different places: Pebble in the garage and Comet outside on the street. My neighbour suggested parking both outside, but I have not changed the arrangement. Please keep suggestions separate from what I actually do."
+          },
+          {
+            "message_id": "u15",
+            "role": "user",
+            "content": "I need to get back to work now, so there are no more vehicle changes today. If we discuss the older car later, its blue paint belongs in its past and white is current. The folder holding its records is still green, not white."
+          },
+          {
+            "message_id": "a06",
+            "role": "assistant",
+            "content": "The parking suggestion can remain undecided."
+          }
+        ],
+        [
+          {
+            "message_id": "u16",
+            "role": "user",
+            "content": "I replaced Pebble's Michelin tyres with Pirelli tyres today. This was a real replacement of the tyres on the white 2017 Civic. Comet's Continental tyres are unchanged, and neither car changed owner or nickname as part of the appointment."
+          },
+          {
+            "message_id": "u17",
+            "role": "user",
+            "content": "While sorting the receipts, I found an error in what I had told my neighbour about Comet. Its model year is still 2021 as I originally told you. There is no correction to the model year in our conversation and no reason to merge it with the older car."
+          },
+          {
+            "message_id": "u18",
+            "role": "user",
+            "content": "I have started keeping Comet in a rented covered space behind my building instead of on the street. Pebble remains in my own garage. This is a parking change for Comet, not a change to either car's home address or ownership."
+          },
+          {
+            "message_id": "a07",
+            "role": "assistant",
+            "content": "Where are you parking each car now?"
+          }
+        ],
+        [
+          {
+            "message_id": "u19",
+            "role": "user",
+            "content": "I cannot recall the total tyre bill without checking the receipt, and I am not going to guess. I do remember the brand change for Pebble. Please leave the price unknown rather than assuming that a particular tyre brand always costs the same amount."
+          },
+          {
+            "message_id": "u20",
+            "role": "user",
+            "content": "The older car is white with Pirelli tyres; the newer one is silver with Continental tyres. I know that sounds repetitive, but the details matter because I am comparing maintenance costs. Only Comet moved into the covered parking space."
+          },
+          {
+            "message_id": "a08",
+            "role": "assistant",
+            "content": "You can check the receipt when you need the price."
+          }
+        ],
+        [
+          {
+            "message_id": "u21",
+            "role": "user",
+            "content": "I noticed a faint rattle in Comet yesterday. I have booked an inspection, but nobody has diagnosed the cause yet and no part has been replaced. Pebble is not the car making the noise. I do not want a possible diagnosis recorded as a confirmed repair."
+          },
+          {
+            "message_id": "u22",
+            "role": "user",
+            "content": "The mechanic mentioned that a loose heat shield is one possibility for Comet's rattle. That remains a possibility, not a finding. I have not said the exhaust is broken or that the engine has a fault. We will know more after the inspection."
+          },
+          {
+            "message_id": "u23",
+            "role": "user",
+            "content": "Pebble has been useful for errands while I think about the appointment. It is still the same white 2017 Civic with Pirelli tyres, and the earlier front-pad replacement remains part of its maintenance history. There is no new work on Pebble to report today."
+          },
+          {
+            "message_id": "a09",
+            "role": "assistant",
+            "content": "What has the mechanic confirmed so far?"
+          }
+        ],
+        [
+          {
+            "message_id": "u24",
+            "role": "user",
+            "content": "Both cars are still mine, and Comet stays in the covered rented space when I am not driving it. I am considering whether I really need two cars, but I have not decided to sell one. Considering a sale is not the same as transferring ownership."
+          },
+          {
+            "message_id": "u25",
+            "role": "user",
+            "content": "I have not told you a date for the booked inspection or the name of the mechanic who will do it. Those details are on my phone. If I ask later, an honest answer should not fill them in just because an appointment sounds incomplete without them."
+          },
+          {
+            "message_id": "a10",
+            "role": "assistant",
+            "content": "An engine replacement might solve a serious engine fault, but no such fault is confirmed here."
+          }
+        ],
+        [
+          {
+            "message_id": "u26",
+            "role": "user",
+            "content": "The inspection is finished. Comet's rattle was a loose heat shield, and the garage secured it; the noise has stopped. This is the first confirmed diagnosis in our conversation. It was Comet, the silver 2021 Civic, not Pebble."
+          },
+          {
+            "message_id": "u27",
+            "role": "user",
+            "content": "The mechanic did not replace Comet's tyres or repaint the car during that visit. It is still on Continental tyres and remains silver. Pebble continues on Pirelli tyres, which replaced its old Michelin set earlier in our conversation."
+          },
+          {
+            "message_id": "u28",
+            "role": "user",
+            "content": "I have decided to keep both cars for now. The earlier idea of selling one did not turn into a sale. Comet stays in the covered space and Pebble in the garage, and their nicknames still help me organise the paperwork without relying on paint colour."
+          },
+          {
+            "message_id": "a11",
+            "role": "assistant",
+            "content": "Was anything else changed in the repair?"
+          }
+        ],
+        [
+          {
+            "message_id": "u29",
+            "role": "user",
+            "content": "Lakeside Garage handled Pebble's earlier service. I have not stated whether it also handled Comet's heat shield, so please do not assume that every maintenance visit was to the same business. I sometimes use different garages depending on the work needed."
+          },
+          {
+            "message_id": "u30",
+            "role": "user",
+            "content": "I feel relieved that the rattle turned out to be a simple fix. That is a reaction to the completed Comet repair. It does not mean I had a confirmed engine problem before, and it should not add a history of an engine replacement that never happened."
+          },
+          {
+            "message_id": "a12",
+            "role": "assistant",
+            "content": "It is good to distinguish the confirmed fix from earlier possibilities."
+          }
+        ],
+        [
+          {
+            "message_id": "u31",
+            "role": "user",
+            "content": "I am lending Comet to my cousin for a weekend next month. It is a loan, not a sale or gift, and I still own it. I have not supplied the exact dates or my cousin's name. Pebble will remain with me as usual."
+          },
+          {
+            "message_id": "u32",
+            "role": "user",
+            "content": "For the weekend loan, Comet may be away from its covered parking space temporarily. Its normal parking arrangement remains that rented space behind my building. A temporary trip should not replace the long-term parking information with an unknown location."
+          },
+          {
+            "message_id": "u33",
+            "role": "user",
+            "content": "I found the old photograph of Pebble when it was blue, before I repainted it white. I like having that record. The photograph does not mean I have reversed the repaint or bought a third blue Civic; it is the same older car at an earlier time."
+          },
+          {
+            "message_id": "a13",
+            "role": "assistant",
+            "content": "Does ownership stay with you during the loan?"
+          }
+        ],
+        [
+          {
+            "message_id": "u34",
+            "role": "user",
+            "content": "Pebble still has Pirelli tyres and Comet still has Continental tyres. I have not replaced either set since the work I already described. The service folders remain green for Pebble and grey for Comet, which is a separate colour distinction from the vehicles themselves."
+          },
+          {
+            "message_id": "u35",
+            "role": "user",
+            "content": "Thanks, that helps me think about the loan. I am not making a new booking or asking you to contact anyone. I only want the planned loan and the fact that ownership stays with me to remain distinct from the earlier abandoned idea of selling a car."
+          },
+          {
+            "message_id": "a14",
+            "role": "assistant",
+            "content": "A photograph can show the car at an earlier time."
+          }
+        ],
+        [
+          {
+            "message_id": "u36",
+            "role": "user",
+            "content": "The planned weekend loan is still only a future arrangement. Comet has not been sold, and I still own both Civics. Pebble is white now, with its earlier blue colour worth remembering as history. Comet remains silver with the heat shield secured."
+          },
+          {
+            "message_id": "u37",
+            "role": "user",
+            "content": "If I ask about the older Civic's tyre history, the sequence is Michelin followed by the current Pirelli set. The Continental tyres belong to Comet. I want to preserve that distinction even when I refer to the cars by model year rather than by nickname."
+          },
+          {
+            "message_id": "u38",
+            "role": "user",
+            "content": "Pebble normally sits in my garage. Comet's usual place changed from the street to the rented covered space. Neither car changed model year, and I have not supplied purchase dates. I would rather those dates stay unknown than be copied from 2017 or 2021."
+          },
+          {
+            "message_id": "a15",
+            "role": "assistant",
+            "content": "What details are still unknown?"
+          }
+        ],
+        [
+          {
+            "message_id": "u39",
+            "role": "user",
+            "content": "I still cannot give you the tyre bill or either registration number. No amount has been stated in this conversation. If we need those details for a comparison, I will look them up, but please do not infer a price from the brands or work described."
+          },
+          {
+            "message_id": "u40",
+            "role": "user",
+            "content": "That is everything for the moment. I am pleased the maintenance records now distinguish completed repairs, ideas I did not act on, and a future loan. The cars are still called Pebble and Comet, and I do not want paint changes to create new identities."
+          },
+          {
+            "message_id": "a16",
+            "role": "assistant",
+            "content": "We can keep current details separate from maintenance history."
+          }
+        ]
+      ],
+      "batch_metadata": [
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:00:00Z"
+        },
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:30:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:00:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:30:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:00:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:30:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:00:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:30:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:00:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:30:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:00:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:30:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:00:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:30:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:00:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:30:00Z"
+        }
+      ],
+      "queries": [
+        {
+          "query_id": "q01",
+          "after_batch": 3,
+          "text": "Has Pebble been repainted, and what maintenance was done?"
+        },
+        {
+          "query_id": "q02",
+          "after_batch": 7,
+          "text": "What tyres and usual parking does each Civic have?"
+        },
+        {
+          "query_id": "q03",
+          "after_batch": 9,
+          "text": "What is causing Comet to rattle?"
+        },
+        {
+          "query_id": "q04",
+          "after_batch": 11,
+          "text": "What fixed the rattle and which car had it?"
+        },
+        {
+          "query_id": "q05",
+          "after_batch": 15,
+          "text": "What colour was Pebble before, and what colour is it now?"
+        },
+        {
+          "query_id": "q06",
+          "after_batch": 15,
+          "text": "Describe both cars and their tyre histories."
+        },
+        {
+          "query_id": "q07",
+          "after_batch": 15,
+          "text": "Did I sell a car or arrange a loan?"
+        },
+        {
+          "query_id": "q08",
+          "after_batch": 15,
+          "text": "What did the Pirelli tyres cost?"
+        }
+      ]
+    },
+    {
+      "case_id": "brothers_and_work",
+      "split": "development",
+      "repetitions": 3,
+      "batches": [
+        [
+          {
+            "message_id": "u01",
+            "role": "user",
+            "content": "My brothers are Daniel and David, and their names sometimes get muddled when I talk quickly. Daniel is a pharmacist at Rowan Pharmacy in York. David is a pharmacist at Linden Pharmacy, also in York. They are different people working for different employers, despite sharing an occupation."
+          },
+          {
+            "message_id": "u02",
+            "role": "user",
+            "content": "Daniel lives near the river in York, but I do not know his exact street address. David lives near the university in York. Both of those descriptions are about their homes rather than the pharmacies. I have not supplied a postal code for either of them."
+          },
+          {
+            "message_id": "u03",
+            "role": "user",
+            "content": "Daniel also teaches a first-aid class at Northgate College on Wednesday evenings. That teaching role is separate from his pharmacy job, and both are current. David has no college role that I have told you about. I want Daniel's two employments to stay attached to Daniel."
+          },
+          {
+            "message_id": "a01",
+            "role": "assistant",
+            "content": "What other work does Daniel do?"
+          }
+        ],
+        [
+          {
+            "message_id": "u04",
+            "role": "user",
+            "content": "David normally works at Linden Pharmacy on Monday, Wednesday and Friday. Daniel's pharmacy days vary, so I cannot give a fixed weekly list for him. I do know that Daniel's college class is every Wednesday evening, which is a different schedule from his pharmacy shifts."
+          },
+          {
+            "message_id": "u05",
+            "role": "user",
+            "content": "I enjoy seeing both brothers, though arranging a meal can be awkward with their work patterns. I have not made a dinner reservation yet. This is just background about our family and their work, not an instruction to book a table or assume a meeting has been scheduled."
+          },
+          {
+            "message_id": "a02",
+            "role": "assistant",
+            "content": "A meal can remain undecided until you arrange it."
+          }
+        ],
+        [
+          {
+            "message_id": "u06",
+            "role": "user",
+            "content": "One of my brothers has apparently been offered a job in Durham, but I have forgotten which brother mentioned it. I am not saying Daniel or David accepted an offer, and I am not even sure which one received it. Please leave that uncertainty unresolved for now."
+          },
+          {
+            "message_id": "u07",
+            "role": "user",
+            "content": "I remember that the offer involved pharmacy work, but that does not identify the person because both brothers are pharmacists. It also does not tell us that anyone moved home. I have not given you the prospective employer's name or a definite start date."
+          },
+          {
+            "message_id": "u08",
+            "role": "user",
+            "content": "My colleague thinks Daniel would enjoy living somewhere new, but that is my colleague's opinion, not evidence that Daniel received the offer. I do not want a plausible guess about him turned into a confirmed family update. I need to ask the brothers directly."
+          },
+          {
+            "message_id": "a03",
+            "role": "assistant",
+            "content": "Can you identify which brother received the offer?"
+          }
+        ],
+        [
+          {
+            "message_id": "u09",
+            "role": "user",
+            "content": "Unrelated to that uncertain story, Daniel's Northgate College class still runs on Wednesday evenings. I spoke to him about the teaching materials this week. He still has his Rowan Pharmacy job as well, so neither of his current roles should disappear while we wait for clarification."
+          },
+          {
+            "message_id": "u10",
+            "role": "user",
+            "content": "David is still working at Linden Pharmacy on his usual three days as far as I know. I have no confirmed home move for either brother. The Durham offer is something I might clarify next time, rather than something you can safely assign today."
+          },
+          {
+            "message_id": "a04",
+            "role": "assistant",
+            "content": "We can leave that ambiguous for now."
+          }
+        ],
+        [
+          {
+            "message_id": "u11",
+            "role": "user",
+            "content": "I have now checked: David received the Durham offer and declined it. He remains at Linden Pharmacy in York and has not moved home. Daniel was never the brother receiving that offer, and neither of Daniel's existing jobs changed as a result of it."
+          },
+          {
+            "message_id": "u12",
+            "role": "user",
+            "content": "The offer was from Ash Pharmacy in Durham. David said no because the travel would have been difficult for him. Ash is not his current employer and should not replace Linden. The fact that he considered an offer does not mean he held the job for a short time."
+          },
+          {
+            "message_id": "u13",
+            "role": "user",
+            "content": "Daniel is enjoying his first-aid teaching at Northgate College. He mentioned that the classroom is on the second floor, which is a detail about that teaching role. It does not describe Rowan Pharmacy or David's workplace, and it does not require a new job record."
+          },
+          {
+            "message_id": "a05",
+            "role": "assistant",
+            "content": "Did David ever take the job?"
+          }
+        ],
+        [
+          {
+            "message_id": "u14",
+            "role": "user",
+            "content": "We finally arranged a family lunch for next Sunday, though I have not chosen a restaurant. That is a real plan now, unlike the vague wish to see them earlier. I still have not given an exact calendar date or made a restaurant booking."
+          },
+          {
+            "message_id": "u15",
+            "role": "user",
+            "content": "I feel better after sorting out the offer story. For now both brothers still live in York. Daniel has Rowan Pharmacy plus Wednesday teaching at Northgate, while David has Linden Pharmacy on Monday, Wednesday and Friday. Please do not describe either as living in Durham."
+          },
+          {
+            "message_id": "a06",
+            "role": "assistant",
+            "content": "It sounds like the offer has now been clarified."
+          }
+        ],
+        [
+          {
+            "message_id": "u16",
+            "role": "user",
+            "content": "Daniel has actually moved home to Leeds this week. His previous home was near the river in York. He still works for Rowan Pharmacy and still teaches at Northgate College; moving home did not automatically change his employers or mean he accepted David's rejected Durham offer."
+          },
+          {
+            "message_id": "u17",
+            "role": "user",
+            "content": "Daniel's Leeds home is near the railway station. I do not know the building number or street name. David remains near the university in York. This update is about Daniel only, so the fact that they are brothers should not move David along with him."
+          },
+          {
+            "message_id": "u18",
+            "role": "user",
+            "content": "For Daniel's college teaching, the Wednesday class is now delivered online from his home instead of in the second-floor classroom. It is still the same Northgate first-aid teaching role. His Rowan Pharmacy work is still in person, not an online pharmacy job."
+          },
+          {
+            "message_id": "a07",
+            "role": "assistant",
+            "content": "What changed about Daniel’s teaching location?"
+          }
+        ],
+        [
+          {
+            "message_id": "u19",
+            "role": "user",
+            "content": "I asked Daniel whether he misses York, and he said he likes being near the station. I have not told you how he commutes to the pharmacy or how long it takes. Those would be guesses unless I ask him about them later."
+          },
+          {
+            "message_id": "u20",
+            "role": "user",
+            "content": "David's Linden Pharmacy schedule remains Monday, Wednesday and Friday. He did not take the Ash offer, did not move to Durham, and did not acquire Daniel's teaching job. I am repeating that because the two names are similar and the updates have happened close together."
+          },
+          {
+            "message_id": "a08",
+            "role": "assistant",
+            "content": "The home move need not change his employers."
+          }
+        ],
+        [
+          {
+            "message_id": "u21",
+            "role": "user",
+            "content": "A brother has changed his regular pharmacy day, but I cannot remember which one or which day yet. This is another incomplete update, not a correction to Daniel's online class or proof that David's Monday schedule changed. I will check before giving you a definite replacement."
+          },
+          {
+            "message_id": "u22",
+            "role": "user",
+            "content": "The only firm schedule detail for Daniel that I can repeat now is his Wednesday evening teaching for Northgate College, delivered online. His pharmacy rota varies. I have not said that he stopped being a pharmacist or that teaching became his only employment."
+          },
+          {
+            "message_id": "u23",
+            "role": "user",
+            "content": "David still works at Linden Pharmacy, and Daniel still works at Rowan. I do not have the rota message with me. Please preserve the last supported schedules and keep this new pharmacy-day claim uncertain rather than filling in a likely weekday for either person."
+          },
+          {
+            "message_id": "a09",
+            "role": "assistant",
+            "content": "Do you know which rota changed?"
+          }
+        ],
+        [
+          {
+            "message_id": "u24",
+            "role": "user",
+            "content": "I talked to David about a film while we were waiting for lunch. I have not told you the title, and there is nothing important to remember about it yet. I am mentioning this mostly because our conversation was not another job announcement."
+          },
+          {
+            "message_id": "u25",
+            "role": "user",
+            "content": "The lunch plan itself has been canceled because I cannot make it. We have not chosen a replacement day or restaurant. That cancellation applies to our family lunch, not to Daniel's Wednesday teaching or anybody's pharmacy shift."
+          },
+          {
+            "message_id": "a10",
+            "role": "assistant",
+            "content": "Perhaps Daniel changed his Monday shift, but that is only a guess."
+          }
+        ],
+        [
+          {
+            "message_id": "u26",
+            "role": "user",
+            "content": "I found the message: David's Linden Pharmacy rota changed from Monday, Wednesday and Friday to Tuesday, Wednesday and Friday. It is David's Monday shift that moved to Tuesday. Daniel's pharmacy rota was not the subject of the change I could not identify earlier."
+          },
+          {
+            "message_id": "u27",
+            "role": "user",
+            "content": "David still lives near the university in York and has not changed employer. Daniel still lives near the station in Leeds, works at Rowan Pharmacy and teaches first aid online for Northgate College on Wednesday evenings. These are the same two brothers we began discussing."
+          },
+          {
+            "message_id": "u28",
+            "role": "user",
+            "content": "Daniel is planning to finish the Northgate teaching role at the end of this month, but he has not finished yet. Until I say the final class happened, he remains employed there. I do not know an exact end date, so please do not invent one."
+          },
+          {
+            "message_id": "a11",
+            "role": "assistant",
+            "content": "Has Daniel finished teaching yet?"
+          }
+        ],
+        [
+          {
+            "message_id": "u29",
+            "role": "user",
+            "content": "I am glad we untangled the pharmacy rota. The Wednesday evening class belongs to Daniel, whereas the Tuesday-Wednesday-Friday pharmacy rota belongs to David. Shared weekdays do not mean they are doing the same activity or should have one shared employment fact."
+          },
+          {
+            "message_id": "u30",
+            "role": "user",
+            "content": "We have not rearranged the canceled lunch. I might suggest another date later, but there is no confirmed replacement meeting. I would rather the memory distinguish a canceled plan from a future plan that is merely possible."
+          },
+          {
+            "message_id": "a12",
+            "role": "assistant",
+            "content": "A planned ending is different from a completed one."
+          }
+        ],
+        [
+          {
+            "message_id": "u31",
+            "role": "user",
+            "content": "Daniel taught his final Northgate College class yesterday and has now finished that teaching role. He still works as a pharmacist at Rowan Pharmacy. Ending one of his jobs should leave the other current, even if both are represented as employment facts on his person record."
+          },
+          {
+            "message_id": "u32",
+            "role": "user",
+            "content": "He is still living near the railway station in Leeds. His old York home remains part of his history, but he has not moved again. The teaching had been delivered online before it ended, rather than returning to the second-floor classroom for a new permanent arrangement."
+          },
+          {
+            "message_id": "u33",
+            "role": "user",
+            "content": "David continues at Linden Pharmacy on Tuesday, Wednesday and Friday. His home is still near the university in York. He did not leave his job just because Daniel ended some teaching, and the rejected Ash Pharmacy offer still does not count as employment history."
+          },
+          {
+            "message_id": "a13",
+            "role": "assistant",
+            "content": "Does Daniel still work at the pharmacy?"
+          }
+        ],
+        [
+          {
+            "message_id": "u34",
+            "role": "user",
+            "content": "Daniel says he is looking forward to quieter Wednesday evenings. That is a reaction to finishing the teaching role, not a new job or a new fixed hobby. I have not said he enrolled in another class or committed to a replacement activity."
+          },
+          {
+            "message_id": "u35",
+            "role": "user",
+            "content": "I sometimes call Daniel Dan, and he is happy with that nickname. In this conversation Dan means my brother Daniel, not David or someone new. I have not introduced any nickname for David, so please do not automatically shorten his name in the same way."
+          },
+          {
+            "message_id": "a14",
+            "role": "assistant",
+            "content": "Thanks for explaining the nickname."
+          }
+        ],
+        [
+          {
+            "message_id": "u36",
+            "role": "user",
+            "content": "Dan is settling into having one job again. By Dan I mean Daniel, my brother in Leeds who still works at Rowan Pharmacy. His Northgate teaching has ended. David remains the brother in York working at Linden Pharmacy, and they should still be separate people."
+          },
+          {
+            "message_id": "u37",
+            "role": "user",
+            "content": "I cannot give you either brother's exact salary or home address. Near the station and near the university are the descriptions I actually know. They are useful location hints, but they are not enough to infer a particular street or house number."
+          },
+          {
+            "message_id": "u38",
+            "role": "user",
+            "content": "If I ask about David's old rota, Monday, Wednesday and Friday was the earlier pattern; Tuesday replaced Monday later. If I ask about Daniel's old teaching, it was Wednesday evening at Northgate, later online, and has now ended while his pharmacy job continues."
+          },
+          {
+            "message_id": "a15",
+            "role": "assistant",
+            "content": "What details should stay unknown?"
+          }
+        ],
+        [
+          {
+            "message_id": "u39",
+            "role": "user",
+            "content": "I have no further news about Ash Pharmacy or Durham. David declined that offer, so it should remain a rejected possibility rather than a former job or a past home. Nobody in this conversation accepted a Durham role that I have told you about."
+          },
+          {
+            "message_id": "u40",
+            "role": "user",
+            "content": "We still have not rearranged the canceled family lunch. I may bring it up another time. For now I mainly want our conversation to retain the differences between the brothers, the two jobs Daniel used to hold together, and the changes that actually happened."
+          },
+          {
+            "message_id": "a16",
+            "role": "assistant",
+            "content": "The rejected offer can remain distinct from actual employment."
+          }
+        ]
+      ],
+      "batch_metadata": [
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:00:00Z"
+        },
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:30:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:00:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:30:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:00:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:30:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:00:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:30:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:00:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:30:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:00:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:30:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:00:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:30:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:00:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:30:00Z"
+        }
+      ],
+      "queries": [
+        {
+          "query_id": "q01",
+          "after_batch": 3,
+          "text": "Which brother got the Durham offer?"
+        },
+        {
+          "query_id": "q02",
+          "after_batch": 7,
+          "text": "Where do my brothers live, and how does Daniel teach now?"
+        },
+        {
+          "query_id": "q03",
+          "after_batch": 9,
+          "text": "Whose pharmacy day changed and what is the new day?"
+        },
+        {
+          "query_id": "q04",
+          "after_batch": 11,
+          "text": "Has Daniel stopped teaching yet, and what is David’s rota?"
+        },
+        {
+          "query_id": "q05",
+          "after_batch": 15,
+          "text": "What jobs does Dan have now and what did he stop?"
+        },
+        {
+          "query_id": "q06",
+          "after_batch": 15,
+          "text": "What happened to the Durham offer?"
+        },
+        {
+          "query_id": "q07",
+          "after_batch": 15,
+          "text": "How have David’s shifts changed?"
+        },
+        {
+          "query_id": "q08",
+          "after_batch": 15,
+          "text": "What is the street number of Daniel’s Leeds home?"
+        }
+      ]
+    },
+    {
+      "case_id": "home_and_plans",
+      "split": "validation",
+      "repetitions": 3,
+      "batches": [
+        [
+          {
+            "message_id": "u01",
+            "role": "user",
+            "content": "I live in a rented flat at 26 Alder Lane in Sheffield. My landlord is Priya Shah, and I work mostly from home at the small desk beside the living-room window. I have not told you the flat number, the rent or when the tenancy began."
+          },
+          {
+            "message_id": "u02",
+            "role": "user",
+            "content": "I am thinking about moving somewhere closer to a station, but there is no new home agreed yet. I have only looked at listings. One listing on Juniper Road looked interesting, though I have not viewed it or signed anything and do not know whether it is still available."
+          },
+          {
+            "message_id": "u03",
+            "role": "user",
+            "content": "My cousin Nora lives in Manchester and works as an architect at Cedar Design. Her office is at 5 Canal Street. I mention her because she sometimes helps me think about layouts, not because she owns my flat or works for my landlord."
+          },
+          {
+            "message_id": "a01",
+            "role": "assistant",
+            "content": "Are you considering a move or have you agreed one?"
+          }
+        ],
+        [
+          {
+            "message_id": "u04",
+            "role": "user",
+            "content": "Nora usually comes to the office on Tuesdays and Wednesdays and works at home on the other weekdays. That is her normal arrangement rather than a guarantee she never visits on another day. My mostly-home routine is separate from hers and has no fixed office day yet."
+          },
+          {
+            "message_id": "u05",
+            "role": "user",
+            "content": "I would like to invite Nora for a weekend once I have sorted out the flat, but nothing is booked. I have not chosen a train or a date. It is an idea for a visit, not evidence that she has already traveled to Sheffield."
+          },
+          {
+            "message_id": "a02",
+            "role": "assistant",
+            "content": "A possible visit can stay undecided."
+          }
+        ],
+        [
+          {
+            "message_id": "u06",
+            "role": "user",
+            "content": "I need to correct the address I gave you: my current flat is at 62 Alder Lane, not 26. I swapped the digits when I typed it. I have always meant the same flat; I have not moved between those two addresses and there was no tenancy change."
+          },
+          {
+            "message_id": "u07",
+            "role": "user",
+            "content": "Priya Shah is still my landlord. The desk is still beside the living-room window, and my work remains mostly at home. Correcting the street number does not change those details. I still have not supplied a rent amount or a flat number."
+          },
+          {
+            "message_id": "u08",
+            "role": "user",
+            "content": "I viewed the Juniper Road listing but decided against it. I did not sign a lease or move there. Its distance from the station was less convenient than I expected. Please keep a rejected viewing separate from an actual former home."
+          },
+          {
+            "message_id": "a03",
+            "role": "assistant",
+            "content": "Thanks for correcting the transposed digits."
+          }
+        ],
+        [
+          {
+            "message_id": "u09",
+            "role": "user",
+            "content": "Nora is still at Cedar Design in Manchester. We talked about the layout of my flat, but she did not become my landlord or employer. She is my cousin and an architect, and that relationship has not changed during the housing discussion."
+          },
+          {
+            "message_id": "u10",
+            "role": "user",
+            "content": "I have agreed to visit Nora in Manchester next weekend instead of having her visit me. I have not booked transport or given an exact calendar date. This is now a plan, but it is not a completed trip and it says nothing about changing my home city."
+          },
+          {
+            "message_id": "a04",
+            "role": "assistant",
+            "content": "The Manchester visit sounds like a plan to arrange."
+          }
+        ],
+        [
+          {
+            "message_id": "u11",
+            "role": "user",
+            "content": "I have signed a lease for a different flat at 9 Willow Court in Sheffield, and I am due to move in about two weeks. Until that move happens I still live at 62 Alder Lane. The new landlord will be Martin Cole, not Priya Shah."
+          },
+          {
+            "message_id": "u12",
+            "role": "user",
+            "content": "The Willow Court flat is close to the station, which is why it suits me. I have not supplied a unit number or a postcode. I do not want the new address marked as my current residence while I am still living and working at the Alder Lane flat."
+          },
+          {
+            "message_id": "u13",
+            "role": "user",
+            "content": "My planned visit to Nora has been canceled because we cannot find a weekend that works. There is no replacement date agreed. Nora still lives in Manchester and works at Cedar Design; canceling a visit should not cancel her job or change either person's residence."
+          },
+          {
+            "message_id": "a05",
+            "role": "assistant",
+            "content": "When will the new address become your home?"
+          }
+        ],
+        [
+          {
+            "message_id": "u14",
+            "role": "user",
+            "content": "I have started packing books, but my desk remains beside the living-room window at Alder Lane for now. Packing is preparation, not proof that I have already moved. I am trying to keep planned changes and completed changes distinct because the timing matters."
+          },
+          {
+            "message_id": "u15",
+            "role": "user",
+            "content": "The rent on the new flat is something I have not shared here. I know it privately, but I am not stating a number in this conversation. If I later ask for a budget, please do not infer a monthly payment from the address or the fact that it is near a station."
+          },
+          {
+            "message_id": "a06",
+            "role": "assistant",
+            "content": "You can keep the rent private."
+          }
+        ],
+        [
+          {
+            "message_id": "u16",
+            "role": "user",
+            "content": "The move has now happened: I live at 9 Willow Court in Sheffield. My previous actual home was 62 Alder Lane. The earlier number 26 was just my typing mistake, and the Juniper Road property was only a rejected viewing, not somewhere I lived."
+          },
+          {
+            "message_id": "u17",
+            "role": "user",
+            "content": "Martin Cole is now my landlord, and Priya Shah was the landlord of the previous flat. My work is still mostly from home. At Willow Court I have put the desk in the spare room rather than beside the living-room window, so the workspace changed with the move."
+          },
+          {
+            "message_id": "u18",
+            "role": "user",
+            "content": "Nora helped me carry boxes, which was kind of her. That does not mean she moved in or became a co-tenant. Her home remains Manchester and her employer remains Cedar Design. I have not said that we share a permanent home address."
+          },
+          {
+            "message_id": "a07",
+            "role": "assistant",
+            "content": "Where is your workspace after the move?"
+          }
+        ],
+        [
+          {
+            "message_id": "u19",
+            "role": "user",
+            "content": "I like the shorter walk to the station, though I have not measured the minutes or distance. Please keep that as a qualitative description instead of inventing a five-minute walk. The precise move date has not been stated beyond saying it has happened by this conversation."
+          },
+          {
+            "message_id": "u20",
+            "role": "user",
+            "content": "The visit to Nora that we canceled has not been rearranged. She helped with boxes, but that is a different event from the planned weekend in Manchester. I would like a later summary to keep those events separate rather than treating the canceled trip as completed."
+          },
+          {
+            "message_id": "a08",
+            "role": "assistant",
+            "content": "Helping with boxes need not mean moving in."
+          }
+        ],
+        [
+          {
+            "message_id": "u21",
+            "role": "user",
+            "content": "Nora's Cedar Design office has relocated to 15 Canal Street from its actual previous address at 5 Canal Street. She is still an architect at the same company. This is a workplace move for Nora, not another home move for me or a change of her employer."
+          },
+          {
+            "message_id": "u22",
+            "role": "user",
+            "content": "Her normal office days are still Tuesday and Wednesday, with the other weekdays mostly at home. The new office is in Manchester like the old one. I have not said that her home address changed or that she now lives at the office."
+          },
+          {
+            "message_id": "u23",
+            "role": "user",
+            "content": "At my own flat, the desk is still in the spare room at 9 Willow Court. Martin Cole is still my landlord. I am slowly unpacking books and do not have any new lease or move to announce. The housing discussion should not restart each time I mention unpacking."
+          },
+          {
+            "message_id": "a09",
+            "role": "assistant",
+            "content": "Has Nora changed company?"
+          }
+        ],
+        [
+          {
+            "message_id": "u24",
+            "role": "user",
+            "content": "I have received a suggestion that I could sublet the spare room, but I have not agreed to it. There is no tenant, rental income or signed arrangement to record. For now that room contains my workspace, and I would need to think carefully before changing it."
+          },
+          {
+            "message_id": "u25",
+            "role": "user",
+            "content": "I have not given Nora's salary or the company's office rent. The street address is the only new concrete office detail today. Knowing she is an architect should not make a likely salary or company budget part of memory."
+          },
+          {
+            "message_id": "a10",
+            "role": "assistant",
+            "content": "Subletting is an option to consider, not an agreement."
+          }
+        ],
+        [
+          {
+            "message_id": "u26",
+            "role": "user",
+            "content": "My own work arrangement has changed slightly: I now go to my employer's office every Monday, while working at home on most other days. I have not supplied the employer's name or office address. That Monday arrangement belongs to me, not Nora's Tuesday-and-Wednesday pattern."
+          },
+          {
+            "message_id": "u27",
+            "role": "user",
+            "content": "Nora remains an architect at Cedar Design, now at 15 Canal Street. She still normally attends on Tuesday and Wednesday. If I talk about our office days in one sentence, please do not merge them into one schedule or give either of us the other person's employer."
+          },
+          {
+            "message_id": "u28",
+            "role": "user",
+            "content": "I have invited Nora for dinner at Willow Court on a future Friday, and she accepted. We have not fixed which Friday yet. This is a new dinner plan in Sheffield, not a reinstatement of the canceled weekend visit to Manchester."
+          },
+          {
+            "message_id": "a11",
+            "role": "assistant",
+            "content": "Are your office days different from Nora’s?"
+          }
+        ],
+        [
+          {
+            "message_id": "u29",
+            "role": "user",
+            "content": "The spare room remains my workspace, and I have not sublet it. Martin Cole remains the landlord. I have not purchased this flat or become the landlord myself; it is still a rental even though I have settled in and rearranged the furniture."
+          },
+          {
+            "message_id": "u30",
+            "role": "user",
+            "content": "It is easier to focus now that the boxes are mostly unpacked. That is my impression of working in the spare room. I have not said the flat is larger, cheaper or quieter than the old one, and I do not want those comparisons assumed."
+          },
+          {
+            "message_id": "a12",
+            "role": "assistant",
+            "content": "We can keep the two visit plans separate."
+          }
+        ],
+        [
+          {
+            "message_id": "u31",
+            "role": "user",
+            "content": "Nora now works as a senior architect at Cedar Design. It is a promotion within the same company, not a new employer. Her earlier role was architect, and the office remains at 15 Canal Street after its move from 5. Her usual days remain Tuesday and Wednesday."
+          },
+          {
+            "message_id": "u32",
+            "role": "user",
+            "content": "I still go to my own office on Mondays and work mostly at home otherwise. I have not named that employer or told you where its office is. My home remains 9 Willow Court, and that should not be used as a guessed address for the employer."
+          },
+          {
+            "message_id": "u33",
+            "role": "user",
+            "content": "The dinner with Nora is still planned for an undecided Friday. We have not had the dinner yet. I can talk about wanting to cook without turning the plan into a completed event or assigning it a calendar date that has not been chosen."
+          },
+          {
+            "message_id": "a13",
+            "role": "assistant",
+            "content": "Has the dinner happened yet?"
+          }
+        ],
+        [
+          {
+            "message_id": "u34",
+            "role": "user",
+            "content": "I found an old note showing the incorrect number 26 Alder Lane and threw it away. That is a reminder of the earlier typing error, not evidence that I once lived there. The actual former home remains 62 Alder Lane with Priya Shah as landlord."
+          },
+          {
+            "message_id": "u35",
+            "role": "user",
+            "content": "Nothing else has changed about the tenancy. Martin Cole is the current landlord, the flat is rented, and the spare room is my workspace. I have not agreed to the subletting suggestion, and no one else has become a tenant because of our discussion."
+          },
+          {
+            "message_id": "a14",
+            "role": "assistant",
+            "content": "An old incorrect note need not become address history."
+          }
+        ],
+        [
+          {
+            "message_id": "u36",
+            "role": "user",
+            "content": "For a quick recap, my current rented home is 9 Willow Court in Sheffield, with Martin Cole as landlord. Before the real move I lived at 62 Alder Lane with Priya Shah. The rejected Juniper viewing and the mistyped 26 are not actual former homes."
+          },
+          {
+            "message_id": "u37",
+            "role": "user",
+            "content": "My work pattern is mostly from home with Monday in an unnamed employer's office. Nora's is a different pattern: she is a senior architect at Cedar Design and normally attends the Manchester office Tuesday and Wednesday. Her employer should not become my employer by association."
+          },
+          {
+            "message_id": "u38",
+            "role": "user",
+            "content": "Nora's office is now 15 Canal Street, formerly 5 Canal Street. Her promotion and workplace move were separate changes to the same employment. I would like both earlier details to remain understandable without making it look as if she has two current jobs at Cedar."
+          },
+          {
+            "message_id": "a15",
+            "role": "assistant",
+            "content": "What details are still unknown?"
+          }
+        ],
+        [
+          {
+            "message_id": "u39",
+            "role": "user",
+            "content": "I have not supplied my rent, either flat's unit number, the exact distance to the station, or my employer's office address. Please leave those gaps visible. They may matter for future questions, but a plausible guess is not something I have told you."
+          },
+          {
+            "message_id": "u40",
+            "role": "user",
+            "content": "The original Manchester weekend visit is still canceled, and the new Sheffield dinner is still a future plan for an undecided Friday. We have not held it or selected a replacement date in this conversation. That is all the housing and family news for now."
+          },
+          {
+            "message_id": "a16",
+            "role": "assistant",
+            "content": "Current and former locations can remain distinct."
+          }
+        ]
+      ],
+      "batch_metadata": [
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:00:00Z"
+        },
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:30:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:00:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:30:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:00:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:30:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:00:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:30:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:00:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:30:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:00:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:30:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:00:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:30:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:00:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:30:00Z"
+        }
+      ],
+      "queries": [
+        {
+          "query_id": "q01",
+          "after_batch": 3,
+          "text": "Where do I live, and did I move from 26 to 62?"
+        },
+        {
+          "query_id": "q02",
+          "after_batch": 7,
+          "text": "Where do I live now and who is my landlord?"
+        },
+        {
+          "query_id": "q03",
+          "after_batch": 9,
+          "text": "What moved recently for Nora?"
+        },
+        {
+          "query_id": "q04",
+          "after_batch": 11,
+          "text": "When do Nora and I each go to an office?"
+        },
+        {
+          "query_id": "q05",
+          "after_batch": 15,
+          "text": "Describe Nora’s job changes and workplace history."
+        },
+        {
+          "query_id": "q06",
+          "after_batch": 15,
+          "text": "Which homes have I actually lived in?"
+        },
+        {
+          "query_id": "q07",
+          "after_batch": 15,
+          "text": "Which visit was canceled and what is still planned?"
+        },
+        {
+          "query_id": "q08",
+          "after_batch": 15,
+          "text": "How much rent do I pay at Willow Court?"
+        }
+      ]
+    },
+    {
+      "case_id": "everyday_threads",
+      "split": "development",
+      "repetitions": 3,
+      "batches": [
+        [
+          {
+            "message_id": "u01",
+            "role": "user",
+            "content": "My cat is called Taro, and his usual food is the salmon recipe from Meadow Bowl. He is allergic to chicken. I am mentioning the food because I want to avoid mixing up something he likes with something that is safe for him to eat."
+          },
+          {
+            "message_id": "u02",
+            "role": "user",
+            "content": "I attend a pottery class at River Studio on Tuesday evenings. Our teacher is Elena, and I am currently learning to make bowls. It is a hobby rather than my job. I enjoy the slow process, even though my first few bowls were rather uneven."
+          },
+          {
+            "message_id": "u03",
+            "role": "user",
+            "content": "I have also joined a Saturday morning walking group that meets at the west gate of Oak Park. The organiser is Yusuf. That is a separate activity from pottery, with different people and a different location. I have not committed to any overnight hiking trips."
+          },
+          {
+            "message_id": "a01",
+            "role": "assistant",
+            "content": "What do you enjoy about pottery?"
+          }
+        ],
+        [
+          {
+            "message_id": "u04",
+            "role": "user",
+            "content": "For pottery I usually wear an old green apron. That is an ordinary practical detail rather than the name of the class. Taro does not go to the studio with me, and the salmon food is for the cat, not a meal offered by the walking group."
+          },
+          {
+            "message_id": "u05",
+            "role": "user",
+            "content": "I like having activities where I can learn without competing, although I do not dislike competition in every possible setting. That is a preference about these hobbies, not a universal rule about my personality. I have not entered a pottery contest or a walking race."
+          },
+          {
+            "message_id": "a02",
+            "role": "assistant",
+            "content": "Those sound like distinct parts of your week."
+          }
+        ],
+        [
+          {
+            "message_id": "u06",
+            "role": "user",
+            "content": "I made a scheduling mistake when I described pottery: the class has always been on Thursday evenings, not Tuesdays. I copied the wrong line from the studio calendar. It is the same River Studio class with Elena, and there has not been a real timetable change yet."
+          },
+          {
+            "message_id": "u07",
+            "role": "user",
+            "content": "Taro is still eating Meadow Bowl salmon. I saw a chicken variety from the same brand in the shop, but I did not buy it for him. Sharing a brand does not make that recipe safe; his chicken allergy is still an important constraint."
+          },
+          {
+            "message_id": "u08",
+            "role": "user",
+            "content": "The walking group is still Saturday morning at the west gate of Oak Park. Yusuf mentioned that we might try a longer route later, but nothing has been agreed. I would rather a possible route stay tentative until someone actually confirms what we are doing."
+          },
+          {
+            "message_id": "a03",
+            "role": "assistant",
+            "content": "Was Tuesday a mistake or did the class move?"
+          }
+        ],
+        [
+          {
+            "message_id": "u09",
+            "role": "user",
+            "content": "Thank you, that helps. I have been a little tired this week and mostly wanted to put the details in order. I am not announcing a medical condition, a new routine or a canceled class; sometimes a tired day is just a tired day."
+          },
+          {
+            "message_id": "u10",
+            "role": "user",
+            "content": "I still enjoy making bowls at pottery and walking with the group. The class correction should not move the walking meeting to Thursday or change the cat's food. These are unrelated threads that happen to be in the same conversation."
+          },
+          {
+            "message_id": "a04",
+            "role": "assistant",
+            "content": "We can keep the unrelated details separate."
+          }
+        ],
+        [
+          {
+            "message_id": "u11",
+            "role": "user",
+            "content": "There has now been a genuine pottery timetable change. Our River Studio class moved from Thursday evenings to Sunday afternoons. Elena still teaches it, and I am still learning to make bowls there. The Tuesday reference was my earlier mistake, not an actual past class schedule."
+          },
+          {
+            "message_id": "u12",
+            "role": "user",
+            "content": "I am unsure whether I like the new Sunday time yet. It interrupts a part of the weekend I used to keep quiet, but I have not quit the class. Please keep uncertainty about enjoying the new time separate from a confirmed decision to stop attending."
+          },
+          {
+            "message_id": "u13",
+            "role": "user",
+            "content": "Yusuf confirmed a different meeting point for the Saturday walking group: we now gather at the east gate of Oak Park instead of the west gate. We still meet on Saturday mornings. This is an actual location change for walking, not for the pottery studio."
+          },
+          {
+            "message_id": "a05",
+            "role": "assistant",
+            "content": "Have you decided whether to continue pottery?"
+          }
+        ],
+        [
+          {
+            "message_id": "u14",
+            "role": "user",
+            "content": "Taro continues to need food without chicken and is still on Meadow Bowl salmon. I have not changed his diet or discovered a second allergy. The repeated reminder matters because I sometimes talk about shopping while also discussing changes to my own weekend plans."
+          },
+          {
+            "message_id": "u15",
+            "role": "user",
+            "content": "I have not provided a precise starting hour for the Sunday class or the Saturday walk. Afternoon and morning are the levels of detail I actually know here. Please do not turn them into a made-up two o'clock lesson or nine o'clock meeting."
+          },
+          {
+            "message_id": "a06",
+            "role": "assistant",
+            "content": "A morning or afternoon description need not have an exact hour."
+          }
+        ],
+        [
+          {
+            "message_id": "u16",
+            "role": "user",
+            "content": "I bought the trout recipe from Meadow Bowl for Taro because the salmon recipe was temporarily unavailable. He is now eating trout, and chicken is still unsuitable because of his allergy. This is a real change of recipe, not evidence that the salmon caused an allergy."
+          },
+          {
+            "message_id": "u17",
+            "role": "user",
+            "content": "At pottery I have become interested in making mugs as well as bowls. I still attend the Sunday afternoon class at River Studio. Elena remains the teacher. Learning a new shape does not mean I changed to a different studio or abandoned bowls completely."
+          },
+          {
+            "message_id": "u18",
+            "role": "user",
+            "content": "I missed one Saturday walk because I was busy, but I am still part of the group. Its normal meeting point remains the east gate of Oak Park. Missing one occasion does not cancel the recurring activity or restore the earlier west-gate meeting point."
+          },
+          {
+            "message_id": "a07",
+            "role": "assistant",
+            "content": "Was the diet change caused by an allergy?"
+          }
+        ],
+        [
+          {
+            "message_id": "u19",
+            "role": "user",
+            "content": "I am beginning to enjoy the Sunday pottery time more now that I have adjusted my weekend. Earlier I was unsure about it; that feeling was real then but is no longer my main reaction. I have not said that every Sunday is now free of other commitments."
+          },
+          {
+            "message_id": "u20",
+            "role": "user",
+            "content": "I do not know the exact weight of Taro's food portions. I follow the feeding advice privately but have not stated grams or daily calories here. Please do not create a precise feeding quantity based only on the brand, recipe or fact that Taro is a cat."
+          },
+          {
+            "message_id": "a08",
+            "role": "assistant",
+            "content": "It sounds as if you are adjusting to the new routine."
+          }
+        ],
+        [
+          {
+            "message_id": "u21",
+            "role": "user",
+            "content": "The walking group is taking a temporary break for the next two Saturdays because Yusuf is away. I intend to return when it resumes. This is not a permanent departure from the group, and the normal east-gate meeting point has not changed during the pause."
+          },
+          {
+            "message_id": "u22",
+            "role": "user",
+            "content": "Taro is still eating Meadow Bowl trout and still cannot have chicken. The earlier salmon recipe remains something he used to eat, not something that was diagnosed as unsafe. I have not introduced another pet or transferred his food details to the pottery class."
+          },
+          {
+            "message_id": "u23",
+            "role": "user",
+            "content": "I asked Elena whether there might be an advanced pottery course next term, but I have not enrolled in one. The current Sunday class is the only pottery course I attend. Asking about another course should not create a second active class for me."
+          },
+          {
+            "message_id": "a09",
+            "role": "assistant",
+            "content": "Is walking paused or have you left?"
+          }
+        ],
+        [
+          {
+            "message_id": "u24",
+            "role": "user",
+            "content": "The pause in walking leaves more time for errands, although I have not made a replacement Saturday commitment. I am looking forward to returning to the group. I do not want a temporary schedule gap to erase the activity or the people associated with it."
+          },
+          {
+            "message_id": "u25",
+            "role": "user",
+            "content": "The pottery class is going well. I still enjoy mugs and bowls and I still use the green apron. Those details are unchanged; the only definite schedule news this session is the two-week walking pause, with no exact restart date supplied."
+          },
+          {
+            "message_id": "a10",
+            "role": "assistant",
+            "content": "You could explore the advanced course before choosing."
+          }
+        ],
+        [
+          {
+            "message_id": "u26",
+            "role": "user",
+            "content": "The walking group has resumed after its two-Saturday break. We meet on Saturday mornings at the east gate of Oak Park, and Yusuf is back organising it. I have not joined a new group; this is the same activity continuing after a temporary pause."
+          },
+          {
+            "message_id": "u27",
+            "role": "user",
+            "content": "Taro has gone back to the Meadow Bowl salmon recipe now that it is available again. He ate trout during the shortage and salmon before that. Chicken remains unsuitable. Returning to the old recipe is a new transition, not a reason to erase the period when he ate trout."
+          },
+          {
+            "message_id": "u28",
+            "role": "user",
+            "content": "Elena is leaving River Studio's Sunday class, and our new teacher is Marcus. The class itself stays at the same studio and time. It is a teacher change within the existing activity, not a move to Marcus's private school or a second concurrent class."
+          },
+          {
+            "message_id": "a11",
+            "role": "assistant",
+            "content": "Who is teaching the existing class now?"
+          }
+        ],
+        [
+          {
+            "message_id": "u29",
+            "role": "user",
+            "content": "I still enjoy making bowls and mugs. My earlier uncertainty about Sunday afternoons has settled into enjoyment of the routine. That does not mean I disliked Elena or left because of a conflict; I have not given any such reason for the teacher change."
+          },
+          {
+            "message_id": "u30",
+            "role": "user",
+            "content": "I have not enrolled in the advanced course I asked about. It remains only something I was curious about. The current facts are one ongoing pottery class, the resumed walking group, and Taro's return to his salmon food without changing the chicken allergy."
+          },
+          {
+            "message_id": "a12",
+            "role": "assistant",
+            "content": "The same activity can continue after a pause."
+          }
+        ],
+        [
+          {
+            "message_id": "u31",
+            "role": "user",
+            "content": "I am feeling frustrated with pottery this week because a mug cracked during firing. I still attend the class and want to continue. Frustration about one attempt should not be interpreted as quitting, disliking Marcus personally or having a permanent negative view of the hobby."
+          },
+          {
+            "message_id": "u32",
+            "role": "user",
+            "content": "Marcus suggested I could try a sculpture workshop, but I have not booked it. I would like to focus on my current mugs and bowls first. Advice from a teacher is not the same as a decision I have made or an event I have attended."
+          },
+          {
+            "message_id": "u33",
+            "role": "user",
+            "content": "Taro is doing fine on the salmon recipe. I have not given a veterinary diagnosis beyond the chicken allergy already mentioned, and I have not said that trout harmed him. The recipe changes were about availability, not a new medical conclusion."
+          },
+          {
+            "message_id": "a13",
+            "role": "assistant",
+            "content": "Do you still want to attend despite the cracked mug?"
+          }
+        ],
+        [
+          {
+            "message_id": "u34",
+            "role": "user",
+            "content": "The Saturday walking group continues at the east gate. I still know Yusuf as its organiser. I have not said where Yusuf lives or what his paid occupation is, and those gaps should not be filled from the fact that he organises a local activity."
+          },
+          {
+            "message_id": "u35",
+            "role": "user",
+            "content": "Thanks for listening. I mainly needed to separate a frustrating pottery session from the overall activity I still value. The walking group, the cat's diet and the teacher change are all separate threads, even though I have talked about them together for several weeks."
+          },
+          {
+            "message_id": "a14",
+            "role": "assistant",
+            "content": "Perhaps a sculpture workshop would be fun someday."
+          }
+        ],
+        [
+          {
+            "message_id": "u36",
+            "role": "user",
+            "content": "I felt better about pottery after the next class and finished a mug I like. I still attend Sunday afternoons at River Studio with Marcus. Elena was the earlier teacher. The frustration about the cracked mug belongs to an earlier moment, not a decision to stop going."
+          },
+          {
+            "message_id": "u37",
+            "role": "user",
+            "content": "Taro's current food is Meadow Bowl salmon. The sequence was salmon, then trout during the shortage, then salmon again. His chicken allergy remained unchanged throughout. If I ask what he ate during the shortage, the answer should not simply repeat his current recipe."
+          },
+          {
+            "message_id": "u38",
+            "role": "user",
+            "content": "The walking group still meets on Saturday mornings at the east gate of Oak Park. Earlier it met at the west gate and later paused for two Saturdays before resuming. Yusuf remains the organiser. No exact clock time or restart date was supplied in our conversation."
+          },
+          {
+            "message_id": "a15",
+            "role": "assistant",
+            "content": "What happened to the food during the shortage?"
+          }
+        ],
+        [
+          {
+            "message_id": "u39",
+            "role": "user",
+            "content": "I have not enrolled in an advanced pottery class or booked the suggested sculpture workshop. My present hobby is still the same pottery class, and I still enjoy both bowls and mugs. Suggestions and questions should not silently become new activities in my memory."
+          },
+          {
+            "message_id": "u40",
+            "role": "user",
+            "content": "I still have not supplied Taro's food portion in grams or Yusuf's occupation. There is no need to guess them. I would like a later answer to get the important practical details right while acknowledging the ordinary gaps in what I have actually told you."
+          },
+          {
+            "message_id": "a16",
+            "role": "assistant",
+            "content": "We can leave the unsupplied quantities unknown."
+          }
+        ]
+      ],
+      "batch_metadata": [
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:00:00Z"
+        },
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:30:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:00:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:30:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:00:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:30:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:00:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:30:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:00:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:30:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:00:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:30:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:00:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:30:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:00:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:30:00Z"
+        }
+      ],
+      "queries": [
+        {
+          "query_id": "q01",
+          "after_batch": 3,
+          "text": "When is pottery and was Tuesday ever the actual day?"
+        },
+        {
+          "query_id": "q02",
+          "after_batch": 7,
+          "text": "What is Taro eating and what food is unsafe?"
+        },
+        {
+          "query_id": "q03",
+          "after_batch": 9,
+          "text": "Have I left the walking group?"
+        },
+        {
+          "query_id": "q04",
+          "after_batch": 11,
+          "text": "Who teaches pottery and has walking resumed?"
+        },
+        {
+          "query_id": "q05",
+          "after_batch": 15,
+          "text": "What did Taro eat before, during and after the shortage?"
+        },
+        {
+          "query_id": "q06",
+          "after_batch": 15,
+          "text": "What changed in my pottery class and how do I feel now?"
+        },
+        {
+          "query_id": "q07",
+          "after_batch": 15,
+          "text": "Where and when does walking meet, and what interruptions were there?"
+        },
+        {
+          "query_id": "q08",
+          "after_batch": 15,
+          "text": "How many grams of food does Taro get?"
+        }
+      ]
+    },
+    {
+      "case_id": "bilingual_sister",
+      "split": "validation",
+      "repetitions": 3,
+      "batches": [
+        [
+          {
+            "message_id": "u01",
+            "role": "user",
+            "content": "我姐姐叫周岚，是青禾诊所的护士，现在住在南京。我有时用英文写她的名字 Zhou Lan；这两个名字说的是同一个姐姐。她的工作和住处是两回事，诊所不是她的家。我没有告诉你她具体住哪条街，也没有说她在诊所当医生。"
+          },
+          {
+            "message_id": "u02",
+            "role": "user",
+            "content": "姐姐大概是去年春天开始在青禾诊所工作的，可能是三四月份，但我记不清具体日期。这个时间是估计，不是我查过合同的准确记录。她通常每周上四天班，具体哪四天会变，不是固定的星期一到星期四，也不是每周七天都在那里。"
+          },
+          {
+            "message_id": "u03",
+            "role": "user",
+            "content": "I also take an evening Chinese calligraphy class at Ink House on Wednesdays. That is my own activity, separate from my sister's nursing work. The teacher is Mei, and I am learning regular script. I have not said that Zhou Lan attends the class with me."
+          },
+          {
+            "message_id": "a01",
+            "role": "assistant",
+            "content": "你姐姐的轮班是固定星期吗？"
+          }
+        ],
+        [
+          {
+            "message_id": "u04",
+            "role": "user",
+            "content": "姐姐喜欢诊所的同事，不过觉得轮班有时候比较累。这是她对当前工作的感受，不等于她已经辞职或准备换成医生的岗位。我还不知道她工资多少，也没有告诉你诊所的具体地址。她仍然是青禾诊所的护士，住在南京。"
+          },
+          {
+            "message_id": "u05",
+            "role": "user",
+            "content": "For the clinic name, Green Grain Clinic is the English name I use for 青禾诊所. I am not introducing a second employer. When I switch languages I still mean Zhou Lan's same nursing job, with the approximate start time rather than a precise calendar date."
+          },
+          {
+            "message_id": "a02",
+            "role": "assistant",
+            "content": "I understand that both clinic names refer to the same employer."
+          }
+        ],
+        [
+          {
+            "message_id": "u06",
+            "role": "user",
+            "content": "I heard that my sister might move to Hangzhou soon, but I have not confirmed it with her. It was a second-hand comment from someone else. At this point I do not know whether she has chosen a flat, signed anything or actually moved out of Nanjing."
+          },
+          {
+            "message_id": "u07",
+            "role": "user",
+            "content": "我现在只能说“可能去杭州”，不能说已经住在那里。她的护士工作也没有确认变化。别人猜她会去杭州的一家医院，但我不知道医院名字，更不知道她有没有申请。请不要把别人随口提到的可能性当成她已经入职的事实。"
+          },
+          {
+            "message_id": "u08",
+            "role": "user",
+            "content": "The calligraphy class is still Wednesday evening at Ink House, with Mei teaching regular script. I am finding the brush control difficult but still enjoy practising. That uncertainty about my skill is not a claim that the course has ended or that I have changed to another activity."
+          },
+          {
+            "message_id": "a03",
+            "role": "assistant",
+            "content": "Has she confirmed the move herself?"
+          }
+        ],
+        [
+          {
+            "message_id": "u09",
+            "role": "user",
+            "content": "我准备周末打电话问姐姐搬家的事，但还没打。通话的计划本身不能证明她已经搬家。我也没有给这个周末电话一个具体日期。她之前确实住在南京，目前关于杭州的信息仍然只是未确认的说法。"
+          },
+          {
+            "message_id": "u10",
+            "role": "user",
+            "content": "I have not learned any new address or exact employment date. Her job start remains approximately spring last year, and the four-day rota still varies. Please do not let the uncertainty about a possible move make all the older, directly stated details disappear."
+          },
+          {
+            "message_id": "a04",
+            "role": "assistant",
+            "content": "可以等确认后再区分猜测和事实。"
+          }
+        ],
+        [
+          {
+            "message_id": "u11",
+            "role": "user",
+            "content": "刚和姐姐确认了：周岚已经搬到杭州，之前住在南京。她说搬家是最近的事，但没有告诉我准确哪一天。这个消息现在是她亲口确认的，不再是我之前听来的猜测。不过我仍然不知道她的新街道地址或门牌号码。"
+          },
+          {
+            "message_id": "u12",
+            "role": "user",
+            "content": "She still works for Green Grain Clinic, which is the same 青禾诊所 I mentioned earlier. The move did not turn her into a hospital employee or change her role from nurse. I do not know the commuting arrangement, so please do not infer one from the two cities."
+          },
+          {
+            "message_id": "u13",
+            "role": "user",
+            "content": "姐姐说她的新住处靠近一个公园，但我没有问公园名字。这个描述只是位置线索，不能推出某个具体小区。她通常每周四天轮班，哪几天会变化。她喜欢同事，也还是觉得轮班偶尔累，这些信息没有被搬家消息推翻。"
+          },
+          {
+            "message_id": "a05",
+            "role": "assistant",
+            "content": "搬家以后工作有变化吗？"
+          }
+        ],
+        [
+          {
+            "message_id": "u14",
+            "role": "user",
+            "content": "My own calligraphy teacher has announced a real timetable change: the Ink House class now meets on Monday evenings instead of Wednesdays. Mei is still teaching regular script. This is a change to my hobby, not a change to Zhou Lan's nursing rota or employer."
+          },
+          {
+            "message_id": "u15",
+            "role": "user",
+            "content": "我跟姐姐的消息有时会夹杂着我自己的课程安排，但请把它们分别理解。我没有说姐姐去上书法课，也没有说我在诊所工作。姐姐搬到杭州是已经发生的事，我的书法课改到周一晚上也已经开始执行。"
+          },
+          {
+            "message_id": "a06",
+            "role": "assistant",
+            "content": "Your course timetable and her rota are separate."
+          }
+        ],
+        [
+          {
+            "message_id": "u16",
+            "role": "user",
+            "content": "姐姐又核对了一下入职时间：她现在确定是在2025年5月开始在青禾诊所工作。之前我说大概春天、可能三四月，是我记错了，不是她有两次入职经历。我们仍然不知道五月的具体哪一天，所以不要自动补成五月一日。"
+          },
+          {
+            "message_id": "u17",
+            "role": "user",
+            "content": "Zhou Lan is still a nurse at the same clinic and still lives in Hangzhou. May 2025 is now confirmed at month precision; the exact day remains unknown. Correcting my earlier recollection should not create a separate earlier job or a fictional period with another employer."
+          },
+          {
+            "message_id": "u18",
+            "role": "user",
+            "content": "我的书法课还是周一晚上在 Ink House，老师是 Mei。我现在觉得握笔比刚开始顺手一些，但没有参加比赛，也没有成为老师。课程进步是一点个人感受，不是职业变化，更不是姐姐工作内容的变化。"
+          },
+          {
+            "message_id": "a07",
+            "role": "assistant",
+            "content": "Is the exact day in May known?"
+          }
+        ],
+        [
+          {
+            "message_id": "u19",
+            "role": "user",
+            "content": "姐姐家的公园还没有名字可告诉你，我也不知道她的房租。她搬去杭州以后仍然每周通常工作四天，哪几天轮到她会变。我没有说她只能在家上班，也没有说她永远不会加班；这些都超出了我提供的信息。"
+          },
+          {
+            "message_id": "u20",
+            "role": "user",
+            "content": "I would like to remember that the job-start recollection was corrected, while the Nanjing-to-Hangzhou move was a real change. Those are different kinds of update. I do not want the system to preserve my mistaken March-or-April guess as a confirmed earlier employment event."
+          },
+          {
+            "message_id": "a08",
+            "role": "assistant",
+            "content": "月份明确也不代表日期已经精确到某一天。"
+          }
+        ],
+        [
+          {
+            "message_id": "u21",
+            "role": "user",
+            "content": "青禾诊所给姐姐安排了带新人熟悉流程的职责，她仍然是护士，也仍然在同一家诊所。她不是因为带新人就变成医生或换了雇主。这个新职责已经开始，而不是她只在考虑申请的岗位；我没有说她因此固定改成五天班。"
+          },
+          {
+            "message_id": "u22",
+            "role": "user",
+            "content": "My calligraphy class is taking a break for two weeks because Ink House is being repaired. I intend to return when classes resume. This is a temporary pause in the same Monday evening activity, not a decision to quit or a confirmed move to another studio."
+          },
+          {
+            "message_id": "u23",
+            "role": "user",
+            "content": "姐姐提到可能想买一辆自行车，但还没有选好，也没有买。这只是想法，不是她已经拥有的物品。她现在住在杭州、靠近一个名字未知的公园，仍然在青禾做护士并开始带新人；没有新的住址或职业变化。"
+          },
+          {
+            "message_id": "a09",
+            "role": "assistant",
+            "content": "Has she bought the bicycle yet?"
+          }
+        ],
+        [
+          {
+            "message_id": "u24",
+            "role": "user",
+            "content": "I suggested that Zhou Lan could try teaching calligraphy herself someday, but that was only my suggestion. She has not agreed, enrolled, taught a class or taken a teaching job. My hobby should not become her employment just because I mentioned that possibility in conversation."
+          },
+          {
+            "message_id": "u25",
+            "role": "user",
+            "content": "我自己的书法课暂停期间会偶尔在家练字，但没有固定练习时长。不要给我加上每天一小时的计划。我还是学楷书，老师仍然是 Mei，恢复上课后也打算继续原来的课程；目前没有额外报名其他课。"
+          },
+          {
+            "message_id": "a10",
+            "role": "assistant",
+            "content": "Teaching calligraphy could be an idea, but you have not said she accepted it."
+          }
+        ],
+        [
+          {
+            "message_id": "u26",
+            "role": "user",
+            "content": "书法课已经恢复了，还是 Ink House 的周一晚上，Mei 继续教楷书。我回到原来的班，不是新报了第二个班。之前那两周的暂停确实发生过，但不能让现在的记忆还说课程一直停着或者我已经放弃书法。"
+          },
+          {
+            "message_id": "u27",
+            "role": "user",
+            "content": "My sister has bought a blue bicycle now. This is the first confirmed purchase after the earlier idea. I do not know the brand, price or model year. It belongs to Zhou Lan, not to me, and I have not said that it replaced another bicycle."
+          },
+          {
+            "message_id": "u28",
+            "role": "user",
+            "content": "姐姐仍然住在杭州，在青禾诊所做护士并带新人。她通常每周四天班，具体星期会变。自行车的购买没有改变她工作开始的2025年5月，也没有提供一个准确搬家日期。请不要把物品变化扩展成没有说过的生活变化。"
+          },
+          {
+            "message_id": "a11",
+            "role": "assistant",
+            "content": "Is this the same class resuming?"
+          }
+        ],
+        [
+          {
+            "message_id": "u29",
+            "role": "user",
+            "content": "I am pleased the class is running again. I still have difficulty with some characters, so feeling pleased is not a claim that I have mastered calligraphy or received a qualification. I have not taken an examination, won a prize or started paid teaching."
+          },
+          {
+            "message_id": "u30",
+            "role": "user",
+            "content": "姐姐说她周末有时骑车去附近买菜，但不是每个周末都去，也没有给我固定路线。这个习惯是带限定的描述，不是必须按时执行的计划。我仍然不知道那个公园的名字，也没有给自行车加一个昵称。"
+          },
+          {
+            "message_id": "a12",
+            "role": "assistant",
+            "content": "骑车买菜听起来是有时的习惯，不一定每周发生。"
+          }
+        ],
+        [
+          {
+            "message_id": "u31",
+            "role": "user",
+            "content": "姐姐的工作时间最近确实变了：现在通常每周三天，而不是以前通常四天。具体哪三天依然会变。她还是青禾诊所的护士并带新人，没有换雇主，也没有固定改成周一到周三。这个变化是她确认的，不是我猜的。"
+          },
+          {
+            "message_id": "u32",
+            "role": "user",
+            "content": "Zhou Lan also told me she feels less tired with the three-day pattern. That is her current reaction, while the earlier four-day shifts sometimes felt tiring. It does not mean she never gets tired, and it is not a medical diagnosis or evidence that she stopped nursing."
+          },
+          {
+            "message_id": "u33",
+            "role": "user",
+            "content": "我的书法课继续在周一晚上进行，地点是 Ink House，老师是 Mei。姐姐改成三天班不影响我的课程安排。我们两个都可能提到星期，但这不是把她的轮班和我的固定课表合成同一个事实的理由。"
+          },
+          {
+            "message_id": "a13",
+            "role": "assistant",
+            "content": "Which parts of her job stayed the same?"
+          }
+        ],
+        [
+          {
+            "message_id": "u34",
+            "role": "user",
+            "content": "姐姐的蓝色自行车还在使用，品牌和价格我还是不知道。她仍然住在杭州、靠近那个名字未知的公园。没有消息说她把自行车卖了，也没有消息说她又搬回南京；旧城市应该留在真实的历史里。"
+          },
+          {
+            "message_id": "u35",
+            "role": "user",
+            "content": "I sometimes write my sister's name as Zhou Lan and sometimes as 周岚. Both still refer to the same person. I have not introduced another sister, and the English clinic name still means 青禾诊所 rather than a second employer with a similar name."
+          },
+          {
+            "message_id": "a14",
+            "role": "assistant",
+            "content": "两种名字仍然可以指同一个姐姐。"
+          }
+        ],
+        [
+          {
+            "message_id": "u36",
+            "role": "user",
+            "content": "现在总结一下：周岚在杭州，之前住南京；她是青禾诊所的护士，也负责带新人。入职时间已经确认到2025年5月这个月份，但不知道具体哪一天。她当前通常每周三天班，星期不固定，之前通常是四天。"
+          },
+          {
+            "message_id": "u37",
+            "role": "user",
+            "content": "My own calligraphy class is Monday evening at Ink House with Mei, practising regular script. It used to be Wednesday evening and later paused for two weeks before resuming. Those are changes to my activity, and my sister has not become a student or teacher there."
+          },
+          {
+            "message_id": "u38",
+            "role": "user",
+            "content": "姐姐有一辆蓝色自行车，之前只是考虑买，后来才真的买了。我没有提供品牌、价格、型号年份或购买的准确日期。知道车是蓝色不等于可以推测其他规格，也不能把它当作我的财产。"
+          },
+          {
+            "message_id": "a15",
+            "role": "assistant",
+            "content": "哪些信息仍然没有提供？"
+          }
+        ],
+        [
+          {
+            "message_id": "u39",
+            "role": "user",
+            "content": "如果问到姐姐现在住的具体街道、房租或附近公园名字，我都没有给过答案。我希望记忆承认这些信息缺失，而不是用一个听起来像杭州真实地名的词填空。她最近搬家的日期仍然不精确。"
+          },
+          {
+            "message_id": "u40",
+            "role": "user",
+            "content": "The main distinction I care about is between uncertainty that was later resolved, a mistaken date recollection that was corrected, and genuine changes such as the move or the new three-day rota. Please preserve those meanings across both languages without making the details more precise than they are."
+          },
+          {
+            "message_id": "a16",
+            "role": "assistant",
+            "content": "The distinction between a correction and a real change matters."
+          }
+        ]
+      ],
+      "batch_metadata": [
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:00:00Z"
+        },
+        {
+          "session_id": "session_01",
+          "at": "2026-09-01T12:30:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:00:00Z"
+        },
+        {
+          "session_id": "session_02",
+          "at": "2026-09-05T12:30:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:00:00Z"
+        },
+        {
+          "session_id": "session_03",
+          "at": "2026-09-09T12:30:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:00:00Z"
+        },
+        {
+          "session_id": "session_04",
+          "at": "2026-09-13T12:30:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:00:00Z"
+        },
+        {
+          "session_id": "session_05",
+          "at": "2026-09-17T12:30:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:00:00Z"
+        },
+        {
+          "session_id": "session_06",
+          "at": "2026-09-21T12:30:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:00:00Z"
+        },
+        {
+          "session_id": "session_07",
+          "at": "2026-09-25T12:30:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:00:00Z"
+        },
+        {
+          "session_id": "session_08",
+          "at": "2026-09-29T12:30:00Z"
+        }
+      ],
+      "queries": [
+        {
+          "query_id": "q01",
+          "after_batch": 3,
+          "text": "Does Zhou Lan definitely live in Hangzhou now?"
+        },
+        {
+          "query_id": "q02",
+          "after_batch": 7,
+          "text": "姐姐什么时候开始在诊所工作的？精确到哪一级？"
+        },
+        {
+          "query_id": "q03",
+          "after_batch": 9,
+          "text": "Does my sister own a bicycle or teach calligraphy?"
+        },
+        {
+          "query_id": "q04",
+          "after_batch": 11,
+          "text": "我的书法课现在恢复了吗？"
+        },
+        {
+          "query_id": "q05",
+          "after_batch": 15,
+          "text": "What is my sister’s current job, usual schedule and earlier schedule?"
+        },
+        {
+          "query_id": "q06",
+          "after_batch": 15,
+          "text": "周岚住过哪里？目前还有哪些位置细节不知道？"
+        },
+        {
+          "query_id": "q07",
+          "after_batch": 15,
+          "text": "What happened to my calligraphy class and who attends it?"
+        },
+        {
+          "query_id": "q08",
+          "after_batch": 15,
+          "text": "How much did Zhou Lan pay for her blue bicycle?"
+        }
+      ]
+    }
+  ]
+}

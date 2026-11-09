@@ -15,6 +15,8 @@ class MemoryDomain(str, Enum):
     LOGISTICS = "events_and_logistics"
     SYSTEM = "system_instructions"
     UNSTRUCTURED = "unstructured_observations"
+    THOUGHTS = "thoughts_and_plans"
+    UNRESOLVED = "unresolved_memories"
 
 class ChatSenderRole(str, Enum):
     ASSISTANT = "assistant"

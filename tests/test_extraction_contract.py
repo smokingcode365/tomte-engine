@@ -75,6 +75,21 @@ def test_multi_source_selection_keeps_original_message_times_available():
     assert json.loads(build_extraction_input(batch))["CURRENT_BATCH"][1]["timestamp"] == 1791547210
 
 
+def test_current_batch_dates_are_readable_and_bound_to_each_source():
+    batch = [item("september", 1789300800, "Daniel moved this week."),
+             item("january", 1798804800, "I started early last year.")]
+    # A supplied display value cannot override the actual queued timestamp.
+    batch[0]["message_time_utc"] = "2099-01-01T00:00:00Z"
+    batch[0]["recent_context"] = [{"role": "user", "content": "Earlier context."}]
+    original = deepcopy(batch)
+    prompt = json.loads(build_extraction_input(batch))
+    assert [m["message_time_utc"] for m in prompt["CURRENT_BATCH"]] == [
+        "2026-09-13T12:00:00Z", "2027-01-01T12:00:00Z"]
+    assert [m["timestamp"] for m in prompt["CURRENT_BATCH"]] == [1789300800, 1798804800]
+    assert prompt["RECENT_CONTEXT_REFERENCE_ONLY"] == [{"role": "user", "content": "Earlier context."}]
+    assert batch == original
+
+
 def test_resolve_extraction_keeps_user_fact_and_drops_assistant_fact():
     """Source ownership filters facts without interpreting the quoted language."""
     batch = [item("user-source"), {**item("assistant-source", 1791547210), "role": "assistant"}]
@@ -124,7 +139,7 @@ def test_reconciler_can_use_aliases_and_actual_old_new_values(monkeypatch, color
     def reconcile(system_prompt, user_text, schema):
         data = json.loads(user_text)
         update = data["EXTRACTED_SEMANTIC_INFORMATION"][0]
-        old = data["CANDIDATES_BY_OBJECT"][update["id"]][0]
+        old = data["CANDIDATES_BY_ID"][data["CANDIDATES_BY_OBJECT"][update["id"]][0]["id"]]
         calls.append((old, update))
         # This local rule only reads the supplied input; it is not an LLM-quality claim.
         assert update["name"] in old["aliases"]
@@ -146,8 +161,9 @@ def test_nickname_context_contains_explicit_current_value_without_internal_metad
     payload=simple_entity("Tesla Model Y",kind="vehicle",aliases=["my car","Little Dog"],
                           facts=[simple_fact("ownership_status","sold")])
     text=CognitiveProcessor().format_entities([payload])
-    assert "Tesla Model Y" in text and "Little Dog" in text and '"entity_type": "vehicle"' in text
-    assert '"text": "sold"' in text and '"fact_confidence": "high"' in text
+    entity_row = next(json.loads(line[7:]) for line in text.splitlines() if line.startswith('entity '))
+    assert entity_row[:5] == [payload['entity_id'], 'Tesla Model Y', payload['entity_domain'], 'vehicle', ['my car', 'Little Dog']]
+    assert 'field ["detail","sold","high"]' in text
     assert "_recorded_at" not in text and "source_chat_id" not in text
 
 
@@ -171,14 +187,26 @@ def test_real_queue_context_is_bounded_scoped_and_retry_stable(mechanics):
         case.cache.client.delete(other_key)
 
 
-def test_actual_single_message_time_is_persisted_without_source_id(mechanics):
+def test_actual_single_message_time_is_persisted_without_source_id(mechanics, monkeypatch):
     case = mechanics
     queue = queued_message(case)
+    expected_time = source_timestamps(queue)[queue[0]["item_id"]]
+    stages = set()
+    original_parse = case.llm.parse_structured
+    def capture(system_prompt, user_text, schema, **kwargs):
+        data = json.loads(user_text)
+        if "CURRENT_BATCH" in data:
+            assert data["CURRENT_BATCH"][0]["message_time_utc"] == expected_time
+            stages.add(schema.__name__)
+        return original_parse(system_prompt, user_text, schema, **kwargs)
+    monkeypatch.setattr(case.llm, "parse_structured", capture)
     assert ConsolidationWorkflow().run_consolidation_cycle(case.tenant, case.user, queue)
     row, = memory_rows(case)
     fact = row["payload"]["facts"][0]
+    assert {"ExtractionMemorySchema", "ResolutionResponse", "MutationPlanResponse"} <= stages
+    assert "message_time_utc" not in json.dumps(row["payload"])
     assert "source_chat_id" not in fact
-    assert fact["_last_mentioned_at"] == source_timestamps(queue)[queue[0]["item_id"]]
+    assert fact["_last_mentioned_at"] == expected_time
     assert processed_count(case) == 1
 
 
