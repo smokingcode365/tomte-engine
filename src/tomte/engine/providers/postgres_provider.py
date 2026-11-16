@@ -18,7 +18,8 @@ from tomte.engine import tomtelog
 
 # Import separated logic
 from tomte.engine.database.postgre import dictionary_ops, schema
-from tomte.engine.database.postgre import operations, transactions
+from tomte.engine.database.postgre import operations, transactions, lexical_ops, answer_ops, catalogue_ops
+from tomte.engine.core.search import reciprocal_rank_fusion
 
 def dictionary_writer(method):
     @wraps(method)
@@ -30,6 +31,54 @@ def dictionary_writer(method):
 
 
 class PostgresProvider(DatabaseProvider):
+    supports_answer_fact_search = True
+    supports_catalogue_navigation = True
+
+    @staticmethod
+    def _validate_catalogue_request(tenant_id, user_id, limit, parents=(), *, uuids=False):
+        if (not validate_id(tenant_id) or not validate_id(user_id) or type(limit) is not int
+                or not 1 <= limit <= 2000 or not isinstance(parents, (list, tuple))
+                or len(parents) > 2000):
+            raise ValueError('Invalid catalogue scope or limits')
+        for value in parents:
+            if not isinstance(value, str) or not value or '\x00' in value:
+                raise ValueError('Invalid catalogue parent')
+            if uuids and str(UUID(value)) != value:
+                raise ValueError('Invalid catalogue entity UUID')
+
+    def get_catalogue_domains(self, tenant_id, user_id, limit):
+        self._validate_catalogue_request(tenant_id, user_id, limit)
+        return catalogue_ops.get_domains(self.conn, tenant_id, user_id, limit)
+
+    def get_catalogue_entities(self, tenant_id, user_id, domains, limit):
+        self._validate_catalogue_request(tenant_id, user_id, limit, () if domains is None else domains)
+        return catalogue_ops.get_entities(self.conn, tenant_id, user_id, domains, limit)
+
+    def get_catalogue_facts(self, tenant_id, user_id, entity_ids, limit):
+        self._validate_catalogue_request(tenant_id, user_id, limit, entity_ids, uuids=True)
+        return catalogue_ops.get_facts(self.conn, tenant_id, user_id, entity_ids, limit)
+
+    def get_answer_catalog(self, tenant_id, user_id, limit):
+        if not validate_id(tenant_id) or not validate_id(user_id) or type(limit) is not int or not 1 <= limit <= 2000:
+            raise ValueError('Invalid answer catalogue scope or limit')
+        return answer_ops.get_catalog(self.conn, tenant_id, user_id, limit)
+
+    def get_answer_facts(self, tenant_id, user_id, vector, paths, limit, max_packet_bytes):
+        if (not validate_id(tenant_id) or not validate_id(user_id) or type(limit) is not int
+                or not 1 <= limit <= 1000 or type(max_packet_bytes) is not int or max_packet_bytes < 1):
+            raise ValueError('Invalid answer fact scope or limits')
+        if not isinstance(paths, list) or len(paths) > 2000:
+            raise ValueError('Invalid answer field paths')
+        for path in paths:
+            if (not isinstance(path, dict) or set(path) not in (
+                    {'entity_id', 'fact_id'},
+                    {'entity_domain', 'entity_type', 'attribute_name', 'field_name'})
+                    or any(not isinstance(v, str) or not v or '\x00' in v for v in path.values())):
+                raise ValueError('Invalid answer field path')
+            if 'entity_id' in path and any(str(UUID(v)) != v for v in path.values()):
+                raise ValueError('Invalid answer fact UUID')
+        return answer_ops.get_facts(self.conn, tenant_id, user_id, vector, paths, limit, max_packet_bytes)
+
     def __init__(self, connection_string: str):
         self._connection_string = connection_string
         try:
@@ -186,6 +235,56 @@ class PostgresProvider(DatabaseProvider):
         with self.transaction():
             operations.replace_retrieval_index(self.conn, tenant_id, user_id, entity_id, expected_payload, entries,
                                                summary_embedding=summary_embedding)
+
+    @staticmethod
+    def _validate_ranked_search(tenant_id, user_id, query, limit, mode):
+        if not validate_id(tenant_id) or not validate_id(user_id):
+            raise ValueError("Invalid lexical retrieval namespace")
+        if type(limit) is not int or limit < 1 or mode not in ('bm25', 'hybrid'):
+            raise ValueError("Invalid lexical retrieval options")
+        if not isinstance(query, str) or not query.strip() or '\x00' in query or len(query) > settings.max_input_length:
+            raise ValueError("Invalid lexical retrieval query")
+
+    def get_ranked_memory_context(self, tenant_id, user_id, query, vector, limit, *, mode):
+        self._validate_ranked_search(tenant_id, user_id, query, limit, mode)
+        with self.transaction():
+            depth = max(20, 2 * limit)
+            lexical = self._normalize_memory_rows(lexical_ops.get_bm25_context(
+                self.conn, tenant_id, user_id, query, limit if mode == 'bm25' else depth))
+            if mode == 'bm25':
+                return lexical
+            base = self.get_raw_semantic_context(tenant_id, user_id, vector, limit)
+            if not lexical:
+                return base
+            deeper = self.get_raw_semantic_context(tenant_id, user_id, vector, depth)
+            vector_ids = list(dict.fromkeys(e['entity_id'] for e in base + deeper))[:depth]
+            ranking, scores = reciprocal_rank_fusion(vector_ids, [e['entity_id'] for e in lexical])
+            by_id = {e['entity_id']: e for e in lexical + deeper + base}
+            # Retain the actual original union size, not a larger result budget.
+            return [{**by_id[eid], 'hybrid_score': scores[eid]} for eid in ranking[:len(base)]]
+
+    def get_ranked_history_candidates(self, tenant_id, user_id, entity_ids, query, vector, limit, *, mode):
+        self._validate_ranked_search(tenant_id, user_id, query, limit, mode)
+        with self.transaction():
+            depth = max(20, limit)
+            lexical = lexical_ops.get_bm25_history(self.conn, tenant_id, user_id, entity_ids, query,
+                                                  limit if mode == 'bm25' else depth)
+            if mode == 'bm25':
+                return lexical
+            semantic = self.get_history_candidates(tenant_id, user_id, entity_ids, vector, depth)
+            result = []
+            for entity_id in dict.fromkeys(map(str, entity_ids)):
+                groups = [[r for r in rows if str(r['entity_uuid']) == entity_id] for rows in (semantic, lexical)]
+                handles = [[(str(r['fact_id']), r['history_index']) for r in rows] for rows in groups]
+                ranking, scores = reciprocal_rank_fusion(*handles)
+                by_key = {(str(r['fact_id']), r['history_index']): r for rows in groups for r in rows}
+                result.extend({**by_key[key], 'hybrid_score': scores[key]} for key in ranking[:limit])
+            return result
+
+    def rebuild_lexical_index(self, tenant_id, user_id):
+        if not validate_id(tenant_id) or not validate_id(user_id):
+            raise ValueError("Invalid lexical index namespace")
+        return lexical_ops.rebuild_user_index(self.conn, tenant_id, user_id)
 
     def get_recent_entities(self, tenant_id: str, user_id: str, limit: int|None = None) -> List[Dict[str, Any]]:
         with self.transaction():

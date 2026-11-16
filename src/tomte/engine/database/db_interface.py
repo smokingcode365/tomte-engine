@@ -10,6 +10,37 @@ class DatabaseProvider(Protocol):
     The contract for durable entities, embedded facts and their search index.
     Supports multi-tenancy via (tenant_id, user_id) composite logic.
     """
+    supports_answer_fact_search = False
+    supports_catalogue_navigation = False
+
+    def get_catalogue_domains(self, tenant_id, user_id, limit):
+        """Bounded scoped domain rows and is_partial; excludes unresolved memories."""
+        raise NotImplementedError("Catalogue navigation is not supported")
+
+    def get_catalogue_entities(self, tenant_id, user_id, domains, limit):
+        """Scoped name/type/alias rows; domains=None means all, [] means none.
+
+        Always exclude unresolved memories. Return is_partial when bounded.
+        """
+        raise NotImplementedError("Catalogue navigation is not supported")
+
+    def get_catalogue_facts(self, tenant_id, user_id, entity_ids, limit):
+        """Scoped fact UUIDs, attributes and current/history field names; no values."""
+        raise NotImplementedError("Catalogue navigation is not supported")
+
+    def get_answer_catalog(self, tenant_id, user_id, limit):
+        """Scoped actual field paths and counts, including history; no fact values."""
+        raise NotImplementedError("Answer field catalogue is not supported")
+
+    def get_answer_facts(self, tenant_id, user_id, vector, paths, limit, max_packet_bytes):
+        """Scoped fact snapshots plus entity identity, ranked within matching entities.
+
+        Concrete entity_id/fact_id paths select those exact facts and histories.
+        Legacy domain/type/attribute/field paths still rank matching entities.
+        Empty paths means a separate broad vector search. Return total/oversized
+        counts and bounded rows; do not silently truncate individual values.
+        """
+        raise NotImplementedError("Answer fact search is not supported")
 
     def transaction(self) -> ContextManager[None]:
         """Atomic scope; nested scopes join and failed children abort the whole scope."""
@@ -67,6 +98,18 @@ class DatabaseProvider(Protocol):
     def replace_retrieval_index(self, tenant_id, user_id, entity_id, expected_payload, entries, *, summary_embedding=None):
         """Replace plain vectors and optionally the summary if the scoped payload is unchanged."""
         raise NotImplementedError("Retrieval index rebuild is not supported")
+
+    def get_ranked_memory_context(self, tenant_id, user_id, query, vector, limit, *, mode):
+        """Opt-in BM25/hybrid stored entities; scoped, distinct, with vector-compatible hybrid budget."""
+        raise NotImplementedError("BM25 retrieval is not supported")
+
+    def get_ranked_history_candidates(self, tenant_id, user_id, entity_ids, query, vector, limit, *, mode):
+        """Mode-aware history handles per entity, using the full user's BM25 corpus statistics."""
+        raise NotImplementedError("BM25 history retrieval is not supported")
+
+    def rebuild_lexical_index(self, tenant_id, user_id):
+        """Atomically rebuild one user's derived lexical data; no memory/vector/model changes."""
+        raise NotImplementedError("Lexical index rebuild is not supported")
 
     def discover_session_entities(self, tenant_id: str, user_id: str,
                                   query_vector: List[float], threshold: float,

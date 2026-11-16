@@ -125,7 +125,20 @@ class VehicleLLM:
         else:
             self.record("embed_batch")
             if self.extra_entity is None:
-                assert all("Tesla" in text and "Model Y" in text for text in texts)
+                if texts[0].startswith("{"):
+                    summary = json.loads(texts[0])
+                    assert summary["entity_name"] == "Tesla Model Y"
+                    # The write embeds labelled identity entries, then the same
+                    # values without labels for caller-facing retrieval.
+                    count, remainder = divmod(len(texts) - 1, 2)
+                    assert count and not remainder
+                    pairs = zip(texts[1:count + 1], texts[count + 1:], strict=True)
+                    for labelled, plain in pairs:
+                        assert "Tesla" in labelled and "Model Y" in labelled
+                        assert plain and not plain.startswith("{")
+                        assert f": {plain} (fact_confidence: " in labelled
+                else:
+                    assert all("Tesla" in text and "Model Y" in text for text in texts)
         return [self.vector() for _ in texts]
 
 

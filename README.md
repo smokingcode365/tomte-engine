@@ -20,6 +20,8 @@ After `Tomte.init(...)`, create a tenant-scoped client with
 client.store_user_message(user_id, session_id, message)
 client.store_assistant_message(user_id, session_id, response)
 context = client.get_context(user_id, message)
+# Use LLM-assisted search when you want supporting memories, without an answer:
+memories = client.retrieve_memories(user_id, information_needed)
 # Alternatively, ask Tomte to generate an answer from memory:
 answer = client.answer_question(user_id, question)
 
@@ -35,10 +37,18 @@ Storage returns a queue receipt; the background worker extracts memory later.
 conversation, ready to pass to the chatting agent as background information.
 Use `get_relevant_memories()` when structured results or retrieval options are needed.
 Profile, most-mentioned and pending reads make no model calls. Relevant retrieval
-uses embeddings but no generative LLM. `answer_question()` separately uses the
-configured strong model to plan a search and answer from the retrieved evidence,
-with at most three retrieval rounds. It returns one answer string and does not
-store the question or generated answer.
+uses embeddings but no generative LLM. `retrieve_memories()` embeds the information
+request and ranks stored fact snapshots by their existing plain-value vectors.
+An LLM reads batches of 20, up to 100 candidates, selecting useful evidence and
+scoring topical relevance. There is no catalogue navigation. Reading can stop
+for a satisfied specific need or a low-relevance tail; finding some list items
+does not establish that a collection is complete.
+`answer_question()` first analyses the question, then requests focused information
+through that retrieval workflow, for at most three passes. The answering model
+receives selected information and coverage notices. Fact reading uses the existing
+OpenAI `answer_reader_model` setting (default: `gpt-6.1-terra`). See the
+[workflow boundaries](docs/fact-retrieval.md) for the internal interfaces.
+Neither operation stores its request or generated output.
 Combined retrieval lazily embeds pending windows and reuses their cached vectors.
 Queue acknowledgement automatically removes affected cache entries; TTL is a
 fallback. Pending search exposes coverage limits separately from returned memory.

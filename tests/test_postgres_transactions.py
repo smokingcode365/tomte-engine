@@ -239,7 +239,7 @@ def test_standalone_bulk_write_commits_and_failed_batch_rolls_back(local_db):
     good = memory_update(tenant, local_db.users[1])
     bad = memory_update(tenant, local_db.users[1])
     bad["embedding"] = [1.0]
-    for entry in bad["search_entries"]:
+    for entry in bad["search_entries"] + bad["retrieval_entries"]:
         entry["embedding"] = [1.0]
     assert db.commit_graph_updates([good, bad]) is False
     idle(db)
@@ -252,7 +252,7 @@ def test_failed_bulk_write_in_outer_scope_propagates_and_rolls_back(local_db):
     good = memory_update(tenant, user)
     bad = memory_update(tenant, user)
     bad["embedding"] = [1.0]
-    for entry in bad["search_entries"]:
+    for entry in bad["search_entries"] + bad["retrieval_entries"]:
         entry["embedding"] = [1.0]
     with pytest.raises(psycopg.Error):
         with db.transaction():

@@ -19,6 +19,9 @@ from tomte.engine.core.assertions import MutationPlanResponse
 from tomte.engine.core.contextual import ContextualActionResponse
 from tomte.engine.core.resolution import ResolutionResponse
 from tomte.engine.core.candidate_filter import CandidateFilterResponse, CandidateFilterUnavailable
+from tomte.engine.core.answering import AnswerDecision, AnswerFactSelection, AnswerReaderUnavailable, RequiredInformation, FactBatchJudgment
+from tomte.engine.workflows.search_request import SearchEmbeddingQuery
+from tomte.engine.core.catalogue import CatalogueSelection
 from tomte.engine.dictionary.alignment import TerminologyAlignmentResponse
 from tomte.engine.providers import openai_provider
 
@@ -75,14 +78,22 @@ def test_generic_reconciliation_returns_typed_output(provider, monkeypatch):
 @pytest.mark.parametrize("expected, model_attribute", [
     (TerminologyAlignmentResponse(), "cheap_model"),
     (CandidateFilterResponse(keep=["c1"], drop=[]), "candidate_filter_model"),
+    (AnswerFactSelection(keep=["P1"]), "answer_reader_model"),
+    (FactBatchJudgment(kind='collection', found=[], possible=[], related=[], unrelated=[], enough=[]), "answer_reader_model"),
+    (CatalogueSelection(handles=["F1"]), "retrieval_planner_model"),
+    (SearchEmbeddingQuery(embedding_text="Outdoor activities"), "retrieval_planner_model"),
+    (AnswerDecision(action="answer",answer="Supported answer."), "strong_model"),
+    (RequiredInformation(information_needed=["Coco's breed"]), "strong_model"),
     (ResolutionResponse(resolutions=[]), "strong_model"),
     (MutationPlanResponse(plans=[]), "strong_model"),
     (ContextualActionResponse(), "strong_model"),
-], ids=["terminology", "candidate_filter", "resolution", "mutation", "contextual"])
+], ids=["terminology", "candidate_filter", "answer_reader", "batch_reader", "retrieval_planner", "search_query", "answer", "information_planner", "resolution", "mutation", "contextual"])
 def test_structured_stages_use_configured_models(provider, monkeypatch, expected, model_attribute):
     # Distinct configured routes ensure this does not depend on default model IDs.
     provider.cheap_model = "openai-responses:configured-fast-model"
     provider.candidate_filter_model = "openai-responses:configured-filter-model"
+    provider.answer_reader_model = "openai-responses:configured-answer-reader"
+    provider.retrieval_planner_model = "openai-responses:configured-retrieval-planner"
     provider.strong_model = "openai-responses:configured-strong-model"
     agent = Mock()
     agent.run_sync.return_value = SimpleNamespace(output=expected)
@@ -109,6 +120,8 @@ def test_candidate_filter_has_no_format_retry_and_wraps_provider_failure(provide
     ("strong_model", "gpt-6.1-sol"),
     ("cheap_model", "gpt-6-luna"),
     ("candidate_filter_model", "gpt-6.1-terra"),
+    ("answer_reader_model", "gpt-6.1-terra"),
+    ("retrieval_planner_model", "gpt-6.1-terra"),
 ])
 def test_model_identifiers_resolve_to_responses(provider, role, expected_model):
     # Resolve through the installed library without credentials or a network request.
@@ -116,6 +129,42 @@ def test_model_identifiers_resolve_to_responses(provider, role, expected_model):
     model = infer_model(getattr(provider, role), provider_factory=lambda _: client)
     assert isinstance(model, OpenAIResponsesModel)
     assert model.model_name == expected_model
+
+
+@pytest.mark.parametrize('schema', [AnswerFactSelection, FactBatchJudgment])
+def test_answer_reader_has_no_retry_and_wraps_only_provider_failure(provider,monkeypatch,schema):
+    from pydantic_ai.exceptions import ModelHTTPError
+    agent=Mock();agent.run_sync.side_effect=ModelHTTPError(503,'model','unavailable')
+    construct=Mock(return_value=agent);monkeypatch.setattr(openai_provider,'Agent',construct)
+    with pytest.raises(AnswerReaderUnavailable):
+        provider.parse_structured('reader','input',schema)
+    assert construct.call_args.kwargs['retries']==0
+
+
+@pytest.mark.parametrize('managed', [False, True])
+@pytest.mark.parametrize('override', [None, 'gpt-6.1-sol'])
+def test_retrieval_planner_setting_applies_to_standalone_and_managed(monkeypatch, managed, override):
+    from tomte.engine.core.config import TomteSettings
+    from tomte.engine.runtime import LazyOpenAI
+    monkeypatch.setenv('OPENAI_API_KEY', 'synthetic-unit-test-key')
+    monkeypatch.delenv('OPENAI__RETRIEVAL_PLANNER_MODEL', raising=False)
+    if override:
+        monkeypatch.setenv('OPENAI__RETRIEVAL_PLANNER_MODEL', override)
+    configured = TomteSettings(_env_file=None).openai
+    monkeypatch.setattr(openai_provider.settings, 'openai', configured)
+    expected = CatalogueSelection(handles=['F1'])
+    agent = Mock()
+    agent.run_sync.return_value = SimpleNamespace(output=expected)
+    monkeypatch.setattr(openai_provider, 'Agent', Mock(return_value=agent))
+    live = LazyOpenAI() if managed else openai_provider.OpenAILLMProvider('synthetic-unit-test-key')
+    try:
+        assert live.parse_structured('plan', 'memory request', CatalogueSelection) is expected
+        model = agent.run_sync.call_args.kwargs['model']
+        name = model.removeprefix('openai-responses:') if isinstance(model,str) else model.model_name
+        assert name == (override or 'gpt-6.1-terra')
+    finally:
+        if managed:
+            live.close()
 
 
 @pytest.mark.parametrize("managed", [False, True])

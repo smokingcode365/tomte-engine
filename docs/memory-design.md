@@ -89,13 +89,30 @@ whether an entity contains that category and returns the entity row UUID; it mus
 not be used to select a fact. Current consolidation does not call it.
 
 Each value is a map of named items. An item contains `text`, `fact_confidence`
-(`high`, `medium`, `low`), `_recorded_at`, and `_updated_at`. Business content is
+(`high`, `medium`, `low`), optional `context`, `_recorded_at`, and `_updated_at`. Business content is
 always text, including uncertain dates and qualified quantities. Confidence
 describes support for the complete qualified claim, not independently verified truth
 or the likelihood of a future action. A directly reported tentative intention can
 have high confidence; its uncertainty about acting must remain in the text.
 The LLM determines meaning and vocabulary; Python validates structure, scope,
 IDs, offered targets, current-user provenance, and deterministic operations.
+
+Extraction and mutation preserve original wording where possible, changing only
+what is needed for independent understanding. A short `context` supplies necessary
+supported background separately, for example text `We played chess afterward.`
+with context `We refers to the user and Sam; after their tournament.` It is not
+a source transcript, inferred explanation, or extra event. Qualifications stay in
+the claim. Readers interpret text and context together; context is public content.
+The LLM should omit unnecessary context and preserve unaffected wording on updates.
+
+On the mutation wire, omitted/null context preserves existing context; an empty
+string explicitly clears it. The LLM must recheck context when text changes.
+Empty context is omitted from stored/public JSON, preserving old memory shapes.
+Real changes archive the complete old value including context; historical context
+cannot be corrected. Plain-text search inputs include the text and, when present,
+its short context separated by a newline. Context-only edits refresh affected
+search vectors. Old memories without context keep their previous embedding text.
+No SQL schema migration or automatic rewriting/backfilling of old memories occurs.
 
 Facts retain `_importance`, `_mention_count`, `_last_mentioned_at`, and immutable
 `history_values`. Each history entry contains the full previous `value` and
@@ -470,7 +487,7 @@ processing snapshots, history/persona/session caches and replay markers. Preserv
 the vocabulary dictionary and unrelated service data. Never use FLUSHDB or drop
 volumes as an implicit upgrade step.
 
-Caller retrieval now embeds only field text in a separate derived index,
+Caller retrieval embeds field text plus optional short context in a separate derived index,
 including current and historical values. It selects the top five entity summaries
 and top five distinct entities by their best plain-field match independently,
 then unions them by UUID without trimming back to five. The limit is configurable

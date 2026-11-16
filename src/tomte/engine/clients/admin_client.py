@@ -72,6 +72,20 @@ class TomteAdminClient:
                     rebuilt += 1
         return rebuilt
 
+    def rebuild_lexical_index(self, user_id: str) -> int:
+        """Backfill this user's BM25 index atomically from saved values; no model calls.
+
+        Returns the entity count. Existing facts, history and vectors are unchanged.
+        Writers using the normal user guard wait/retry; the database also locks rows.
+        """
+        from tomte.engine.clients.chat_client import TomteChatClient
+        TomteChatClient(self.tenant_id)._validate_user(user_id)
+        with Tomte.operation_context() as (db, _):
+            with db.user_guard(self.tenant_id, user_id) as acquired:
+                if not acquired:
+                    raise TomteError("User memory is busy; retry the index rebuild later")
+                return db.rebuild_lexical_index(self.tenant_id, user_id)
+
     def wipe_user_memory(self, user_id: str) -> bool:
         """
         Deletes durable memory and the legacy persona cache only.

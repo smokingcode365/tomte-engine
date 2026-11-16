@@ -36,6 +36,9 @@ def utc_stamp(value: str) -> str:
 
 class ValueItem(MemoryModel):
     text: str
+    context: str = Field(default="", description=(
+        "Only the brief source-supported background needed to interpret text, such as who 'we' refers to. "
+        "No guesses, duplicated claim, source IDs or unrelated story."))
     fact_confidence: Confidence = Field(description=(
         "How strongly the user's statements support the complete claim in text: high is directly supported, "
         "medium has limited support, low has weak support. Not verified truth or likelihood of a future event. "
@@ -46,6 +49,20 @@ class ValueItem(MemoryModel):
 
     _text = field_validator("text")(nonempty_text)
     _timestamps = field_validator("recorded_at", "updated_at")(utc_stamp)
+
+    @field_validator("context")
+    @classmethod
+    def valid_context(cls, value):
+        if "\x00" in value:
+            raise ValueError("Context cannot contain NUL")
+        return value.strip()
+
+    @model_serializer(mode="wrap")
+    def omit_empty_context(self, handler):
+        result = handler(self)
+        if not self.context:
+            result.pop("context", None)
+        return result
 
     @model_validator(mode="after")
     def timestamp_order(self):
@@ -185,9 +202,17 @@ class WireValueField(MemoryModel):
     field_name: str
     text: str
     fact_confidence: Confidence = Field(description=ValueItem.model_fields["fact_confidence"].description)
+    context: str | None = Field(default=None, description=(
+        "Brief supported background needed to interpret this text. Null leaves existing context unchanged "
+        "on UPDATE (none for a new item); empty string explicitly clears it. Recheck context when text changes."))
 
     _key = field_validator("field_name")(field_key)
     _text = field_validator("text")(nonempty_text)
+
+    @field_validator("context")
+    @classmethod
+    def valid_context(cls, value):
+        return ValueItem.valid_context(value) if value is not None else None
 
 
 def wire_value(fields) -> dict:
@@ -195,6 +220,8 @@ def wire_value(fields) -> dict:
     for raw in fields:
         item = WireValueField.model_validate(raw)
         value = {"text": item.text, "fact_confidence": item.fact_confidence}
+        if item.context is not None:
+            value["context"] = item.context
         if item.field_name in result and result[item.field_name] != value:
             raise ValueError("Conflicting duplicate value field")
         result[item.field_name] = value
@@ -202,8 +229,14 @@ def wire_value(fields) -> dict:
 
 
 def public_value(value: dict) -> dict:
-    return {key: {"text": item["text"], "fact_confidence": item["fact_confidence"]}
+    return {key: {"text": item["text"], "fact_confidence": item["fact_confidence"],
+                  **({"context": item["context"]} if item.get("context") else {})}
             for key, item in value.items()}
+
+
+def value_search_text(item: dict) -> str:
+    """Plain supported content, without generated labels or internal metadata."""
+    return item["text"] + ("\n" + item["context"] if item.get("context") else "")
 
 
 def public_fact(fact: dict, history_indices=None) -> dict:

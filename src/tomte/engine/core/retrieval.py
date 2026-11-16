@@ -111,12 +111,15 @@ def select_history(entity, query, ranked, llm=None):
     return {fid: sorted(indices) for fid, indices in selection.items()}
 
 
-def prepare_memory_views(entities, query, vector, tenant_id, user_id, db, llm):
+def prepare_memory_views(entities, query, vector, tenant_id, user_id, db, llm, *, retrieval_mode='vector'):
     result = deepcopy(entities)
     large = [e for e in result if sum(_size({"value": public_value(h["value"])})
              for f in e["facts"] for h in f["history_values"]) > settings.memory_history_bytes]
     ranked = []
-    if large:
+    if large and retrieval_mode != 'vector':
+        ranked = db.get_ranked_history_candidates(tenant_id, user_id, [e['entity_id'] for e in large],
+            query, vector, settings.memory_history_candidate_limit, mode=retrieval_mode)
+    elif large:
         method = getattr(db, "get_history_candidates", None)
         if method is not None:
             try:

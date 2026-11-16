@@ -97,6 +97,11 @@ def _updated_value(old, values, stamp):
     result = deepcopy(old)
     for key, item in values.items():
         previous = old.get(key)
+        item = dict(item)
+        if "context" not in item and previous and previous.get("context"):
+            item["context"] = previous["context"]
+        if not item.get("context"):
+            item.pop("context", None)
         if previous is not None and public_value({key: previous})[key] == item:
             continue
         result[key] = {**item, "_recorded_at": previous["_recorded_at"] if previous else stamp,
@@ -174,7 +179,9 @@ def apply_mutations(facts, operations, chat_items, entity_scope, batch_id, templ
                 if op.history_index not in allowed or op.history_index >= len(history):
                     raise InvalidMutation("History enrichment requires an offered history index")
                 base = history[op.history_index]["value"]
-                if any(key in base and item != public_value({key: base[key]})[key] for key, item in values.items()):
+                proposed = _updated_value(base, values, stamp)
+                if any(key in base and public_value({key: proposed[key]}) != public_value({key: base[key]})
+                       for key in values):
                     raise InvalidMutation("History enrichment cannot correct existing items")
             enriched = _updated_value(base, values, stamp)
             # Same-episode detail already present is only a mention. A distinct

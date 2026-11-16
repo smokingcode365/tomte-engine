@@ -8,7 +8,7 @@ ROWS_GUIDE = '''Memory rows use JSON-escaped arrays with these columns:
 entity: entity_id, entity_name, entity_domain, entity_type, aliases, additional entity fields.
 fact: fact_id, attribute_name, history_is_partial, additional fact fields.
 current: current values. history: next historical value, with any additional history fields.
-field: field name, text, fact_confidence. Each entity/fact heading starts a new record.
+field: field name, text, fact_confidence, optional context. Each entity/fact heading starts a new record.
 '''
 
 UNRESOLVED_HEADING = (
@@ -42,11 +42,13 @@ def _labelled_rows(entities: list[dict]) -> str:
             lines.append('fact ' + _dump([*[fact[k] for k in fact_keys], extra]))
             lines.append('current')
             for key, value in fact['value'].items():
-                lines.append('field ' + _dump([key, value['text'], value['fact_confidence']]))
+                lines.append('field ' + _dump([key, value['text'], value['fact_confidence'],
+                                              *([value['context']] if value.get('context') else [])]))
             for history in fact['history_values']:
                 lines.append('history ' + _dump({k: v for k, v in history.items() if k != 'value'}))
                 for key, value in history['value'].items():
-                    lines.append('field ' + _dump([key, value['text'], value['fact_confidence']]))
+                    lines.append('field ' + _dump([key, value['text'], value['fact_confidence'],
+                                                  *([value['context']] if value.get('context') else [])]))
     return '\n'.join(lines)
 
 

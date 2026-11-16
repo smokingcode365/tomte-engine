@@ -10,6 +10,7 @@ from pydantic_ai.exceptions import ModelHTTPError
 from openai import OpenAIError
 from httpx import TransportError
 from tomte.engine.core.candidate_filter import CandidateFilterResponse, CandidateFilterUnavailable
+from tomte.engine.core.answering import AnswerFactSelection, AnswerReaderUnavailable, FactBatchJudgment
 from tomte.engine.core.extraction import ExtractionMemorySchema
 from tomte.engine.core.assertions import MutationPlanResponse
 from tomte.engine.llm.interfaces import LLMProvider
@@ -138,6 +139,8 @@ class OpenAILLMProvider(LLMProvider):
         self.strong_model = f"openai-responses:{settings.openai.strong_model}"
         self.cheap_model = f"openai-responses:{settings.openai.cheap_model}"
         self.candidate_filter_model = f"openai-responses:{settings.openai.candidate_filter_model}"
+        self.answer_reader_model = f"openai-responses:{settings.openai.answer_reader_model}"
+        self.retrieval_planner_model = f"openai-responses:{settings.openai.retrieval_planner_model}"
 
     def get_vector_dimension(self) -> int:
         return settings.openai.vector_dimension
@@ -201,7 +204,7 @@ class OpenAILLMProvider(LLMProvider):
         else:
             # Spin up a temporary, stateless agent for this specific schema
             dynamic_agent = Agent(
-                retries=0 if schema is CandidateFilterResponse else 1 if recoverable(schema) else getattr(self, 'agent_retries', 1),
+                retries=0 if schema in (CandidateFilterResponse,AnswerFactSelection,FactBatchJudgment) else 1 if recoverable(schema) else getattr(self, 'agent_retries', 1),
                 # Only mutation planning opts into strict generation. Local
                 # provenance/lifecycle validation still owns acceptance.
                 output_type=ToolOutput(schema, strict=True) if schema is MutationPlanResponse else schema,
@@ -210,12 +213,20 @@ class OpenAILLMProvider(LLMProvider):
             install_recovery(dynamic_agent, schema)
             stage = {"MutationPlanResponse": "fact_mutation",
                      "CandidateFilterResponse": "candidate_filter",
+                     "AnswerFactSelection": "answer_reader",
+                     "FactBatchJudgment": "answer_reader",
+                     "CatalogueSelection": "retrieval_planner",
+                     "SearchEmbeddingQuery": "retrieval_planner",
                      "UnresolvedResolutionResponse": "unresolved_resolution",
                      "TerminologyAlignmentResponse": "terminology_alignment", "FieldAlignmentResponse": "terminology_alignment"}.get(
                          getattr(schema, "__name__", ""), "structured")
             model = self.strong_model
             if stage == "candidate_filter":
                 model = self.candidate_filter_model
+            elif stage == "answer_reader":
+                model = self.answer_reader_model
+            elif stage == "retrieval_planner":
+                model = self.retrieval_planner_model
             elif stage == "terminology_alignment":
                 model = self.cheap_model
             try:
@@ -225,6 +236,8 @@ class OpenAILLMProvider(LLMProvider):
                     model_settings={"openai_reasoning_effort": "low"}
                 )
             except (OpenAIError, TransportError, TimeoutError, ModelHTTPError, UnexpectedModelBehavior, ValidationError) as exc:
+                if schema in (AnswerFactSelection, FactBatchJudgment):
+                    raise AnswerReaderUnavailable('answer_reader_unavailable') from exc
                 if schema is not CandidateFilterResponse:
                     raise
                 # Do not swallow cancellation, capacity, budget or host-code errors.

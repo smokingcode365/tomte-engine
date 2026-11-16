@@ -121,6 +121,27 @@ def ensure_core_infrastructure(conn: psycopg.Connection, vector_dimension: int):
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_retrieval_owner ON tomte_memory_retrieval(tenant_id,user_id)")
 
+        # Derived lexical data is maintained with canonical writes. Existing
+        # installations explicitly backfill before opting into BM25 retrieval.
+        cur.execute("ALTER TABLE tomte_memory_engine ADD COLUMN IF NOT EXISTS lexical_indexed BOOLEAN NOT NULL DEFAULT FALSE")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS tomte_memory_lexical (
+                entity_uuid UUID NOT NULL,
+                tenant_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                fact_id UUID NOT NULL,
+                history_index INT NOT NULL CHECK(history_index >= -1),
+                field_name TEXT NOT NULL,
+                terms JSONB NOT NULL,
+                document_length INT NOT NULL CHECK(document_length >= 0),
+                PRIMARY KEY(entity_uuid,fact_id,history_index,field_name),
+                FOREIGN KEY(entity_uuid,tenant_id,user_id)
+                    REFERENCES tomte_memory_engine(id,tenant_id,user_id) ON DELETE CASCADE
+            );
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_lexical_owner ON tomte_memory_lexical(tenant_id,user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_lexical_terms ON tomte_memory_lexical USING gin(terms)")
+
         # Performance Indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mem_importance ON tomte_memory_engine (importance DESC);")
         cur.execute("""

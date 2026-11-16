@@ -397,6 +397,8 @@ def bulk_commit_updates(conn: psycopg.Connection, updates: List[Dict[str, Any]])
                         AND fact_id=%s AND history_index=%s AND field_name=%s AND chunk_index=%s""",
                         (op["entity_id"], op["tenant_id"], op["user_id"], *key))
                 _upsert_retrieval_entries(cur, op["tenant_id"], op["user_id"], op["entity_id"], op["retrieval_entries"])
+                from tomte.engine.database.postgre.lexical_ops import replace_entity_index
+                replace_entity_index(cur, op["tenant_id"], op["user_id"], op["entity_id"], op["payload"])
     return True
 
 

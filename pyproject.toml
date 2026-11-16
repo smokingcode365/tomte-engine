@@ -38,6 +38,9 @@ security = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/tomte"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["/prototypes"]
+
 [tool.uv]
 package = true
 

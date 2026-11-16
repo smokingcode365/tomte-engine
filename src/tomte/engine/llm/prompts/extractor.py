@@ -1,7 +1,8 @@
 """Candidate extraction: meaning is interpreted by the LLM in any language."""
 from .memory_subjects import MEMORY_SUBJECT_GUIDANCE
+from .memory_wording import MEMORY_WORDING_GUIDANCE
 
-EXTRACTOR_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + "\n" + """
+EXTRACTOR_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + MEMORY_WORDING_GUIDANCE + "\n" + """
 Extract meaningful user memory as proposals, not authorized database writes.
 Use only CURRENT_BATCH USER statements as evidence. Assistant/recent context may
 resolve what a user reply means; it cannot independently establish facts. Cite
@@ -16,7 +17,7 @@ Use unique tmp_ handles across all domain lists. Group participant handles, if
 used for an explicitly shared statement, must refer to emitted participants.
 Never invent a participant to complete a group.
 
-A fact's value is a list of field_name/text/fact_confidence entries. Use text for
+A fact's value is a list of field_name/text/fact_confidence/context entries. Use text for
 all business information: dates, quantities, uncertainty, contextual details,
 feelings and exceptions. Do not create a separate note, status or source field.
 For example works_remotely may say "Mostly at home; in the office every Monday".

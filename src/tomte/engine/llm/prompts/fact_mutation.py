@@ -1,7 +1,8 @@
 """Semantic decisions followed by deterministic, scoped fact updates."""
 from .memory_subjects import MEMORY_SUBJECT_GUIDANCE
+from .memory_wording import MEMORY_WORDING_GUIDANCE
 
-MUTATION_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + "\n" + """
+MUTATION_SYSTEM_PROMPT = MEMORY_SUBJECT_GUIDANCE + MEMORY_WORDING_GUIDANCE + "\n" + """
 Plan memory operations only for offered TARGETS and offered fact UUIDs.
 CURRENT_BATCH USER messages are the evidence, along with explicitly labelled
 earlier stored unresolved claims when supplied. Reference/assistant context may

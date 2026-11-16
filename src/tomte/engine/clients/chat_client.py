@@ -213,29 +213,56 @@ class TomteChatClient:
         """
         return self.get_relevant_memories(user_id, message, include_pending=True)['context_text']
 
-    def answer_question(self, user_id: str, question: str) -> str:
+    def retrieve_memories(self, user_id: str, information_needed: str, *,
+                          memory_owner_name: str | None = None) -> str:
+        """Find supporting memory using one LLM-assisted retrieval pass.
+
+        Returns memory text, including relevant unresolved and pending sources.
+        Searches and filters this focused request directly;
+        does not plan follow-ups, generate an answer, or store the request.
+        Optional memory_owner_name identifies this user to the models; it does
+        not change which user's records are read or rename anyone in memory.
+        Errors propagate. get_context remains the non-generative alternative.
+        """
+        return self._run_llm_memory_workflow(user_id, information_needed, answer=False,
+                                             memory_owner_name=memory_owner_name)
+
+    def answer_question(self, user_id: str, question: str, *,
+                        memory_owner_name: str | None = None) -> str:
         """Answer from this user's memory, with at most three retrieval rounds.
 
+        Analyses the question before searching, then reviews each retrieval.
         Uses the configured model and one pending snapshot. Returns answer text;
         never stores the question or generated answer. Failures propagate.
+        Supply memory_owner_name when the caller knows this user's name, so
+        named questions can be linked to memories referring to 'the user'.
         """
+        return self._run_llm_memory_workflow(user_id, question, answer=True,
+                                             memory_owner_name=memory_owner_name)
+
+    def _run_llm_memory_workflow(self, user_id: str, text: str, *, answer: bool,
+                                 memory_owner_name: str | None = None) -> str:
         from contextlib import nullcontext
         from tomte.engine import Tomte
-        from tomte.engine.core.answering import ANSWER_TIMEOUT_SECONDS
+        from tomte.engine.core.answering import ANSWER_TIMEOUT_SECONDS, validate_memory_owner_name
         from tomte.engine.core.config import settings
         from tomte.engine.exceptions import TomteInvalidInputError
         from tomte.engine.workers.control import WorkControl
         from tomte.engine.workflows.answering import AnswerWorkflow
+        from tomte.engine.workflows.retrieving import MemoryRetrievalWorkflow
 
         self._validate_user(user_id)
-        if (not isinstance(question, str) or not question.strip()
-                or len(question) > settings.max_input_length or '\x00' in question):
-            raise TomteInvalidInputError('Invalid question')
+        memory_owner_name = validate_memory_owner_name(memory_owner_name)
+        if (not isinstance(text, str) or not text.strip()
+                or len(text) > settings.max_input_length or '\x00' in text):
+            raise TomteInvalidInputError('Invalid memory request')
         control = WorkControl(timeout=ANSWER_TIMEOUT_SECONDS)
         with Tomte.operation_context(control) as (db, llm):
             scope = Tomte._usage.scope(self.tenant_id, user_id, 'foreground') if Tomte._usage else nullcontext()
             with scope:
-                return AnswerWorkflow(self.tenant_id, user_id, db, llm, Tomte.get_cache(), control).run(question)
+                workflow = AnswerWorkflow if answer else MemoryRetrievalWorkflow
+                return workflow(self.tenant_id, user_id, db, llm, Tomte.get_cache(), control,
+                                memory_owner_name=memory_owner_name).run(text)
 
     def get_relevant_memories(
         self, user_id: str, message: str, limit: Optional[int] = None, *,

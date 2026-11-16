@@ -1,11 +1,14 @@
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from tomte.engine.core.memory_text import MemoryTextFormat
+from tomte.engine.core.search import StoredRetrievalMode
 
 class OpenAISettings(BaseModel):
     strong_model: str = "gpt-6.1-sol"
     cheap_model: str = "gpt-6-luna"
     candidate_filter_model: str = "gpt-6.1-terra"
+    answer_reader_model: str = "gpt-6.1-terra"
+    retrieval_planner_model: str = "gpt-6.1-terra"
     embed_model: str = "openai:text-embedding-3-large"
     # Request the supported shortened output to fit existing vector/IVFFlat storage.
     vector_dimension: int = 1536
@@ -37,7 +40,21 @@ class PendingSearchSettings(BaseModel):
     wait_seconds: float = Field(default=2, ge=0, le=10)
 
 
+class AnswerRetrievalSettings(BaseModel):
+    catalog_limit: int = Field(default=400, ge=1, le=2000)
+    catalog_bytes: int = Field(default=32000, ge=1024, le=131072)
+    # Legacy larger overrides remain readable; retrieval clamps this to 100.
+    fact_limit: int = Field(default=100, ge=1, le=1000)
+    lane_bytes: int = Field(default=24000, ge=1024, le=131072)
+    read_all_bytes: int = Field(default=12000, ge=512, le=131072)
+    memory_bytes: int = Field(default=64000, ge=1024, le=262144)
+    catalog_read_all_facts: int = Field(default=6, ge=1, le=100)
+    relevance_tail_size: int = Field(default=10, ge=1, le=20)
+
+
 class TomteSettings(BaseSettings):
+    answer_retrieval: AnswerRetrievalSettings = Field(default_factory=AnswerRetrievalSettings)
+    stored_retrieval_mode: StoredRetrievalMode = Field(default='vector', description='Stored-memory search: vector, bm25, or experimental hybrid. Pending and mutation searches are unchanged.')
     pending_search: PendingSearchSettings = Field(default_factory=PendingSearchSettings)
     memory_text_format: MemoryTextFormat = Field(default='labelled_rows', description='Caller-facing context text representation; structured entities and storage are unchanged.')
     unresolved_return_limit: int = Field(default=3, ge=1, le=20)

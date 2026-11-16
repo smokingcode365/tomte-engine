@@ -1,121 +1,67 @@
-"""Bounded, read-only question answering with model-owned semantic decisions."""
-from copy import deepcopy
+"""Plan information requirements, retrieve them, then answer or suggest gaps."""
 from datetime import datetime, timezone
-import json
 
-from tomte.engine.core.answering import AnswerSearchPlan, AnswerDecision, MAX_SEARCH_ROUNDS, MAX_SEARCHES_PER_ROUND
-from tomte.engine.core.capacity import check_provider_capacity
+from tomte.engine.core.answering import AnswerDecision, MAX_SEARCH_ROUNDS, validate_memory_owner_name
 from tomte.engine.core.config import settings
-from tomte.engine.core.memory import public_entity
-from tomte.engine.core.memory_text import resolve_memory_text_format
-from tomte.engine.llm.prompts.answering import ANSWER_SEARCH_PROMPT, ANSWER_DECISION_PROMPT
-from tomte.engine.workflows.memory_search import read_memory_views, render_retrieved_memory
-from tomte.engine.workflows.pending_search import PendingMemorySearch
+from tomte.engine.llm.calls import call_model
+from tomte.engine.llm.prompts.answering import ANSWER_DECISION_PROMPT
+from tomte.engine.workflows.information_planning import InformationPlanner
+from tomte.engine.workflows.retrieving import MemoryRetrievalWorkflow
+from tomte.engine.workflows.retrieval_evidence import EvidenceBuffer
 
 
 class AnswerWorkflow:
-    def __init__(self, tenant, user, db, llm, cache, control):
-        self.tenant, self.user = tenant, user
-        self.db, self.llm, self.cache, self.control = db, llm, cache, control
-        self.views, self.unresolved = {}, {}
-        self.windows, self.seen_messages, self.coverage = [], set(), []
-        self.searched = []
-        self.output_format = resolve_memory_text_format()
+    def __init__(self, tenant, user, db, llm, cache, control, *, retrieval=None, planner=None,
+                 memory_owner_name=None):
+        self.llm, self.control = llm, control
+        self.memory_owner_name = validate_memory_owner_name(memory_owner_name)
+        self.retrieval = retrieval if retrieval is not None else MemoryRetrievalWorkflow(
+            tenant, user, db, llm, cache, control, memory_owner_name=self.memory_owner_name)
+        self.reference_time = datetime.now(timezone.utc).isoformat()
+        self.planner = planner if planner is not None else InformationPlanner(
+            llm, control, self.reference_time, memory_owner_name=self.memory_owner_name)
 
-    def _call(self, prompt, payload, schema):
-        self.control.check()
-        kwargs = dict(system_prompt=prompt, user_text=json.dumps(payload, ensure_ascii=False), schema=schema)
-        # Custom providers get the same explicit capacity check as native ones.
-        check_provider_capacity('parse_structured', kwargs)
-        result = self.llm.parse_structured(**kwargs)
-        self.control.check()
-        return schema.model_validate(result)
-
-    def _queries(self, proposed):
-        result = []
-        for text in proposed:
-            text = text.strip()
-            # These are structural limits, not relevance or language decisions.
-            if (not text or '\x00' in text or len(text) > settings.max_input_length
-                    or text in self.searched or text in result):
-                continue
-            result.append(text)
-            if len(result) == MAX_SEARCHES_PER_ROUND:
-                break
-        return result
-
-    def _remember(self, views, unresolved, pending):
-        for view in views:
-            incoming = deepcopy(view)
-            previous = self.views.get(view['entity_id'])
-            if previous is not None:
-                old_facts = {f['fact_id']: f for f in previous['facts']}
-                for fact in incoming['facts']:
-                    fid = fact['fact_id']
-                    old = old_facts.get(fid)
-                    # Only union offered indices if the old history is still an
-                    # unchanged prefix. Identical text in distinct entries stays distinct.
-                    if old and fact['history_values'][:len(old['history_values'])] == old['history_values']:
-                        selected = incoming['_history_selection'][fid]
-                        incoming['_history_selection'][fid] = sorted(set(selected)
-                            | set(previous['_history_selection'].get(fid, [])))
-            self.views[view['entity_id']] = incoming
-        for entity in unresolved:
-            self.unresolved[entity['entity_id']] = deepcopy(entity)
-        for window in pending['pending_message_windows']:
-            entry = deepcopy(window)
-            entry['messages'] = []
-            for message in window['messages']:
-                key = (window['session_id'], message['message_id'], message.get('char_start', 0),
-                       message.get('char_end', len(message['content'])))
-                if key not in self.seen_messages:
-                    self.seen_messages.add(key)
-                    entry['messages'].append(deepcopy(message))
-            if entry['messages']:
-                self.windows.append(entry)
-        self.coverage.append(pending['pending_search'])
-
-    def _evidence(self):
-        return {
-            'entities': [public_entity(v, v['_history_selection']) for v in self.views.values()],
-            'unresolved_memories': list(self.unresolved.values()),
-            'pending_message_windows': self.windows,
+    def decide_next_step(self, question, memory, remaining):
+        payload = {
+            'question': question, 'memory': memory,
+            'retrievals_remaining': remaining, 'reference_time_utc': self.reference_time,
         }
+        if self.memory_owner_name is not None:
+            payload['memory_owner_name'] = self.memory_owner_name
+        return call_model(self.llm, self.control, ANSWER_DECISION_PROMPT, payload, AnswerDecision)
 
     def run(self, question):
-        self.control.check()
-        # Capture BEFORE any durable retrieval; retain this source for all rounds.
-        pending = PendingMemorySearch(self.tenant, self.user, self.db, self.cache, self.control)
-        reference_time = datetime.now(timezone.utc).isoformat()
-        plan = self._call(ANSWER_SEARCH_PROMPT, {
-            'question': question, 'reference_time_utc': reference_time,
-        }, AnswerSearchPlan)
-        queries = self._queries(plan.searches) or [question]
-        for round_number in range(1, MAX_SEARCH_ROUNDS + 1):
-            for query in queries:
-                self.control.check()
-                self.searched.append(query)
-                vector = self.llm.embed_text(query)
-                pending_result = pending.search(vector, self.llm)
-                self.control.check()
-                views, unresolved = read_memory_views(self.tenant, self.user, query, vector,
-                    settings.semantic_retrieval_limit, self.db)
-                self._remember(views, unresolved, pending_result)
-            evidence = self._evidence()
-            remaining = MAX_SEARCH_ROUNDS - round_number
-            evidence['pending_search'] = {
-                'complete': all(c['complete'] for c in self.coverage),
-                'reasons': sorted({r for c in self.coverage for r in c['reasons']}),
-                'snapshot_at': pending.snapshot_at,
-            }
-            decision = self._call(ANSWER_DECISION_PROMPT, {
-                'question': question, 'reference_time_utc': reference_time,
-                'previous_searches': list(self.searched), 'search_rounds_remaining': remaining,
-                'memory': render_retrieved_memory(evidence, self.output_format),
-            }, AnswerDecision)
-            if decision.action == 'answer' or remaining == 0 or not decision.missing_information.strip():
+        evidence, requests, outcomes = EvidenceBuffer(), [], []
+        suggestions, best_answer = [], None
+        while True:
+            results = list(outcomes)
+            if evidence.received:
+                # Include the merged evidence once, not once per overlapping search.
+                results.append('Available information from these searches:\n' + evidence.render_for_answer())
+            needs = self.planner.extract_required_info_from_question(question, results, suggestions)
+            searched = False
+            for need in needs:
+                if len(requests) >= MAX_SEARCH_ROUNDS:
+                    break
+                request = need.strip()
+                if (not request or '\x00' in request or len(request) > settings.max_input_length
+                        or request in requests):
+                    continue
+                result = self.retrieval.retrieve_once(request)
+                evidence.merge(result)
+                requests.append(request)
+                has_evidence = bool(result.packets or result.possible_packets or result.views or result.unresolved
+                    or result.pending.get('pending_message_windows'))
+                outcome = ('Evidence was returned; relevance must be assessed.' if has_evidence
+                           else 'No information was returned; this does not prove absence.')
+                outcomes.append(f'Requested: {request}\nResult: {outcome}')
+                searched = True
+            if not searched and best_answer is not None:
+                return best_answer
+            remaining = MAX_SEARCH_ROUNDS - len(requests)
+            decision = self.decide_next_step(question, evidence.render_for_answer(), remaining)
+            best_answer = decision.answer
+            # Always read the final retrieval, including the third, before stopping.
+            if decision.action == 'answer' or remaining == 0 or not decision.suggestions:
                 return decision.answer
-            queries = self._queries(decision.searches)
-            if not queries:
-                return decision.answer
-        raise AssertionError('Answer loop must return within its fixed round limit')
+            suggestions = decision.suggestions

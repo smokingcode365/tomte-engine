@@ -10,13 +10,17 @@ from tomte.engine.exceptions import TomteSecurityViolationError
 
 
 def read_memory_views(tenant, user, query, vector, limit, db, *, include_unresolved=True):
-    entities = db.get_raw_semantic_context(tenant, user, vector, limit=limit)
+    mode = settings.stored_retrieval_mode
+    if mode == 'vector':
+        entities = db.get_raw_semantic_context(tenant, user, vector, limit=limit)
+    else:
+        entities = db.get_ranked_memory_context(tenant, user, query, vector, limit, mode=mode)
     for entity in entities:
         if entity.get('tenant_id') != tenant or entity.get('user_id') != user:
             raise TomteSecurityViolationError('Retrieved entity namespace mismatch')
     entities = [e for e in entities if e['entity_domain'] != MemoryDomain.UNRESOLVED]
     # Retrieval never invokes the optional generative history selector.
-    views = prepare_memory_views(entities, query, vector, tenant, user, db, llm=None)
+    views = prepare_memory_views(entities, query, vector, tenant, user, db, llm=None, retrieval_mode=mode)
     unresolved = []
     if include_unresolved:
         unresolved = [public_entity(row['payload']) for row in pending_records(

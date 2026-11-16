@@ -84,6 +84,8 @@ class LazyOpenAI:
         llm.strong_model = OpenAIResponsesModel(settings.openai.strong_model, provider=provider)
         llm.cheap_model = OpenAIResponsesModel(settings.openai.cheap_model, provider=provider)
         llm.candidate_filter_model = OpenAIResponsesModel(settings.openai.candidate_filter_model, provider=provider)
+        llm.answer_reader_model = OpenAIResponsesModel(settings.openai.answer_reader_model, provider=provider)
+        llm.retrieval_planner_model = OpenAIResponsesModel(settings.openai.retrieval_planner_model, provider=provider)
         llm.embedder = Embedder(
             OpenAIEmbeddingModel(settings.openai.embed_model.removeprefix('openai:'), provider=provider),
             settings={"dimensions": settings.openai.vector_dimension},

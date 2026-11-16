@@ -1,7 +1,7 @@
 """Search text contains business data only; every current/history item is indexed."""
 import json
 import math
-from tomte.engine.core.memory import public_value
+from tomte.engine.core.memory import public_value, value_search_text
 from tomte.engine.core.enums import MemoryDomain
 
 SEARCH_TEXT_CHARS = 2000
@@ -35,7 +35,7 @@ def get_resolution_query(entity_data):
     """Plain extracted meaning for identity discovery, without generated labels."""
     return "\n".join([
         entity_data["entity_name"], *entity_data.get("aliases", []),
-        *[item["text"] for fact in entity_data.get("facts", []) for item in fact["value"].values()],
+        *[value_search_text(item) for fact in entity_data.get("facts", []) for item in fact["value"].values()],
     ])
 
 
@@ -47,7 +47,7 @@ def get_search_entries(entity_data):
         for history_index, value in [(-1, fact["value"]), *enumerate(h["value"] for h in fact["history_values"])]:
             prefix = identity[:400] + " " + fact["attribute_name"][:200] + (" current " if history_index == -1 else " history ")
             for field_name, item in value.items():
-                text = field_name + ": " + item["text"] + " (fact_confidence: " + item["fact_confidence"] + ")"
+                text = field_name + ": " + value_search_text(item) + " (fact_confidence: " + item["fact_confidence"] + ")"
                 for chunk_index, start in enumerate(range(0, len(text), SEARCH_TEXT_CHARS - len(prefix))):
                     entries.append({"fact_id": fact["fact_id"], "history_index": history_index,
                                     "field_name": field_name, "chunk_index": chunk_index,
@@ -65,7 +65,7 @@ def changed_search_entries(entity_data, previous=None):
 
 
 def get_retrieval_entries(entity_data):
-    """Caller retrieval embeds only field text; identifiers stay outside the text.
+    """Caller retrieval embeds field text and optional context, without labels.
 
     Keep the labelled identity-resolution index separate. Chunk without dropping
     characters, including for old values; history/field meaning stays in payloads.
@@ -74,10 +74,11 @@ def get_retrieval_entries(entity_data):
     for fact in entity_data["facts"]:
         for history_index, value in [(-1, fact["value"]), *enumerate(h["value"] for h in fact["history_values"])]:
             for field_name, item in value.items():
-                for chunk_index, start in enumerate(range(0, len(item["text"]), SEARCH_TEXT_CHARS)):
+                text = value_search_text(item)
+                for chunk_index, start in enumerate(range(0, len(text), SEARCH_TEXT_CHARS)):
                     entries.append({"fact_id": fact["fact_id"], "history_index": history_index,
                         "field_name": field_name, "chunk_index": chunk_index,
-                        "text": item["text"][start:start + SEARCH_TEXT_CHARS]})
+                        "text": text[start:start + SEARCH_TEXT_CHARS]})
     return entries
 
 
