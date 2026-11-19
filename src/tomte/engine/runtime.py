@@ -30,7 +30,7 @@ def owned_operation(db_template, llm_template, control=None):
     from tomte.engine.providers.openai_provider import OpenAILLMProvider
     if type(db_template) is not PostgresProvider or type(llm_template) is not OpenAILLMProvider:
         raise RuntimeError('Custom providers require an operation_factory for managed execution')
-    db, lazy = None, LazyOpenAI()
+    db, lazy = None, LazyOpenAI(api_key=getattr(llm_template, 'api_key', None))
     try:
         db = db_template.fork()
         yield db, ControlledLLM(lazy, control or WorkControl())
@@ -44,7 +44,8 @@ def owned_operation(db_template, llm_template, control=None):
 
 class LazyOpenAI:
     """One operation's model resources, allocated only on first model access."""
-    def __init__(self):
+    def __init__(self, *, api_key=None):
+        self.api_key = api_key
         self.instance = self.client = self.loop = self.previous = None
 
     def __getattr__(self, name):
@@ -76,8 +77,9 @@ class LazyOpenAI:
             raise RuntimeError('Use the synchronous client from a non-event-loop thread')
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-        # Keep existing environment-based credential precedence.
-        self.client = AsyncOpenAI(timeout=30, max_retries=0)
+        # An injected template key takes precedence; direct LazyOpenAI users
+        # retain the SDK's environment fallback when no key was supplied.
+        self.client = AsyncOpenAI(api_key=self.api_key, timeout=30, max_retries=0)
         client = self.client
         provider = OpenAIProvider(openai_client=client)
         llm = object.__new__(OpenAILLMProvider)

@@ -3,6 +3,53 @@
 Tomte is a Python memory-engine library. Local development runs Python on the
 Windows host and PostgreSQL with pgvector plus Redis in Docker.
 
+Version **1.0.0** freezes the existing feature set. The
+[release checklist](docs/release-checklist.md) and
+[verification record](docs/release-verification.md) describe the completed local
+checks and remaining operational limits. No public release has been published.
+
+## Documentation
+
+- [v1.0 specification and limits](docs/specification.md)
+- [Architecture](docs/architecture.md) and [memory design](docs/memory-design.md)
+- [SDK contract](docs/memory-read-api.md) and [local demo](docs/demo.md)
+- [Testing](docs/testing.md) and [operations/troubleshooting](docs/operations.md)
+- [Release notes](CHANGELOG.md), [contributing](CONTRIBUTING.md),
+  [security policy](SECURITY.md) and [MIT license](LICENSE)
+
+## Initialize the SDK
+
+After configuring and bootstrapping the local services below:
+
+```python
+import os
+from dotenv import load_dotenv
+from tomte.engine import Tomte
+from tomte.engine.providers.postgres_provider import PostgresProvider
+from tomte.engine.providers.redis_provider import RedisCacheProvider
+from tomte.engine.providers.openai_provider import OpenAILLMProvider
+
+load_dotenv()  # Host supplies credentials; never put them in source code.
+db = PostgresProvider(os.environ["POSTGRES_URL"])
+cache = RedisCacheProvider(os.environ["REDIS_URL"])
+llm = OpenAILLMProvider(os.environ["OPENAI_API_KEY"])
+Tomte.init(db, cache, llm)  # Starts the managed background worker.
+client = Tomte.create_tomte_client("my-app")
+try:
+    receipt = client.store_user_message("demo-user", "conversation-1", "My bicycle is blue.")
+    context = client.get_context("demo-user", "What color is my bicycle?")
+    # This may initially return pending chat: extraction runs in the background.
+finally:
+    stopped = Tomte.shutdown(timeout=30)
+    if stopped:
+        db.close()
+        cache.client.close()
+    # If False, retain resources and retry shutdown; do not replace providers.
+```
+
+These calls can incur model costs. Use fictional data. The SDK trusts the host to
+authenticate callers and authorize the chosen tenant/user; IDs are not credentials.
+
 ## Memory contract
 
 Entities use canonical UUIDs and stable fact UUIDs. Fact values contain multiple

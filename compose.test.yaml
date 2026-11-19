@@ -1,0 +1,29 @@
+# Separate disposable services; never attaches application data volumes.
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17-trixie
+    environment:
+      POSTGRES_DB: tomte_test
+      POSTGRES_USER: tomte_test
+      POSTGRES_PASSWORD: synthetic-test-only
+    ports:
+      - "127.0.0.1::5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./docker/postgres/initdb/01-extensions.sql:/docker-entrypoint-initdb.d/01-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tomte_test -d tomte_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  redis:
+    image: redis:7.4.11-alpine
+    ports:
+      - "127.0.0.1::6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30

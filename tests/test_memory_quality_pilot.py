@@ -16,6 +16,30 @@ pilot = importlib.import_module('evaluate_memory_quality')
 ApiBudget, BudgetStop = budget_module.ApiBudget, budget_module.BudgetStop
 
 
+def test_preflight_uses_configured_embedding_model_without_historical_model_pin(monkeypatch, capsys):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from tomte.engine.core.config import OpenAISettings
+
+    monkeypatch.setattr(pilot.settings, 'openai', OpenAISettings())
+    monkeypatch.setattr(sys, 'argv', ['evaluate_memory_quality.py', '--preflight'])
+    monkeypatch.setattr(pilot, 'load_dotenv', lambda *args, **kwargs: None)
+    monkeypatch.setenv('POSTGRES_URL', 'synthetic-postgres')
+    monkeypatch.setenv('REDIS_URL', 'synthetic-redis')
+    cache = SimpleNamespace(append_chat_history=Mock())
+    @contextmanager
+    def isolated(postgres_url, redis_url, cleanup):
+        assert (postgres_url, redis_url) == ('synthetic-postgres', 'synthetic-redis')
+        yield object(), cache, 'synthetic-tenant'
+        cleanup['verified'] = True
+    monkeypatch.setattr(pilot, 'isolated_store', isolated)
+    monkeypatch.setattr(pilot, 'stored', lambda *args: [])
+    pilot.main()
+    assert json.loads(capsys.readouterr().out)['isolated_schema_and_redis_cleanup_verified'] is True
+    cache.append_chat_history.assert_called_once()
+
+
 @pytest.mark.parametrize('supported', [False, True])
 def test_recorded_provider_forwards_filter_capability_and_calls(supported):
     from types import SimpleNamespace

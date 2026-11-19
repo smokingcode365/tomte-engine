@@ -5,6 +5,9 @@ from pydantic_core import ErrorType
 from pydantic_ai.messages import ModelResponse, RetryPromptPart
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import Agent, Embedder, ToolOutput, capture_run_messages
+from pydantic_ai.embeddings.openai import OpenAIEmbeddingModel
+from pydantic_ai.models.openai import OpenAIResponsesModel
+from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.exceptions import ModelHTTPError
 from openai import OpenAIError
@@ -125,22 +128,23 @@ class OpenAILLMProvider(LLMProvider):
     supports_candidate_filter = True
 
     def __init__(self, api_key: str):
-        # Store the key; pydantic-ai will use it from env or explicit config
+        # Bind the host-supplied credential to every route, rather than letting
+        # string-model inference silently select an unrelated environment key.
         self.api_key = api_key
-        
-        # We use Pydantic-AI's Embedder for all vector tasks
-        self.embedder = Embedder(settings.openai.embed_model,
+        provider = OpenAIProvider(api_key=api_key)
+        self.embedder = Embedder(OpenAIEmbeddingModel(
+                                     settings.openai.embed_model.removeprefix('openai:'),
+                                     provider=provider),
                                  settings={"dimensions": settings.openai.vector_dimension})
         self._embedding_cache_identity = openai_embedding_identity(
             settings.openai.embed_model, settings.openai.vector_dimension,
             os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1'))
         
-        # Explicit routing avoids Pydantic-AI inferring Chat Completions from bare names.
-        self.strong_model = f"openai-responses:{settings.openai.strong_model}"
-        self.cheap_model = f"openai-responses:{settings.openai.cheap_model}"
-        self.candidate_filter_model = f"openai-responses:{settings.openai.candidate_filter_model}"
-        self.answer_reader_model = f"openai-responses:{settings.openai.answer_reader_model}"
-        self.retrieval_planner_model = f"openai-responses:{settings.openai.retrieval_planner_model}"
+        self.strong_model = OpenAIResponsesModel(settings.openai.strong_model, provider=provider)
+        self.cheap_model = OpenAIResponsesModel(settings.openai.cheap_model, provider=provider)
+        self.candidate_filter_model = OpenAIResponsesModel(settings.openai.candidate_filter_model, provider=provider)
+        self.answer_reader_model = OpenAIResponsesModel(settings.openai.answer_reader_model, provider=provider)
+        self.retrieval_planner_model = OpenAIResponsesModel(settings.openai.retrieval_planner_model, provider=provider)
 
     def get_vector_dimension(self) -> int:
         return settings.openai.vector_dimension

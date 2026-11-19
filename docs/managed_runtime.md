@@ -24,6 +24,12 @@ The initialized database/provider objects are
 templates owned by the caller; shutdown does not close caller-owned templates.
 Redis's normal connection pool is shared, but pipelines are operation-local.
 
+The API key supplied to `OpenAILLMProvider(api_key)` is used by both its standalone
+models and the managed operation clients. An explicitly supplied key takes
+precedence over `OPENAI_API_KEY`; do not rely on an unrelated environment key.
+Direct internal `LazyOpenAI()` use without an injected key retains SDK environment
+fallback. No credential is part of usage events or embedding-cache identity.
+
 Repeated initialization with the same providers and options is idempotent.
 Replacing providers/options requires successful shutdown first. Workflows built
 directly, or explicitly assigned to `client._workflow`, are caller-owned legacy

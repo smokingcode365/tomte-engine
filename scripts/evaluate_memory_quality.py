@@ -346,10 +346,6 @@ def main():
     load_dotenv(ROOT / '.env', override=False)
     for name in ('tomte.engine', 'httpx', 'httpcore', 'openai'):
         logging.getLogger(name).setLevel(logging.CRITICAL)
-    assert settings.openai.strong_model == 'gpt-6.1-sol'
-    assert settings.openai.cheap_model == 'gpt-6-luna'
-    assert settings.openai.embed_model == 'openai:text-embedding-3-small'
-    assert settings.openai.vector_dimension == 1536
     postgres_url, redis_url = os.environ['POSTGRES_URL'], os.environ['REDIS_URL']
     if args.preflight:
         cleanup = {}
@@ -358,6 +354,12 @@ def main():
             cache.append_chat_history(tenant, 'preflight', 'synthetic isolation probe', role='user', user_id='preflight')
         print(json.dumps({'mode': 'preflight', 'isolated_schema_and_redis_cleanup_verified': cleanup['verified']}))
         return
+    # Legacy live comparisons retain their original model pins. Infrastructure
+    # preflight above checks the actual configured store without making API calls.
+    assert settings.openai.strong_model == 'gpt-6.1-sol'
+    assert settings.openai.cheap_model == 'gpt-6-luna'
+    assert settings.openai.embed_model == 'openai:text-embedding-3-small'
+    assert settings.openai.vector_dimension == 1536
     if not os.environ.get('OPENAI_API_KEY'):
         raise RuntimeError('API key missing')
     output = ROOT / 'log/memory_quality_v1' / (datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '_' + uuid4().hex[:8])

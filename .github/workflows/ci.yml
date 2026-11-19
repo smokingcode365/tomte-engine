@@ -1,0 +1,85 @@
+name: Engine checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.11.2'
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv run --locked pytest tests -q
+      - run: uv build
+      - run: uv run --locked python scripts/check_distribution.py dist/*
+      - name: Test a clean installed wheel outside the checkout
+        shell: bash
+        run: |
+          uv export --locked --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/requirements.txt"
+          uv venv "$RUNNER_TEMP/package-env" --python '${{ matrix.python }}'
+          uv pip sync --python "$RUNNER_TEMP/package-env/bin/python" "$RUNNER_TEMP/requirements.txt"
+          uv pip install --python "$RUNNER_TEMP/package-env/bin/python" --no-deps dist/*.whl
+          cd "$RUNNER_TEMP"
+          package-env/bin/python -I -c 'from tomte.engine import Tomte; import tomte.engine; print(tomte.engine.__file__)'
+          # Checkout-only demo/tests need the repository root, never its src/.
+          PYTHONPATH="$GITHUB_WORKSPACE" package-env/bin/python -m pytest "$GITHUB_WORKSPACE/tests" -q
+      - name: Rebuild the source distribution
+        run: |
+          mkdir "$RUNNER_TEMP/source"
+          tar -xzf dist/*.tar.gz -C "$RUNNER_TEMP/source"
+          uv build --wheel "$RUNNER_TEMP"/source/tomte_engine-* --out-dir "$RUNNER_TEMP/rebuilt"
+
+  persistence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg17-trixie
+        env:
+          POSTGRES_USER: tomte_test
+          POSTGRES_PASSWORD: synthetic-test-only
+          POSTGRES_DB: tomte_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U tomte_test -d tomte_test'
+          --health-interval 2s --health-timeout 2s --health-retries 30
+      redis:
+        image: redis:7.4.11-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd 'redis-cli ping'
+          --health-interval 2s --health-timeout 2s --health-retries 30
+    env:
+      POSTGRES_URL: postgresql://tomte_test:synthetic-test-only@127.0.0.1:5432/tomte_test
+      REDIS_URL: redis://127.0.0.1:6379/0
+      TOMTE_RUN_POSTGRES_TESTS: '1'
+      TOMTE_RUN_REDIS_TESTS: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.11.2'
+          python-version: '3.12'
+      - run: uv sync --locked
+      - name: Provision extensions in the disposable CI database
+        run: |
+          uv run --locked python -c 'import os, psycopg; c=psycopg.connect(os.environ["POSTGRES_URL"], autocommit=True); c.execute("CREATE EXTENSION vector"); c.execute("CREATE EXTENSION pgcrypto"); c.close()'
+      - run: uv run --locked python scripts/bootstrap_local.py --vector-dimension 1536
+      - run: uv run --locked pytest tests -q

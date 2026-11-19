@@ -4,14 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tomte-engine"
-version = "0.2.0"
-description = "Industrial-grade Agentic RAG and Graph Memory Pipeline"
+version = "1.0.0"
+description = "A Python conversational memory engine with structured facts and history"
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     # --- Core AI & Data Models ---
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",      # FIX: Explicitly declared for config.py
+    "python-dotenv>=1.0.0",          # Used directly by bootstrap and demo
     "pydantic-ai>=1.84.0",
     # --- Database & Caching ---
     "psycopg[binary,pool]>=3.2.0",   # FIX: Added 'binary' to prevent libpq compilation errors
@@ -24,7 +26,6 @@ dependencies = [
     "voyageai>=0.3.7",
     # --- Math & Clustering (Dictionary Builder) ---
     "scikit-learn>=1.7.2",
-    "schedule>=1.2.2",
 ]
 
 [project.optional-dependencies]
@@ -39,7 +40,11 @@ security = [
 packages = ["src/tomte"]
 
 [tool.hatch.build.targets.sdist]
-exclude = ["/prototypes"]
+include = [
+    "/src", "/docs", "/demo", "/docker", "/scripts", "/tests", "/evals", "/.github",
+    "/README.md", "/LICENSE", "/CHANGELOG.md", "/CONTRIBUTING.md", "/SECURITY.md",
+    "/pyproject.toml", "/uv.lock", "/compose.yaml", "/compose.test.yaml", "/.env.example",
+]
 
 [tool.uv]
 package = true

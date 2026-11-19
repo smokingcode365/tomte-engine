@@ -204,7 +204,7 @@ def test_embedding_configuration_selects_large_model_with_storage_dimensions(mon
     monkeypatch.setattr(openai_provider.settings, "openai", OpenAISettings())
     provider = openai_provider.OpenAILLMProvider("synthetic-unit-test-key")
     assert isinstance(provider.embedder, Embedder)
-    assert provider.embedder.model == "openai:text-embedding-3-large"
+    assert provider.embedder.model.model_name == "text-embedding-3-large"
     assert provider.get_vector_dimension() == 1536
 
 

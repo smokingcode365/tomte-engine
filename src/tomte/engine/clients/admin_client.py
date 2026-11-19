@@ -2,7 +2,6 @@
 
 from typing import List, Dict, Any
 from tomte.engine import Tomte, tomtelog
-from tomte.engine.workflows.dictionary_maintenance import MaintenanceWorkflow
 from tomte.engine.exceptions import TomteError
 
 class TomteAdminClient:
@@ -30,6 +29,8 @@ class TomteAdminClient:
         Dumps the entire raw JSONB memory payload for a specific user.
         Useful for debugging or rendering a visual Knowledge Graph in an admin dashboard.
         """
+        from tomte.engine.clients.chat_client import TomteChatClient
+        TomteChatClient(self.tenant_id)._validate_user(user_id)
         try:
             with Tomte.operation_context() as (db, _):
                 return db.get_user_graph_skeleton(tenant_id=self.tenant_id, user_id=user_id)
@@ -91,6 +92,8 @@ class TomteAdminClient:
         Deletes durable memory and the legacy persona cache only.
         This is not a complete erasure API; queue/history erasure is deferred.
         """
+        from tomte.engine.clients.chat_client import TomteChatClient
+        TomteChatClient(self.tenant_id)._validate_user(user_id)
         try:
             cache = Tomte.get_cache()
             with Tomte.operation_context() as (db, _):
