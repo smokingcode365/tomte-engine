@@ -1,4 +1,4 @@
-# v1.0 release checklist
+# Engine 2.0.0 release checklist
 
 Scope is frozen to [the existing engine specification](specification.md). This
 checklist distinguishes implemented work from evidence still required. Do not
@@ -7,6 +7,11 @@ publish a final-version claim while release-blocking items remain unchecked.
 Local engineering checks completed on 19 November 2026. See the
 [verification record](release-verification.md) for results and scope. Remote CI
 and publication are separate from these local checks.
+
+The November baseline is released as **v2.0.0** because public memory payloads and
+custom managed-provider requirements changed incompatibly from the October
+release. The old **v1.0.0** release remains at commit `393f34f`.
+See [upgrade requirements](upgrading-from-1.0.md).
 
 ## Behavior and code
 
@@ -38,7 +43,9 @@ and publication are separate from these local checks.
 
 ## Publication
 
-Commit, push, tagging and package publication require separate explicit instructions.
-Completion of local engineering work does not imply any of those actions occurred.
-Before a public release, inspect the actual Git/distribution content and verify
-the approved public author identity. Keep private workflow records outside the repository.
+The [v2.0.0 release](https://github.com/smokingcode365/tomte-engine/releases/tag/v2.0.0)
+identifies the exact source commit and its passing CI run, and supplies inspected
+wheel/source archives with SHA-256 checksums. The published tag is created only
+after that source commit passes CI. Package version, lockfile and archive metadata
+must agree. Preserve existing public tags and releases. Keep private workflow
+records outside the repository.

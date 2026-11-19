@@ -1,9 +1,19 @@
-# Version 1.0.0 verification
+# Engine 2.0.0 release verification
 
-Local verification completed on 19 November 2026. This records bounded evidence,
-not a claim that the system is bug-free or production-ready. No new memory feature,
-database migration, commit, push, Git tag or package publication was part of this
-completion work.
+This release packages the November engine baseline as **2.0.0**. Public payload
+and managed-provider compatibility changes require a major version; see the
+[upgrade guide](upgrading-from-1.0.md). The old [v1.0.0 release](https://github.com/smokingcode365/tomte-engine/releases/tag/v1.0.0)
+remains at `393f34f`. The November development commits temporarily declared the
+same package version, but were not published as a replacement for that tag.
+
+Local behavioral verification completed on 19 November 2026, followed by passing
+remote CI on the November source at `b35fd98`. Version 2.0.0 changes release metadata
+and documentation, preserving that tested runtime. Its own source commit must pass
+CI before tagging. The [v2.0.0 release page](https://github.com/smokingcode365/tomte-engine/releases/tag/v2.0.0)
+records the exact tagged commit and its matching CI run. Wheel/source assets and
+SHA-256 checksums are published there. This is bounded evidence, not a claim that
+the system is bug-free or production-ready. No new memory feature or data migration
+is implemented by this versioning correction.
 
 ## Changes
 
@@ -90,7 +100,7 @@ Source/prompt/schema hashes, model/settings versions, frozen inputs/gold, comple
 HTTP/model output, budget accounting, failures and review evidence were retained
 outside release source. Historical campaign results were not altered or resumed.
 
-## Limits retained for v1
+## Known limitations
 
 This is a small, non-independent development smoke test, not held-out benchmarking
 or a reliability-rate estimate. Manual consolidation does not establish live

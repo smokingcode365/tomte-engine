@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tomte-engine"
-version = "1.0.0"
+version = "2.0.0"
 description = "A Python conversational memory engine with structured facts and history"
 license = "MIT"
 license-files = ["LICENSE"]

@@ -2,7 +2,7 @@
 
 Tomte is a Python memory-engine library and engineering project. Keep changes small,
 explain the actual failure, preserve tenant/user/session scoping and add regression
-coverage for confirmed bugs. Features beyond the v1 specification belong in a
+coverage for confirmed bugs. Features beyond the current specification belong in a
 separate proposal.
 
 Follow [local setup](README.md#local-development) and [testing](docs/testing.md).

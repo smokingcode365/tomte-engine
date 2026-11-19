@@ -3,7 +3,12 @@
 Tomte is a Python memory-engine library. Local development runs Python on the
 Windows host and PostgreSQL with pgvector plus Redis in Docker.
 
-Version **1.0.0** freezes the existing feature set. The
+Version **2.0.0** packages the November engine baseline. This major version reflects
+breaking public memory payloads and managed-provider requirements since the October
+release; it adds no new functionality to the already tested November source.
+The original [v1.0.0 release](https://github.com/smokingcode365/tomte-engine/releases/tag/v1.0.0)
+is preserved. Read the [upgrade guide](docs/upgrading-from-1.0.md) before using
+existing application data or custom providers. The
 [release checklist](docs/release-checklist.md) and
 [verification record](docs/release-verification.md) describe the completed local
 checks and remaining operational limits. Source is maintained on
@@ -11,7 +16,9 @@ checks and remaining operational limits. Source is maintained on
 
 ## Documentation
 
-- [v1.0 specification and limits](docs/specification.md)
+- [Current specification and limits](docs/specification.md)
+- [Release v2.0.0](https://github.com/smokingcode365/tomte-engine/releases/tag/v2.0.0)
+  and [upgrading from v1.0.0](docs/upgrading-from-1.0.md)
 - [Architecture](docs/architecture.md) and [memory design](docs/memory-design.md)
 - [SDK contract](docs/memory-read-api.md) and [local demo](docs/demo.md)
 - [Testing](docs/testing.md) and [operations/troubleshooting](docs/operations.md)

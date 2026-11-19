@@ -18,5 +18,6 @@ or private data. Do not post a working cross-tenant exploit or sensitive payload
 in a public issue. No response-time or extended-support guarantee is offered.
 
 Include affected version, impact and a minimal synthetic reproduction privately.
-The v1 release line is the current maintenance target; older development snapshots
-are not separately maintained.
+The 2.x engine release line is the current maintenance target. The original 1.0.0
+release remains available for traceability; no separate maintenance or extended
+support promise is made for older snapshots.

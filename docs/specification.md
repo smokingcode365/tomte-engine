@@ -1,8 +1,10 @@
-# Tomte v1.0 specification
+# Tomte Engine 2.0.0 specification
 
 This defines the existing engine's release scope. The implementation and linked
 contracts describe exact payloads. This is a Python library for a trusted host,
 with a local demonstration application; it is not an authenticated public service.
+The major version identifies compatibility changes since the October 1.0.0
+release. See [upgrade requirements](upgrading-from-1.0.md).
 
 ## Supported responsibilities
 
@@ -81,7 +83,7 @@ separate lifecycles. Do not represent this method as complete user-data erasure.
 
 ## Completion criteria
 
-The [release checklist](release-checklist.md) records verification. A v1 release
+The [release checklist](release-checklist.md) records verification. This release
 requires reproducible installation, package inspection, deterministic regression,
 isolated PostgreSQL/Redis integration, a bounded live synthetic demonstration,
 accurate documentation and no unresolved release-blocking correctness defect.
