@@ -51,9 +51,9 @@ integration flags and installed-wheel testing. The final package build uses
 exercise wheel generation from the source distribution.
 
 CI defines Python 3.10/3.12/3.13 unit/package jobs and an isolated persistence job
-without model credentials. Its YAML and action references were checked locally;
-remote GitHub Actions has not run. Python 3.13 is configured in CI but was not
-locally tested. Optional Presidio installations and alternate providers were not
+without model credentials. Its YAML and action references were checked locally.
+Current remote results are recorded in [GitHub Actions](https://github.com/smokingcode365/tomte-engine/actions).
+Python 3.13 is covered by CI rather than the local test matrix. Optional Presidio installations and alternate providers were not
 live-tested; their deterministic adapter/scrubbing tests are included.
 
 ## Live semantic smoke
