@@ -7,6 +7,8 @@ name = "tomte-engine"
 version = "1.0.0"
 description = "A Python conversational memory engine with structured facts and history"
 license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Sheng Guo", email = "smokingcode365@gmail.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -27,6 +29,10 @@ dependencies = [
     # --- Math & Clustering (Dictionary Builder) ---
     "scikit-learn>=1.7.2",
 ]
+
+[project.urls]
+Repository = "https://github.com/smokingcode365/tomte-engine"
+Issues = "https://github.com/smokingcode365/tomte-engine/issues"
 
 [project.optional-dependencies]
 security = [

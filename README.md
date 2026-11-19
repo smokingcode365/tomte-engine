@@ -6,7 +6,8 @@ Windows host and PostgreSQL with pgvector plus Redis in Docker.
 Version **1.0.0** freezes the existing feature set. The
 [release checklist](docs/release-checklist.md) and
 [verification record](docs/release-verification.md) describe the completed local
-checks and remaining operational limits. No public release has been published.
+checks and remaining operational limits. Source is maintained on
+[GitHub](https://github.com/smokingcode365/tomte-engine).
 
 ## Documentation
 

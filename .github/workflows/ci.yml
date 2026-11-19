@@ -24,7 +24,7 @@ jobs:
           version: '0.11.2'
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
-      - run: uv run --locked pytest tests -q
+      - run: uv run --locked python -m pytest tests -q
       - run: uv build
       - run: uv run --locked python scripts/check_distribution.py dist/*
       - name: Test a clean installed wheel outside the checkout
@@ -82,4 +82,4 @@ jobs:
         run: |
           uv run --locked python -c 'import os, psycopg; c=psycopg.connect(os.environ["POSTGRES_URL"], autocommit=True); c.execute("CREATE EXTENSION vector"); c.execute("CREATE EXTENSION pgcrypto"); c.close()'
       - run: uv run --locked python scripts/bootstrap_local.py --vector-dimension 1536
-      - run: uv run --locked pytest tests -q
+      - run: uv run --locked python -m pytest tests -q
